@@ -2283,6 +2283,7 @@ CREATE TABLE IF NOT EXISTS users (
   display_name TEXT NOT NULL,
   bio TEXT NOT NULL DEFAULT '',
   hue INTEGER NOT NULL DEFAULT 40,
+  avatar TEXT,
   badge TEXT,
   last_seen INTEGER NOT NULL,
   last_seen_vis TEXT NOT NULL DEFAULT 'everyone',
@@ -2406,6 +2407,10 @@ async function ensureSchema(db, schema) {
   for (const sql of parts) {
     await db.prepare(sql).bind().run();
   }
+  try {
+    await db.prepare("ALTER TABLE users ADD COLUMN avatar TEXT").bind().run();
+  } catch {
+  }
   booted = true;
 }
 var ONLINE_MS = 35e3;
@@ -2426,6 +2431,7 @@ function publicUser(u, viewerId, isContact) {
     displayName: u.display_name,
     bio: u.bio,
     hue: u.hue,
+    avatar: u.avatar || null,
     badge: u.badge,
     lastSeen,
     online: lastSeen !== null && online,
@@ -2552,6 +2558,17 @@ function cleanText(raw2, min, max) {
   if (t.length < min || t.length > max) return null;
   return t;
 }
+var AVATAR_RE = /^data:image\/(jpeg|jpg|png|webp);base64,[A-Za-z0-9+/=]+$/;
+var AVATAR_MAX = 12e4;
+function parseAvatar(raw2) {
+  if (raw2 === void 0) return void 0;
+  if (raw2 === null || raw2 === "") return null;
+  if (typeof raw2 !== "string") return false;
+  const t = raw2.replace(/\s+/g, "");
+  if (t.length > AVATAR_MAX) return false;
+  if (!AVATAR_RE.test(t)) return false;
+  return t;
+}
 function previewOf(body) {
   return body.length > 80 ? body.slice(0, 79) + "\u2026" : body;
 }
@@ -2598,7 +2615,7 @@ async function conversationPayload(db, conv, user) {
     db,
     `SELECT m.conversation_id, m.user_id, m.role, m.muted, m.pinned, m.joined_at, m.last_read_at,
             u.id, u.username, u.username_lc, u.password_hash, u.display_name, u.bio, u.hue, u.badge,
-            u.last_seen, u.last_seen_vis, u.created_at
+            u.last_seen, u.last_seen_vis, u.created_at, u.avatar
      FROM members m JOIN users u ON u.id = m.user_id
      WHERE m.conversation_id = ?`,
     conv.id
@@ -2772,9 +2789,11 @@ app.post("/auth/register", async (c) => {
   const username = cleanUsername(body.username);
   const password = typeof body.password === "string" ? body.password : "";
   const displayName = cleanText(body.displayName ?? body.username, 1, 40);
+  const avatar = parseAvatar(body.avatar);
   if (!username) return jsonError(c, "\u06CC\u0648\u0632\u0631\u0646\u06CC\u0645 \u0628\u0627\u06CC\u062F \u0628\u0627 \u062D\u0631\u0641 \u0634\u0631\u0648\u0639 \u0628\u0634\u0647 \u0648 \u06F3 \u062A\u0627 \u06F2\u06F0 \u06A9\u0627\u0631\u0627\u06A9\u062A\u0631 \u0644\u0627\u062A\u06CC\u0646 \u0628\u0627\u0634\u0647");
   if (password.length < 6 || password.length > 72) return jsonError(c, "\u0631\u0645\u0632 \u062D\u062F\u0627\u0642\u0644 \u06F6 \u06A9\u0627\u0631\u0627\u06A9\u062A\u0631");
   if (!displayName) return jsonError(c, "\u0627\u0633\u0645 \u0646\u0645\u0627\u06CC\u0634\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631\u0647");
+  if (avatar === false) return jsonError(c, "\u0639\u06A9\u0633 \u067E\u0631\u0648\u0641\u0627\u06CC\u0644 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A");
   const exists = await one(c.env.DB, `SELECT id FROM users WHERE username_lc = ?`, username.toLowerCase());
   if (exists) return jsonError(c, "\u0627\u06CC\u0646 \u06CC\u0648\u0632\u0631\u0646\u06CC\u0645 \u06AF\u0631\u0641\u062A\u0647 \u0634\u062F\u0647", 409);
   const now = Date.now();
@@ -2849,6 +2868,7 @@ app.patch("/me", async (c) => {
   let display = user.display_name;
   let bio = user.bio;
   let vis = user.last_seen_vis;
+  let avatar = user.avatar ?? null;
   if (body.displayName !== void 0) {
     const d = cleanText(body.displayName, 1, 40);
     if (!d) return jsonError(c, "\u0627\u0633\u0645 \u0646\u0645\u0627\u06CC\u0634\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631\u0647");
@@ -2862,12 +2882,18 @@ app.patch("/me", async (c) => {
     if (!["everyone", "contacts", "nobody"].includes(body.lastSeenVis)) return jsonError(c, "\u062D\u0631\u06CC\u0645 \u0646\u0627\u0645\u0639\u062A\u0628\u0631");
     vis = body.lastSeenVis;
   }
+  if (body.avatar !== void 0) {
+    const parsed = parseAvatar(body.avatar);
+    if (parsed === false) return jsonError(c, "\u0639\u06A9\u0633 \u067E\u0631\u0648\u0641\u0627\u06CC\u0644 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A");
+    if (parsed !== void 0) avatar = parsed;
+  }
   await run(
     c.env.DB,
-    `UPDATE users SET display_name = ?, bio = ?, last_seen_vis = ? WHERE id = ?`,
+    `UPDATE users SET display_name = ?, bio = ?, last_seen_vis = ?, avatar = ? WHERE id = ?`,
     display,
     bio,
     vis,
+    avatar,
     user.id
   );
   const fresh = await one(c.env.DB, `SELECT * FROM users WHERE id = ?`, user.id);
