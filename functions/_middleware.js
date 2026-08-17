@@ -2800,14 +2800,15 @@ app.post("/auth/register", async (c) => {
   const id = randomId();
   await run(
     c.env.DB,
-    `INSERT INTO users (id, username, username_lc, password_hash, display_name, bio, hue, badge, last_seen, last_seen_vis, created_at)
-     VALUES (?, ?, ?, ?, ?, '', ?, NULL, ?, 'everyone', ?)`,
+    `INSERT INTO users (id, username, username_lc, password_hash, display_name, bio, hue, avatar, badge, last_seen, last_seen_vis, created_at)
+     VALUES (?, ?, ?, ?, ?, '', ?, ?, NULL, ?, 'everyone', ?)`,
     id,
     username,
     username.toLowerCase(),
     await hashPassword(password),
     displayName,
     hueFrom(username.toLowerCase()),
+    avatar ?? null,
     now,
     now
   );
@@ -3460,8 +3461,11 @@ app.post("/typing", async (c) => {
 app.get("/sync", async (c) => {
   const user = await auth(c);
   if (user instanceof Response) return user;
-  await run(c.env.DB, `UPDATE users SET last_seen = ? WHERE id = ?`, Date.now(), user.id);
+  const lite = c.req.query("lite") === "1";
   const after = Number(c.req.query("after") || 0);
+  if (!lite) {
+    await run(c.env.DB, `UPDATE users SET last_seen = ? WHERE id = ?`, Date.now(), user.id);
+  }
   const events = await many(
     c.env.DB,
     `SELECT e.* FROM events e
@@ -3475,7 +3479,6 @@ app.get("/sync", async (c) => {
     after,
     user.id
   );
-  const convIds = [...new Set(events.map((e) => e.conversation_id).filter(Boolean))];
   const messageIds = events.filter((e) => e.kind === "message").map((e) => {
     try {
       return JSON.parse(e.payload).id;
@@ -3487,15 +3490,26 @@ app.get("/sync", async (c) => {
   if (messageIds.length) {
     const ph = messageIds.map(() => "?").join(",");
     const rows = await many(c.env.DB, `SELECT * FROM messages WHERE id IN (${ph})`, ...messageIds);
-    messages = await messagesWithExtras(c.env.DB, rows, user.id);
+    messages = rows.map((m) => ({
+      ...serializeMessage(m, user.id),
+      reactions: [],
+      replyTo: null
+    }));
   }
   let conversations = [];
-  if (convIds.length) {
-    const ph = convIds.map(() => "?").join(",");
-    const rows = await many(c.env.DB, `SELECT * FROM conversations WHERE id IN (${ph})`, ...convIds);
-    for (const row of rows) {
-      const mem = await memberOf(c.env.DB, row.id, user.id);
-      if (mem) conversations.push(await conversationPayload(c.env.DB, row, user));
+  if (!lite) {
+    const heavyIds = [
+      ...new Set(
+        events.filter((e) => e.kind === "conversation" || e.kind === "members").map((e) => e.conversation_id).filter(Boolean)
+      )
+    ];
+    if (heavyIds.length) {
+      const ph = heavyIds.map(() => "?").join(",");
+      const rows = await many(c.env.DB, `SELECT * FROM conversations WHERE id IN (${ph})`, ...heavyIds);
+      for (const row of rows) {
+        const mem = await memberOf(c.env.DB, row.id, user.id);
+        if (mem) conversations.push(await conversationPayload(c.env.DB, row, user));
+      }
     }
   }
   const now = Date.now();
@@ -3509,26 +3523,28 @@ app.get("/sync", async (c) => {
     user.id,
     user.id
   );
-  const peerIds = await many(
-    c.env.DB,
-    `SELECT DISTINCT m2.user_id FROM members m1
-     JOIN members m2 ON m1.conversation_id = m2.conversation_id
-     WHERE m1.user_id = ? AND m2.user_id != ?`,
-    user.id,
-    user.id
-  );
-  const presence = [];
-  if (peerIds.length) {
-    const ph = peerIds.map(() => "?").join(",");
-    const users = await many(
+  let presence = [];
+  if (!lite) {
+    const peerIds = await many(
       c.env.DB,
-      `SELECT * FROM users WHERE id IN (${ph})`,
-      ...peerIds.map((p) => p.user_id)
+      `SELECT DISTINCT m2.user_id FROM members m1
+       JOIN members m2 ON m1.conversation_id = m2.conversation_id
+       WHERE m1.user_id = ? AND m2.user_id != ?`,
+      user.id,
+      user.id
     );
-    for (const u of users) {
-      const contact = await areContacts(c.env.DB, user.id, u.id);
-      const p = pub(u, user.id, contact);
-      presence.push({ id: p.id, online: p.online, lastSeen: p.lastSeen, badge: p.badge });
+    if (peerIds.length) {
+      const ph = peerIds.map(() => "?").join(",");
+      const users = await many(
+        c.env.DB,
+        `SELECT id, last_seen, last_seen_vis, badge FROM users WHERE id IN (${ph})`,
+        ...peerIds.map((p) => p.user_id)
+      );
+      for (const u of users) {
+        const online = now - u.last_seen < ONLINE_MS;
+        const lastSeen = u.last_seen_vis === "nobody" ? null : u.last_seen;
+        presence.push({ id: u.id, online: lastSeen !== null && online, lastSeen, badge: u.badge });
+      }
     }
   }
   const cursor = events.length ? events[events.length - 1].id : after;
