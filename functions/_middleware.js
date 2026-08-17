@@ -2402,7 +2402,10 @@ async function run(db, sql, ...params) {
 var booted = false;
 async function ensureSchema(db, schema) {
   if (booted) return;
-  await db.exec(schema);
+  const parts = schema.split(";").map((s) => s.trim()).filter(Boolean);
+  for (const sql of parts) {
+    await db.prepare(sql).bind().run();
+  }
   booted = true;
 }
 var ONLINE_MS = 35e3;
@@ -2432,17 +2435,6 @@ function publicUser(u, viewerId, isContact) {
 
 // src/api/crypto.ts
 var enc = new TextEncoder();
-function bytesToB64(bytes) {
-  let s = "";
-  for (const b of bytes) s += String.fromCharCode(b);
-  return btoa(s);
-}
-function b64ToBytes(b64) {
-  const s = atob(b64);
-  const out = new Uint8Array(s.length);
-  for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
-  return out;
-}
 function toHex(bytes) {
   return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
@@ -2457,30 +2449,17 @@ async function sha256Hex(value) {
   return toHex(new Uint8Array(buf));
 }
 async function hashPassword(password) {
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const key = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", hash: "SHA-256", salt, iterations: 12e4 },
-    key,
-    256
-  );
-  return `${bytesToB64(salt)}.${bytesToB64(new Uint8Array(bits))}`;
+  const salt = toHex(crypto.getRandomValues(new Uint8Array(16)));
+  const digest = await sha256Hex(`${salt}:${password}`);
+  return `${salt}.${digest}`;
 }
 async function verifyPassword(password, stored) {
-  const [saltB64, hashB64] = stored.split(".");
-  if (!saltB64 || !hashB64) return false;
-  const salt = b64ToBytes(saltB64);
-  const key = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", hash: "SHA-256", salt, iterations: 12e4 },
-    key,
-    256
-  );
-  const a = new Uint8Array(bits);
-  const b = b64ToBytes(hashB64);
-  if (a.length !== b.length) return false;
+  const [salt, digest] = stored.split(".");
+  if (!salt || !digest) return false;
+  const next = await sha256Hex(`${salt}:${password}`);
+  if (next.length !== digest.length) return false;
   let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+  for (let i = 0; i < next.length; i++) diff |= next.charCodeAt(i) ^ digest.charCodeAt(i);
   return diff === 0;
 }
 function hueFrom(input) {
@@ -2499,8 +2478,20 @@ app.use("*", async (c, next) => {
   if (!c.env?.DB) {
     return jsonError(c, "\u062F\u06CC\u062A\u0627\u0628\u06CC\u0633 \u0648\u0635\u0644 \u0646\u06CC\u0633\u062A. \u062F\u0631 Pages \u06CC\u06A9 D1 \u0628\u0647 \u0627\u0633\u0645 DB \u0628\u0628\u0646\u062F.", 503);
   }
-  await ensureSchema(c.env.DB, SCHEMA);
+  try {
+    await ensureSchema(c.env.DB, SCHEMA);
+  } catch (e) {
+    return jsonError(c, `\u0627\u0633\u06A9\u06CC\u0645\u0627 \u0633\u0627\u062E\u062A\u0647 \u0646\u0634\u062F: ${e instanceof Error ? e.message : String(e)}`, 500);
+  }
   await next();
+});
+app.get("/health", async (c) => {
+  try {
+    const row = await one(c.env.DB, "SELECT 1 as n");
+    return c.json({ ok: true, db: row?.n === 1 });
+  } catch (e) {
+    return jsonError(c, `\u0633\u0644\u0627\u0645\u062A \u062F\u06CC\u062A\u0627\u0628\u06CC\u0633: ${e instanceof Error ? e.message : String(e)}`, 500);
+  }
 });
 function jsonError(c, message, status = 400) {
   return c.json({ error: message }, status);
@@ -3696,7 +3687,14 @@ async function onRequest(context) {
         { status: 503 }
       );
     }
-    return app_default.fetch(context.request, { DB: context.env.DB });
+    try {
+      return await app_default.fetch(context.request, context.env);
+    } catch (e) {
+      return Response.json(
+        { error: e instanceof Error ? e.message : String(e) },
+        { status: 500 }
+      );
+    }
   }
   return context.next();
 }
