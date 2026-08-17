@@ -2634,6 +2634,11 @@ async function conversationPayload(db, conv, user) {
     `SELECT * FROM messages WHERE conversation_id = ? AND pinned = 1 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 5`,
     conv.id
   );
+  const last = await one(
+    db,
+    `SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at DESC LIMIT 1`,
+    conv.id
+  );
   return {
     id: conv.id,
     type: conv.type,
@@ -2643,6 +2648,7 @@ async function conversationPayload(db, conv, user) {
     createdAt: conv.created_at,
     lastMessageAt: conv.last_message_at,
     lastMessagePreview: conv.last_message_preview,
+    lastAuthorId: last?.author_id ?? null,
     muted: !!mem?.muted,
     pinned: !!mem?.pinned,
     role: mem?.role ?? "member",
