@@ -2605,9 +2605,11 @@ async function conversationPayload(db, conv, user) {
   );
   const people = [];
   for (const m of members) {
+    const uid = String(m.id || m.user_id);
     const contact = await areContacts(db, user.id, m.user_id);
     people.push({
-      ...pub(m, user.id, contact),
+      ...pub({ ...m, id: uid }, user.id, contact),
+      id: uid,
       role: m.role,
       muted: !!m.muted,
       pinned: !!m.pinned,
@@ -2617,9 +2619,9 @@ async function conversationPayload(db, conv, user) {
   let title = conv.title;
   let peer = null;
   if (conv.type === "dm") {
-    const other = people.find((p) => p.id !== user.id) ?? people[0];
-    title = other?.displayName ?? "\u06AF\u0641\u062A\u06AF\u0648";
-    peer = other ?? null;
+    const other = people.find((p) => String(p.id) !== String(user.id)) || null;
+    title = other?.displayName ?? "\u067E\u06CC\u0648\u06CC";
+    peer = other;
   }
   const unreadRow = await one(
     db,
