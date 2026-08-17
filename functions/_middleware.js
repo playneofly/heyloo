@@ -2618,10 +2618,32 @@ async function conversationPayload(db, conv, user) {
   }
   let title = conv.title;
   let peer = null;
+  let peerName = null;
   if (conv.type === "dm") {
-    const other = people.find((p) => String(p.id) !== String(user.id)) || null;
-    title = other?.displayName ?? "\u067E\u06CC\u0648\u06CC";
-    peer = other;
+    const otherRow = await one(
+      db,
+      `SELECT u.* FROM members m
+       JOIN users u ON u.id = m.user_id
+       WHERE m.conversation_id = ? AND m.user_id != ?
+       LIMIT 1`,
+      conv.id,
+      user.id
+    );
+    if (otherRow) {
+      const contact = await areContacts(db, user.id, otherRow.id);
+      peer = {
+        ...pub(otherRow, user.id, contact),
+        role: "member",
+        muted: false,
+        pinned: false,
+        lastReadAt: 0
+      };
+      peerName = otherRow.display_name;
+      title = otherRow.display_name;
+    } else {
+      title = "\u067E\u06CC\u0648\u06CC";
+      peerName = "\u067E\u06CC\u0648\u06CC";
+    }
   }
   const unreadRow = await one(
     db,
@@ -2651,20 +2673,22 @@ async function conversationPayload(db, conv, user) {
     lastMessageAt: conv.last_message_at,
     lastMessagePreview: conv.last_message_preview,
     lastAuthorId: last?.author_id ?? null,
+    peerName,
     muted: !!mem?.muted,
     pinned: !!mem?.pinned,
     role: mem?.role ?? "member",
     unread: unreadRow?.n ?? 0,
     members: people,
     peer,
-    pinnedMessages: pinned.map((m) => serializeMessage(m))
+    pinnedMessages: pinned.map((m) => serializeMessage(m, user.id))
   };
 }
-function serializeMessage(m) {
+function serializeMessage(m, viewerId) {
   return {
     id: m.id,
     conversationId: m.conversation_id,
     authorId: m.author_id,
+    mine: !!(viewerId && m.author_id && m.author_id === viewerId),
     type: m.type,
     body: m.deleted_at ? "" : m.body,
     replyToId: m.reply_to_id,
@@ -2675,7 +2699,7 @@ function serializeMessage(m) {
     createdAt: m.created_at
   };
 }
-async function messagesWithExtras(db, rows) {
+async function messagesWithExtras(db, rows, viewerId) {
   if (!rows.length) return [];
   const ids = rows.map((r) => r.id);
   const placeholders = ids.map(() => "?").join(",");
@@ -2696,9 +2720,9 @@ async function messagesWithExtras(db, rows) {
     replies = Object.fromEntries(rr.map((x) => [x.id, x]));
   }
   return rows.map((m) => ({
-    ...serializeMessage(m),
+    ...serializeMessage(m, viewerId),
     reactions: byMsg[m.id] || [],
-    replyTo: m.reply_to_id && replies[m.reply_to_id] ? serializeMessage(replies[m.reply_to_id]) : null
+    replyTo: m.reply_to_id && replies[m.reply_to_id] ? serializeMessage(replies[m.reply_to_id], viewerId) : null
   }));
 }
 async function touchConv(db, id, preview, at) {
@@ -3210,7 +3234,7 @@ app.get("/conversations/:id/messages", async (c) => {
     limit
   );
   rows.reverse();
-  return c.json({ messages: await messagesWithExtras(c.env.DB, rows) });
+  return c.json({ messages: await messagesWithExtras(c.env.DB, rows, user.id) });
 });
 app.post("/conversations/:id/messages", async (c) => {
   const user = await auth(c);
@@ -3259,7 +3283,7 @@ app.post("/conversations/:id/messages", async (c) => {
   );
   await emit(c.env.DB, "message", conv.id, user.id, { id });
   const msg = await one(c.env.DB, `SELECT * FROM messages WHERE id = ?`, id);
-  const [full] = await messagesWithExtras(c.env.DB, [msg]);
+  const [full] = await messagesWithExtras(c.env.DB, [msg], user.id);
   return c.json({ message: full });
 });
 app.patch("/messages/:id", async (c) => {
@@ -3276,7 +3300,7 @@ app.patch("/messages/:id", async (c) => {
   await run(c.env.DB, `UPDATE messages SET body = ?, edited_at = ? WHERE id = ?`, text, now, msg.id);
   await emit(c.env.DB, "message", msg.conversation_id, user.id, { id: msg.id, edited: true });
   const fresh = await one(c.env.DB, `SELECT * FROM messages WHERE id = ?`, msg.id);
-  const [full] = await messagesWithExtras(c.env.DB, [fresh]);
+  const [full] = await messagesWithExtras(c.env.DB, [fresh], user.id);
   return c.json({ message: full });
 });
 app.delete("/messages/:id", async (c) => {
@@ -3430,7 +3454,7 @@ app.get("/sync", async (c) => {
   if (messageIds.length) {
     const ph = messageIds.map(() => "?").join(",");
     const rows = await many(c.env.DB, `SELECT * FROM messages WHERE id IN (${ph})`, ...messageIds);
-    messages = await messagesWithExtras(c.env.DB, rows);
+    messages = await messagesWithExtras(c.env.DB, rows, user.id);
   }
   let conversations = [];
   if (convIds.length) {
@@ -3603,7 +3627,7 @@ app.get("/search", async (c) => {
   }
   sql += ` ORDER BY msg.created_at DESC LIMIT 40`;
   const rows = await many(c.env.DB, sql, ...params);
-  return c.json({ messages: rows.map(serializeMessage) });
+  return c.json({ messages: rows.map((m) => serializeMessage(m, user.id)) });
 });
 app.get("/blocks", async (c) => {
   const user = await auth(c);
