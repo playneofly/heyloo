@@ -2683,12 +2683,19 @@ async function conversationPayload(db, conv, user) {
     pinnedMessages: pinned.map((m) => serializeMessage(m, user.id))
   };
 }
+function rowAuthorId(m) {
+  const raw2 = m.author_id ?? m.authorId ?? null;
+  if (raw2 == null || raw2 === "") return null;
+  return String(raw2);
+}
 function serializeMessage(m, viewerId) {
+  const authorId = rowAuthorId(m);
+  const vid = viewerId == null ? "" : String(viewerId);
   return {
     id: m.id,
     conversationId: m.conversation_id,
-    authorId: m.author_id,
-    mine: !!(viewerId && m.author_id && m.author_id === viewerId),
+    authorId,
+    mine: !!(vid && authorId && authorId === vid),
     type: m.type,
     body: m.deleted_at ? "" : m.body,
     replyToId: m.reply_to_id,
