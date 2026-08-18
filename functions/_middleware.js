@@ -2307,7 +2307,8 @@ CREATE TABLE IF NOT EXISTS conversations (
   dm_key TEXT UNIQUE,
   created_at INTEGER NOT NULL,
   last_message_at INTEGER NOT NULL,
-  last_message_preview TEXT NOT NULL DEFAULT ''
+  last_message_preview TEXT NOT NULL DEFAULT '',
+  invite_code TEXT UNIQUE
 );
 
 CREATE TABLE IF NOT EXISTS members (
@@ -2430,6 +2431,10 @@ async function ensureSchema(db, schema) {
   }
   try {
     await db.prepare("ALTER TABLE messages ADD COLUMN duration_ms INTEGER").bind().run();
+  } catch {
+  }
+  try {
+    await db.prepare("ALTER TABLE conversations ADD COLUMN invite_code TEXT").bind().run();
   } catch {
   }
   booted = true;
@@ -2667,7 +2672,86 @@ async function hydrateUsers(db, users, viewer) {
   }
   return out;
 }
+function makeInviteCode() {
+  const bytes = crypto.getRandomValues(new Uint8Array(6));
+  return [...bytes].map((b) => b.toString(36).padStart(2, "0")).join("").slice(0, 10);
+}
+async function ensureInviteCode(db, conv) {
+  if (conv.type === "dm") return null;
+  if (conv.invite_code) return conv.invite_code;
+  const code = makeInviteCode();
+  try {
+    await run(db, `UPDATE conversations SET invite_code = ? WHERE id = ? AND (invite_code IS NULL OR invite_code = '')`, code, conv.id);
+    conv.invite_code = code;
+    return code;
+  } catch {
+    const fresh = await one(db, `SELECT * FROM conversations WHERE id = ?`, conv.id);
+    return fresh?.invite_code || null;
+  }
+}
+async function inboxItem(db, conv, user) {
+  const mem = await memberOf(db, conv.id, user.id);
+  let title = conv.title;
+  let peer = null;
+  let peerName = null;
+  if (conv.type === "dm") {
+    const otherRow = await one(
+      db,
+      `SELECT u.* FROM members m
+       JOIN users u ON u.id = m.user_id
+       WHERE m.conversation_id = ? AND m.user_id != ?
+       LIMIT 1`,
+      conv.id,
+      user.id
+    );
+    if (otherRow) {
+      peer = {
+        ...pub(otherRow, user.id, true),
+        role: "member",
+        muted: false,
+        pinned: false,
+        lastReadAt: 0
+      };
+      peerName = otherRow.display_name;
+      title = otherRow.display_name;
+    } else {
+      title = "\u067E\u06CC\u0648\u06CC";
+      peerName = "\u067E\u06CC\u0648\u06CC";
+    }
+  }
+  const unreadRow = await one(
+    db,
+    `SELECT COUNT(*) as n FROM messages
+     WHERE conversation_id = ? AND created_at > ? AND (author_id IS NULL OR author_id != ?) AND deleted_at IS NULL`,
+    conv.id,
+    mem?.last_read_at ?? 0,
+    user.id
+  );
+  const count = await one(db, `SELECT COUNT(*) as n FROM members WHERE conversation_id = ?`, conv.id);
+  return {
+    id: conv.id,
+    type: conv.type,
+    title,
+    description: conv.description,
+    ownerId: conv.owner_id,
+    createdAt: conv.created_at,
+    lastMessageAt: conv.last_message_at,
+    lastMessagePreview: conv.last_message_preview,
+    lastAuthorId: null,
+    peerName,
+    muted: !!mem?.muted,
+    pinned: !!mem?.pinned,
+    role: mem?.role ?? "member",
+    unread: unreadRow?.n ?? 0,
+    members: [],
+    peer,
+    pinnedMessages: [],
+    inviteCode: conv.type === "dm" ? null : conv.invite_code || null,
+    memberCount: count?.n ?? 0
+  };
+}
 async function conversationPayload(db, conv, user) {
+  const inviteCode = await ensureInviteCode(db, conv);
   const mem = await memberOf(db, conv.id, user.id);
   const members = await many(
     db,
@@ -2755,7 +2839,9 @@ async function conversationPayload(db, conv, user) {
     unread: unreadRow?.n ?? 0,
     members: people,
     peer,
-    pinnedMessages: pinned.map((m) => serializeMessage(m, user.id))
+    pinnedMessages: pinned.map((m) => serializeMessage(m, user.id)),
+    inviteCode,
+    memberCount: people.length
   };
 }
 function rowAuthorId(m) {
@@ -3016,7 +3102,7 @@ app.get("/conversations", async (c) => {
     user.id
   );
   const items = [];
-  for (const row of rows) items.push(await conversationPayload(c.env.DB, row, user));
+  for (const row of rows) items.push(await inboxItem(c.env.DB, row, user));
   return c.json({ conversations: items });
 });
 app.get("/conversations/:id", async (c) => {
@@ -3082,17 +3168,19 @@ app.post("/conversations/group", async (c) => {
   const usernames = Array.isArray(body.usernames) ? body.usernames : [];
   const id = randomId();
   const now = Date.now();
+  const invite = makeInviteCode();
   await run(
     c.env.DB,
-    `INSERT INTO conversations (id, type, title, description, owner_id, created_at, last_message_at, last_message_preview)
-     VALUES (?, 'group', ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO conversations (id, type, title, description, owner_id, created_at, last_message_at, last_message_preview, invite_code)
+     VALUES (?, 'group', ?, ?, ?, ?, ?, ?, ?)`,
     id,
     title,
     typeof body.description === "string" ? body.description.slice(0, 240) : "",
     user.id,
     now,
     now,
-    "\u06AF\u0631\u0648\u0647 \u0633\u0627\u062E\u062A\u0647 \u0634\u062F"
+    "\u06AF\u0631\u0648\u0647 \u0633\u0627\u062E\u062A\u0647 \u0634\u062F",
+    invite
   );
   await run(
     c.env.DB,
@@ -3151,6 +3239,59 @@ app.post("/conversations/channel", async (c) => {
   await addSystem(c.env.DB, id, `${user.display_name} \u06A9\u0627\u0646\u0627\u0644 \xAB${title}\xBB \u0631\u0627 \u0633\u0627\u062E\u062A`);
   await emit(c.env.DB, "conversation", id, user.id, { type: "channel" });
   const conv = await one(c.env.DB, `SELECT * FROM conversations WHERE id = ?`, id);
+  return c.json({ conversation: await conversationPayload(c.env.DB, conv, user) });
+});
+app.get("/invites/:code", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const code = String(c.req.param("code") || "").trim().toLowerCase();
+  if (!code) return jsonError(c, "\u0644\u06CC\u0646\u06A9 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A");
+  const conv = await one(
+    c.env.DB,
+    `SELECT * FROM conversations WHERE lower(invite_code) = ? AND type IN ('group', 'channel')`,
+    code
+  );
+  if (!conv) return jsonError(c, "\u0627\u06CC\u0646 \u0644\u06CC\u0646\u06A9 \u0645\u0639\u062A\u0628\u0631 \u0646\u06CC\u0633\u062A", 404);
+  const mem = await memberOf(c.env.DB, conv.id, user.id);
+  const count = await one(c.env.DB, `SELECT COUNT(*) as n FROM members WHERE conversation_id = ?`, conv.id);
+  return c.json({
+    invite: {
+      code: conv.invite_code,
+      id: conv.id,
+      type: conv.type,
+      title: conv.title,
+      description: conv.description,
+      members: count?.n ?? 0,
+      joined: !!mem
+    }
+  });
+});
+app.post("/invites/:code/join", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const code = String(c.req.param("code") || "").trim().toLowerCase();
+  const conv = await one(
+    c.env.DB,
+    `SELECT * FROM conversations WHERE lower(invite_code) = ? AND type IN ('group', 'channel')`,
+    code
+  );
+  if (!conv) return jsonError(c, "\u0627\u06CC\u0646 \u0644\u06CC\u0646\u06A9 \u0645\u0639\u062A\u0628\u0631 \u0646\u06CC\u0633\u062A", 404);
+  const existing = await memberOf(c.env.DB, conv.id, user.id);
+  if (!existing) {
+    const now = Date.now();
+    const role = conv.type === "channel" ? "subscriber" : "member";
+    await run(
+      c.env.DB,
+      `INSERT OR IGNORE INTO members (conversation_id, user_id, role, joined_at, last_read_at) VALUES (?, ?, ?, ?, ?)`,
+      conv.id,
+      user.id,
+      role,
+      now,
+      now
+    );
+    await addSystem(c.env.DB, conv.id, `${user.display_name} \u0648\u0627\u0631\u062F \u0634\u062F`);
+    await emit(c.env.DB, "members", conv.id, user.id, { join: true });
+  }
   return c.json({ conversation: await conversationPayload(c.env.DB, conv, user) });
 });
 app.get("/explore/channels", async (c) => {
