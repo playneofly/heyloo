@@ -2332,6 +2332,19 @@ CREATE TABLE IF NOT EXISTS messages (
   edited_at INTEGER,
   deleted_at INTEGER,
   pinned INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  media_id TEXT,
+  duration_ms INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS media (
+  id TEXT PRIMARY KEY,
+  conversation_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  mime TEXT NOT NULL,
+  data TEXT NOT NULL,
+  bytes INTEGER NOT NULL,
+  duration_ms INTEGER,
   created_at INTEGER NOT NULL
 );
 
@@ -2409,6 +2422,14 @@ async function ensureSchema(db, schema) {
   }
   try {
     await db.prepare("ALTER TABLE users ADD COLUMN avatar TEXT").bind().run();
+  } catch {
+  }
+  try {
+    await db.prepare("ALTER TABLE messages ADD COLUMN media_id TEXT").bind().run();
+  } catch {
+  }
+  try {
+    await db.prepare("ALTER TABLE messages ADD COLUMN duration_ms INTEGER").bind().run();
   } catch {
   }
   booted = true;
@@ -2572,6 +2593,43 @@ function parseAvatar(raw2) {
 function previewOf(body) {
   return body.length > 80 ? body.slice(0, 79) + "\u2026" : body;
 }
+function previewFor(type, body) {
+  if (type === "photo") return body ? previewOf(body) : "\u{1F4F7} \u0639\u06A9\u0633";
+  if (type === "video") return body ? previewOf(body) : "\u{1F3AC} \u0641\u06CC\u0644\u0645";
+  if (type === "voice") return "\u{1F3A4} \u0648\u06CC\u0633";
+  return previewOf(body);
+}
+var MEDIA_MAX = 12e5;
+var MEDIA_RE = /^data:(image|video|audio)\/[a-z0-9.+-]+(;[^,]*)?;base64,[A-Za-z0-9+/=]+$/i;
+function parseMedia(raw2, kind) {
+  if (!raw2 || typeof raw2 !== "object") return null;
+  const rec = raw2;
+  if (typeof rec.data !== "string") return null;
+  const data = rec.data.replace(/\s+/g, "");
+  if (data.length < 32 || data.length > MEDIA_MAX) return null;
+  if (!MEDIA_RE.test(data)) return null;
+  const mimeMatch = /^data:([^;,]+)/i.exec(data);
+  const mime = typeof rec.mime === "string" && rec.mime || mimeMatch?.[1] || "";
+  if (kind === "photo" && !mime.startsWith("image/")) return null;
+  if (kind === "video" && !mime.startsWith("video/")) return null;
+  if (kind === "voice" && !mime.startsWith("audio/")) return null;
+  const b64 = data.slice(data.indexOf(",") + 1);
+  const bytes = Math.floor(b64.length * 3 / 4);
+  const durationMs = typeof rec.durationMs === "number" && rec.durationMs >= 0 && rec.durationMs <= 12e4 ? Math.round(rec.durationMs) : 0;
+  return { mime, data, durationMs, bytes };
+}
+function decodeDataUrl(data) {
+  const m = /^data:([^;,]+)?(?:;[^,]*)?;base64,(.+)$/i.exec(data);
+  if (!m) return null;
+  try {
+    const bin = atob(m[2]);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return { mime: m[1] || "application/octet-stream", bytes: out };
+  } catch {
+    return null;
+  }
+}
 async function areContacts(db, a, b) {
   const row = await one(
     db,
@@ -2720,7 +2778,9 @@ function serializeMessage(m, viewerId) {
     editedAt: m.edited_at,
     deleted: !!m.deleted_at,
     pinned: !!m.pinned,
-    createdAt: m.created_at
+    createdAt: m.created_at,
+    mediaId: m.deleted_at ? null : m.media_id ?? null,
+    durationMs: m.duration_ms ?? null
   };
 }
 async function messagesWithExtras(db, rows, viewerId) {
@@ -3288,8 +3348,34 @@ app.post("/conversations/:id/messages", async (c) => {
     if (other && await blocked(c.env.DB, user.id, other.user_id)) return jsonError(c, "\u0645\u0633\u062F\u0648\u062F \u0627\u0633\u062A", 403);
   }
   const body = await c.req.json().catch(() => ({}));
+  const kindRaw = body.type === "photo" || body.type === "video" || body.type === "voice" ? body.type : "text";
   const text = typeof body.body === "string" ? body.body.trim() : "";
-  if (!text || text.length > 4e3) return jsonError(c, "\u067E\u06CC\u0627\u0645 \u062E\u0627\u0644\u06CC \u06CC\u0627 \u062E\u06CC\u0644\u06CC \u0628\u0644\u0646\u062F \u0627\u0633\u062A");
+  if (kindRaw === "text") {
+    if (!text || text.length > 4e3) return jsonError(c, "\u067E\u06CC\u0627\u0645 \u062E\u0627\u0644\u06CC \u06CC\u0627 \u062E\u06CC\u0644\u06CC \u0628\u0644\u0646\u062F \u0627\u0633\u062A");
+  } else if (text.length > 400) {
+    return jsonError(c, "\u06A9\u067E\u0634\u0646 \u062E\u06CC\u0644\u06CC \u0628\u0644\u0646\u062F \u0627\u0633\u062A");
+  }
+  let mediaId = null;
+  let durationMs = null;
+  if (kindRaw !== "text") {
+    const parsed = parseMedia(body.media, kindRaw);
+    if (!parsed) return jsonError(c, "\u0641\u0627\u06CC\u0644 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u06CC\u0627 \u062E\u06CC\u0644\u06CC \u0628\u0632\u0631\u06AF \u0627\u0633\u062A");
+    mediaId = randomId();
+    durationMs = parsed.durationMs || null;
+    await run(
+      c.env.DB,
+      `INSERT INTO media (id, conversation_id, kind, mime, data, bytes, duration_ms, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      mediaId,
+      conv.id,
+      kindRaw,
+      parsed.mime,
+      parsed.data,
+      parsed.bytes,
+      durationMs,
+      Date.now()
+    );
+  }
   let replyTo = body.replyToId || null;
   if (replyTo) {
     const r = await one(c.env.DB, `SELECT * FROM messages WHERE id = ? AND conversation_id = ?`, replyTo, conv.id);
@@ -3299,15 +3385,19 @@ app.post("/conversations/:id/messages", async (c) => {
   const now = Date.now();
   await run(
     c.env.DB,
-    `INSERT INTO messages (id, conversation_id, author_id, type, body, reply_to_id, created_at) VALUES (?, ?, ?, 'text', ?, ?, ?)`,
+    `INSERT INTO messages (id, conversation_id, author_id, type, body, reply_to_id, created_at, media_id, duration_ms)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     conv.id,
     user.id,
+    kindRaw,
     text,
     replyTo,
-    now
+    now,
+    mediaId,
+    durationMs
   );
-  await touchConv(c.env.DB, conv.id, previewOf(text), now);
+  await touchConv(c.env.DB, conv.id, previewFor(kindRaw, text), now);
   await run(
     c.env.DB,
     `UPDATE members SET last_read_at = ? WHERE conversation_id = ? AND user_id = ?`,
@@ -3421,6 +3511,25 @@ app.post("/messages/:id/forward", async (c) => {
   await touchConv(c.env.DB, dest.id, previewOf(msg.body), now);
   await emit(c.env.DB, "message", dest.id, user.id, { id });
   return c.json({ ok: true, id, conversationId: dest.id });
+});
+app.get("/media/:id", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const row = await one(c.env.DB, `SELECT id, conversation_id, mime, data FROM media WHERE id = ?`, c.req.param("id"));
+  if (!row) return jsonError(c, "\u0641\u0627\u06CC\u0644 \u0646\u06CC\u0633\u062A", 404);
+  if (!await memberOf(c.env.DB, row.conversation_id, user.id)) return jsonError(c, "\u0627\u062C\u0627\u0632\u0647 \u0646\u062F\u0627\u0631\u06CC", 403);
+  const decoded = decodeDataUrl(row.data);
+  if (!decoded) return jsonError(c, "\u0641\u0627\u06CC\u0644 \u062E\u0631\u0627\u0628 \u0627\u0633\u062A", 500);
+  const copy = new Uint8Array(decoded.bytes.byteLength);
+  copy.set(decoded.bytes);
+  return new Response(new Blob([copy], { type: decoded.mime || row.mime || "application/octet-stream" }), {
+    status: 200,
+    headers: {
+      "Content-Type": decoded.mime || row.mime || "application/octet-stream",
+      "Cache-Control": "private, max-age=86400",
+      "Content-Disposition": "inline"
+    }
+  });
 });
 app.post("/conversations/:id/read", async (c) => {
   const user = await auth(c);
