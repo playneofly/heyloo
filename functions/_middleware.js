@@ -128,7 +128,6 @@ CREATE INDEX IF NOT EXISTS idx_members_user ON members(user_id);
 CREATE INDEX IF NOT EXISTS idx_stories_user ON stories(user_id, expires_at);
 CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token_hash);
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username_lc);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_conv_public ON conversations(public_id);
 
 CREATE TABLE IF NOT EXISTS delete_challenges (
   token TEXT PRIMARY KEY,
@@ -137,7 +136,7 @@ CREATE TABLE IF NOT EXISTS delete_challenges (
   expires_at INTEGER NOT NULL,
   created_at INTEGER NOT NULL
 );
-`;async function E(e,t,...n){return e.prepare(t).bind(...n).first()}async function T(e,t,...n){return(await e.prepare(t).bind(...n).all()).results??[]}async function m(e,t,...n){await e.prepare(t).bind(...n).run()}var lt=!1;async function Et(e,t){if(lt)return;let n=t.split(";").map(r=>r.trim()).filter(Boolean);for(let r of n)await e.prepare(r).bind().run();try{await e.prepare("ALTER TABLE users ADD COLUMN avatar TEXT").bind().run()}catch{}try{await e.prepare("ALTER TABLE messages ADD COLUMN media_id TEXT").bind().run()}catch{}try{await e.prepare("ALTER TABLE messages ADD COLUMN duration_ms INTEGER").bind().run()}catch{}try{await e.prepare("ALTER TABLE conversations ADD COLUMN invite_code TEXT").bind().run()}catch{}try{await e.prepare("ALTER TABLE users ADD COLUMN premium INTEGER DEFAULT 0").bind().run()}catch{}try{await e.prepare("ALTER TABLE users ADD COLUMN signature TEXT DEFAULT ''").bind().run()}catch{}try{await e.prepare("ALTER TABLE conversations ADD COLUMN public_id TEXT").bind().run()}catch{}try{await e.prepare(`CREATE TABLE IF NOT EXISTS delete_challenges (
+`;async function E(e,t,...n){return e.prepare(t).bind(...n).first()}async function T(e,t,...n){return(await e.prepare(t).bind(...n).all()).results??[]}async function m(e,t,...n){await e.prepare(t).bind(...n).run()}var lt=!1;async function Et(e,t){if(lt)return;let n=t.split(";").map(r=>r.trim()).filter(Boolean);for(let r of n)try{await e.prepare(r).bind().run()}catch{}try{await e.prepare("ALTER TABLE users ADD COLUMN avatar TEXT").bind().run()}catch{}try{await e.prepare("ALTER TABLE messages ADD COLUMN media_id TEXT").bind().run()}catch{}try{await e.prepare("ALTER TABLE messages ADD COLUMN duration_ms INTEGER").bind().run()}catch{}try{await e.prepare("ALTER TABLE conversations ADD COLUMN invite_code TEXT").bind().run()}catch{}try{await e.prepare("ALTER TABLE users ADD COLUMN premium INTEGER DEFAULT 0").bind().run()}catch{}try{await e.prepare("ALTER TABLE users ADD COLUMN signature TEXT DEFAULT ''").bind().run()}catch{}try{await e.prepare("ALTER TABLE conversations ADD COLUMN public_id TEXT").bind().run()}catch{}try{await e.prepare("CREATE UNIQUE INDEX IF NOT EXISTS idx_conv_public ON conversations(public_id)").bind().run()}catch{}try{await e.prepare(`CREATE TABLE IF NOT EXISTS delete_challenges (
           token TEXT PRIMARY KEY,
           user_id TEXT NOT NULL,
           code TEXT NOT NULL,
