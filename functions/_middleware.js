@@ -1,4 +1,2280 @@
-var Oe=(e,t,n)=>(r,s)=>{let i=-1;return a(0);async function a(o){if(o<=i)throw new Error("next() called multiple times");i=o;let u,c=!1,m;if(e[o]?(m=e[o][0][0],r.req.routeIndex=o):m=o===e.length&&s||void 0,m)try{u=await m(r,()=>a(o+1))}catch(p){if(p instanceof Error&&t)r.error=p,u=await t(p,r),c=!0;else throw p}else r.finalized===!1&&n&&(u=await n(r));return u&&(r.finalized===!1||c)&&(r.res=u),r}};var Ze=Symbol();var et=(e,t)=>new Response(e,{headers:{"Content-Type":t.replace(/^[^;]+/,r=>r.toLowerCase())}}).formData();var ce=e=>"headers"in e,nt=async(e,t=Object.create(null))=>{let{all:n=!1,dot:r=!1}=t,a=(ce(e)?e.headers:e.raw.headers).get("Content-Type")?.split(";")[0].trim().toLowerCase();return a==="multipart/form-data"||a==="application/x-www-form-urlencoded"?zt(e,{all:n,dot:r}):{}};async function zt(e,t){if(!ce(e)&&e.bodyCache.formData)return tt(await e.bodyCache.formData,t);let n=ce(e)?e.headers:e.raw.headers,r=await e.arrayBuffer(),s=et(r,n.get("Content-Type")||"");ce(e)||(e.bodyCache.formData=s);let i=await s;return i?tt(i,t):{}}function tt(e,t){let n=Object.create(null);return e.forEach((r,s)=>{t.all||s.endsWith("[]")?Qt(n,s,r):n[s]=r}),t.dot&&Object.entries(n).forEach(([r,s])=>{r.includes(".")&&(Zt(n,r,s),delete n[r])}),n}var Qt=(e,t,n)=>{e[t]!==void 0?Array.isArray(e[t])?e[t].push(n):e[t]=[e[t],n]:t.endsWith("[]")?e[t]=[n]:e[t]=n},Zt=(e,t,n)=>{if(/(?:^|\.)__proto__\./.test(t))return;let r=e,s=t.split(".");s.forEach((i,a)=>{a===s.length-1?r[i]=n:((!r[i]||typeof r[i]!="object"||Array.isArray(r[i])||r[i]instanceof File)&&(r[i]=Object.create(null)),r=r[i])})};var Be=e=>{let t=e.split("/");return t[0]===""&&t.shift(),t},rt=e=>{let{groups:t,path:n}=en(e),r=Be(n);return tn(r,t)},en=e=>{let t=[];return e=e.replace(/\{[^}]+\}/g,(n,r)=>{let s=`@${r}`;return t.push([s,n]),s}),{groups:t,path:e}},tn=(e,t)=>{for(let n=t.length-1;n>=0;n--){let[r]=t[n];for(let s=e.length-1;s>=0;s--)if(e[s].includes(r)){e[s]=e[s].replace(r,t[n][1]);break}}return e},le={},st=(e,t)=>{if(e==="*")return"*";let n=e.match(/^\:([^\{\}]+)(?:\{(.+)\})?$/);if(n){let r=`${e}#${t}`;return le[r]||(n[2]?le[r]=t&&t[0]!==":"&&t[0]!=="*"?[r,n[1],new RegExp(`^${n[2]}(?=/${t})`)]:[e,n[1],new RegExp(`^${n[2]}$`)]:le[r]=[e,n[1],!0]),le[r]}return null},it=(e,t)=>{try{return t(e)}catch{return e.replace(/(?:%[0-9A-Fa-f]{2})+/g,n=>{try{return t(n)}catch{return n}})}},nn=e=>it(e,decodeURI),Ae=e=>{let t=e.url,n=t.indexOf("/",t.indexOf(":")+4),r=n;for(;r<t.length;r++){let s=t.charCodeAt(r);if(s===37){let i=t.indexOf("?",r),a=t.indexOf("#",r),o=i===-1?a===-1?void 0:a:a===-1?i:Math.min(i,a),u=t.slice(n,o);return nn(u.includes("%25")?u.replace(/%25/g,"%2525"):u)}else if(s===63||s===35)break}return t.slice(n,r)};var at=e=>{let t=Ae(e);return t.length>1&&t.at(-1)==="/"?t.slice(0,-1):t},j=(e,t,...n)=>(n.length&&(t=j(t,...n)),`${e?.[0]==="/"?"":"/"}${e}${t==="/"?"":`${e?.at(-1)==="/"?"":"/"}${t?.[0]==="/"?t.slice(1):t}`}`),Ee=e=>{if(e.charCodeAt(e.length-1)!==63||!e.includes(":"))return null;let t=e.split("/"),n=[],r="";return t.forEach(s=>{if(s!==""&&!/\:/.test(s))r+="/"+s;else if(/\:/.test(s))if(s.charCodeAt(s.length-1)===63){n.length===0&&r===""?n.push("/"):n.push(r);let i=s.slice(0,-1);r+="/"+i,n.push(r)}else r+="/"+s}),n.filter((s,i,a)=>a.indexOf(s)===i)},Y=e=>e.indexOf("%")!==-1?it(e,rn):e,Se=e=>(e.indexOf("+")!==-1&&(e=e.replace(/\+/g," ")),Y(e)),ot=(e,t,n)=>{let r;if(!n&&t&&t.indexOf("%")===-1&&t.indexOf("+")===-1){let a=e.indexOf("?",8);if(a===-1)return;for(e.startsWith(t,a+1)||(a=e.indexOf(`&${t}`,a+1));a!==-1;){let o=e.charCodeAt(a+t.length+1);if(o===61){let u=a+t.length+2,c=e.indexOf("&",u);return Se(e.slice(u,c===-1?void 0:c))}else if(o==38||isNaN(o))return"";a=e.indexOf(`&${t}`,a+1)}if(r=/[%+]/.test(e),!r)return}let s=Object.create(null);r??=/[%+]/.test(e);let i=e.indexOf("?",8);for(;i!==-1;){let a=e.indexOf("&",i+1),o=e.indexOf("=",i);o>a&&a!==-1&&(o=-1);let u=e.slice(i+1,o===-1?a===-1?void 0:a:o);if(r&&(u=Se(u)),i=a,u==="")continue;let c;o===-1?c="":(c=e.slice(o+1,a===-1?void 0:a),r&&(c=Se(c))),n?(s[u]&&Array.isArray(s[u])||(s[u]=[]),s[u].push(c)):s[u]??=c}return t?s[t]:s},dt=ot,ut=(e,t)=>ot(e,t,!0),rn=decodeURIComponent;var ct=class{raw;#t;#e;routeIndex=0;path;bodyCache={};constructor(e,t="/",n=[[]]){this.raw=e,this.path=t,this.#e=n}param(e){return e?this.#n(e):this.#i()}#n(e){let t=this.#e[0][this.routeIndex][1][e],n=this.#r(t);return n&&Y(n)}#i(){let e={},t=Object.keys(this.#e[0][this.routeIndex][1]);for(let n of t){let r=this.#r(this.#e[0][this.routeIndex][1][n]);r!==void 0&&(e[n]=Y(r))}return e}#r(e){return this.#e[1]?this.#e[1][e]:e}query(e){return dt(this.url,e)}queries(e){return ut(this.url,e)}header(e){if(e)return this.raw.headers.get(e)??void 0;let t=Object.create(null);return this.raw.headers.forEach((n,r)=>{t[r]=n}),t}async parseBody(e){return nt(this,e)}#s=e=>{let{bodyCache:t,raw:n}=this,r=t[e];if(r)return r;for(let s in t)return t[s].then(i=>(s==="json"&&(i=JSON.stringify(i)),new Response(i)[e]()));return t[e]=n[e]()};json(){return this.#s("text").then(e=>JSON.parse(e))}text(){return this.#s("text")}arrayBuffer(){return this.#s("arrayBuffer")}bytes(){return this.#s("arrayBuffer").then(e=>new Uint8Array(e))}blob(){return this.#s("blob")}formData(){return this.#s("formData")}addValidatedData(e,t){(this.#t??={})[e]=t}valid(e){return this.#t?.[e]}get url(){return this.raw.url}get method(){return this.raw.method}get[Ze](){return this.#e}get matchedRoutes(){return this.#e[0].map(([[,e]])=>e)}get routePath(){return this.#e[0].map(([[,e]])=>e)[this.routeIndex].path}};var lt={Stringify:1,BeforeStream:2,Stream:3},sn=(e,t)=>{let n=new String(e);return n.isEscaped=!0,n.callbacks=t,n};var Ie=async(e,t,n,r,s)=>{typeof e=="object"&&!(e instanceof String)&&(e instanceof Promise||(e=e.toString()),e instanceof Promise&&(e=await e));let i=e.callbacks;if(!i?.length)return Promise.resolve(e);s?s[0]+=e:s=[e];let a=Promise.all(i.map(o=>o({phase:t,buffer:s,context:r}))).then(o=>Promise.all(o.filter(Boolean).map(u=>Ie(u,t,!1,r,s))).then(()=>s[0]));return n?sn(await a,i):a};var an="text/plain; charset=UTF-8",Ce=(e,t)=>({"Content-Type":e,...t}),te=(e,t)=>new Response(e,t),Ue=class{#t;#e;env={};#n;finalized=!1;error;#i;#r;#s;#c;#d;#u;#o;#l;#E;constructor(e,t){this.#t=e,t&&(this.#r=t.executionCtx,this.env=t.env,this.#u=t.notFoundHandler,this.#E=t.path,this.#l=t.matchResult)}get req(){return this.#e??=new ct(this.#t,this.#E,this.#l),this.#e}get event(){if(this.#r&&"respondWith"in this.#r)return this.#r;throw Error("This context has no FetchEvent")}get executionCtx(){if(this.#r)return this.#r;throw Error("This context has no ExecutionContext")}get res(){return this.#s||=te(null,{headers:this.#o??=new Headers})}set res(e){if(this.#s&&e){e=te(e.body,e);for(let[t,n]of this.#s.headers.entries())if(t!=="content-type")if(t==="set-cookie"){let r=this.#s.headers.getSetCookie();e.headers.delete("set-cookie");for(let s of r)e.headers.append("set-cookie",s)}else e.headers.set(t,n)}this.#s=e,this.finalized=!0}render=(...e)=>(this.#d??=t=>this.html(t),this.#d(...e));setLayout=e=>this.#c=e;getLayout=()=>this.#c;setRenderer=e=>{this.#d=e};header=(e,t,n)=>{this.finalized&&(this.#s=te(this.#s.body,this.#s));let r=this.#s?this.#s.headers:this.#o??=new Headers;t===void 0?r.delete(e):n?.append?r.append(e,t):r.set(e,t)};status=e=>{this.#i=e};set=(e,t)=>{this.#n??=new Map,this.#n.set(e,t)};get=e=>this.#n?this.#n.get(e):void 0;get var(){return this.#n?Object.fromEntries(this.#n):{}}#a(e,t,n){let r=this.#s?new Headers(this.#s.headers):this.#o;if(typeof t=="object"&&t.headers){r??=new Headers;for(let[i,a]of new Headers(t.headers))i==="set-cookie"?r.append(i,a):r.set(i,a)}if(n){if(!r){let i=0;for(let a in n)if(++i>1||typeof n[a]!="string"){r=new Headers;break}}if(r)for(let i in n){let a=n[i];if(typeof a=="string")r.set(i,a);else{r.delete(i);for(let o of a)r.append(i,o)}}}let s=typeof t=="number"?t:t?.status??this.#i;return te(e,{status:s,headers:r??n})}newResponse=(...e)=>this.#a(...e);body=(e,t,n)=>this.#a(e,t,n);text=(e,t,n)=>!this.#o&&!this.#i&&!t&&!n&&!this.finalized?new Response(e):this.#a(e,t,Ce(an,n));json=(e,t,n)=>this.#a(JSON.stringify(e),t,Ce("application/json",n));html=(e,t,n)=>{let r=s=>this.#a(s,t,Ce("text/html; charset=UTF-8",n));return typeof e=="object"?Ie(e,lt.Stringify,!1,{}).then(r):r(e)};redirect=(e,t)=>{let n=String(e);return this.header("Location",/[^\x00-\xFF]/.test(n)?encodeURI(n):n),this.newResponse(null,t??302)};notFound=()=>(this.#u??=()=>te(),this.#u(this))};var O="ALL",Et="all",mt=["get","post","put","delete","options","patch","query"],me="Can not add a route since the matcher is already built.",fe=class extends Error{};var ft="__COMPOSED_HANDLER";var on=e=>e.text("404 Not Found",404),pt=(e,t)=>{if("getResponse"in e){let n=e.getResponse();return t.newResponse(n.body,n)}return console.error(e),t.text("Internal Server Error",500)},wt=class _t{get;post;put;delete;options;patch;query;all;on;use;router;getPath;_basePath="/";#t="/";routes=[];constructor(t={}){[...mt,Et].forEach(i=>{this[i]=(a,...o)=>(typeof a=="string"?this.#t=a:this.#i(i,this.#t,a),o.forEach(u=>{this.#i(i,this.#t,u)}),this)}),this.on=(i,a,...o)=>{for(let u of[a].flat()){this.#t=u;for(let c of[i].flat())o.map(m=>{this.#i(c.toUpperCase(),this.#t,m)})}return this},this.use=(i,...a)=>(typeof i=="string"?this.#t=i:(this.#t="*",a.unshift(i)),a.forEach(o=>{this.#i(O,this.#t,o)}),this);let{strict:r,...s}=t;Object.assign(this,s),this.getPath=r??!0?t.getPath??Ae:at}#e(){let t=new _t({router:this.router,getPath:this.getPath});return t.errorHandler=this.errorHandler,t.#n=this.#n,t.routes=this.routes,t}#n=on;errorHandler=pt;route(t,n){let r=this.basePath(t);return n.routes.map(s=>{let i;n.errorHandler===pt?i=s.handler:(i=async(a,o)=>(await Oe([],n.errorHandler)(a,()=>s.handler(a,o))).res,i[ft]=s.handler),r.#i(s.method,s.path,i,s.basePath)}),this}basePath(t){let n=this.#e();return n._basePath=j(this._basePath,t),n}onError=t=>(this.errorHandler=t,this);notFound=t=>(this.#n=t,this);mount(t,n,r){let s,i;r&&(typeof r=="function"?i=r:(i=r.optionHandler,r.replaceRequest===!1?s=u=>u:s=r.replaceRequest));let a=i?u=>{let c=i(u);return Array.isArray(c)?c:[c]}:u=>{let c;try{c=u.executionCtx}catch{}return[u.env,c]};s||=(()=>{let u=j(this._basePath,t),c=u==="/"?0:u.length;return m=>{let p=new URL(m.url);return p.pathname=this.getPath(m).slice(c)||"/",new Request(p,m)}})();let o=async(u,c)=>{let m=await n(s(u.req.raw),...a(u));if(m)return m;await c()};return this.#i(O,j(t,"*"),o),this}#i(t,n,r,s){t=t.toUpperCase(),n=j(this._basePath,n);let i={basePath:s!==void 0?j(this._basePath,s):this._basePath,path:n,method:t,handler:r};this.router.add(t,n,[r,i]),this.routes.push(i)}#r(t,n){if(t instanceof Error)return this.errorHandler(t,n);throw t}#s(t,n,r,s){if(s==="HEAD")return(async()=>new Response(null,await this.#s(t,n,r,"GET")))();let i=this.getPath(t,{env:r}),a=this.router.match(s,i),o=new Ue(t,{path:i,matchResult:a,env:r,executionCtx:n,notFoundHandler:this.#n});if(a[0].length===1){let c;try{c=a[0][0][0][0](o,async()=>{o.res=await this.#n(o)})}catch(m){return this.#r(m,o)}return c instanceof Promise?c.then(m=>m||(o.finalized?o.res:this.#n(o))).catch(m=>this.#r(m,o)):c??this.#n(o)}let u=Oe(a[0],this.errorHandler,this.#n);return(async()=>{try{let c=await u(o);if(!c.finalized)throw new Error("Context is not finalized. Did you forget to return a Response object or `await next()`?");return c.res}catch(c){return this.#r(c,o)}})()}fetch=(t,...n)=>this.#s(t,n[1],n[0],t.method);request=(t,n,r,s)=>t instanceof Request?this.fetch(n?new Request(t,n):t,r,s):(t=t.toString(),this.fetch(new Request(/^https?:\/\//.test(t)?t:`http://localhost${j("/",t)}`,n),r,s));fire=()=>{addEventListener("fetch",t=>{t.respondWith(this.#s(t.request,t,void 0,t.request.method))})}};var pe=[];function Me(e,t){let n=this.buildAllMatchers(),r=((s,i)=>{let a=n[s]||n[O],o=a[2][i];if(o)return o;let u=i.match(a[0]);if(!u)return[[],pe];let c=u.indexOf("",1);return[a[1][c],u]});return this.match=r,r(e,t)}var we="[^/]+",K=".*",q="(?:|/.*)",P=Symbol(),gt=new Set(".\\+*[^]$()");function dn(e,t){return e.length===1?t.length===1?e<t?-1:1:-1:t.length===1?1:e===K||e===q?t===q?-1:1:t===K||t===q?-1:e===we?1:t===we?-1:e.length===t.length?e<t?-1:1:t.length-e.length}var Rt=class xe{#t;#e;#n=Object.create(null);insert(t,n,r,s,i){let a=this;for(let o=0,u=t.length;o<u;o++){let c=t[o],m=c.length===1?c==="*"?o===u-1?["","",K]:["","",we]:null:c==="/*"?["","",q]:c.match(/^\:([^\{\}]+)(?:\{(.+)\})?$/),p;if(m){let g=m[1],_=m[2]||we;if(g&&m[2]&&(_===".*"||(_=_.replace(/^\((?!\?:)(?=[^)]+\)$)/,"(?:"),/\((?!\?:)/.test(_))||_.length===1&&gt.has(_)))throw P;if(p=a.#n[_],!p){if(_!==K&&_!==q){for(let T in a.#n)if((_.length>1||T.length>1)&&T!==K&&T!==q)throw P}p=a.#n[_]=new xe}g!==""&&(p.#e??=s.varIndex++,r.push([g,p.#e]))}else if(p=a.#n[c],!p){for(let g in a.#n)if(g.length>1&&g!==K&&g!==q)throw P;p=a.#n[c]=new xe}a=p}if(a.#t!==void 0)throw P;a.#t=i?-1:n}buildRegExpStr(){let n=Object.keys(this.#n).sort(dn).map(r=>{let s=this.#n[r],i=s.buildRegExpStr();return i===""?"":(typeof s.#e=="number"?`(${r})@${s.#e}`:gt.has(r)?`\\${r}`:r)+i}).filter(Boolean);return typeof this.#t=="number"&&this.#t!==-1&&n.unshift(`#${this.#t}`),n.length===0?"":n.length===1?n[0]:"(?:"+n.join("|")+")"}};var ke=class{#t={varIndex:0};#e=new Rt;#n=0;paths=Object.create(null);insert(e,t){if(t){this.#e.insert(e.split(""),0,[],this.#t,!0);return}let n=[],r=[],s=e;for(let a=0;;){let o=!1;if(s=s.replace(/\{[^}]+\}/g,u=>{let c=`@\\${a}`;return r[a]=[c,u],a++,o=!0,c}),!o)break}let i=s.match(/(?::[^\/]+)|(?:\/\*$)|./g)||[];for(let a=r.length-1;a>=0;a--){let[o]=r[a];for(let u=i.length-1;u>=0;u--)if(i[u].indexOf(o)!==-1){i[u]=i[u].replace(o,r[a][1]);break}}this.#e.insert(i,this.#n,n,this.#t,!1),this.paths[e]=[this.#n++,n]}buildRegExp(){let e=this.#e.buildRegExpStr();if(e==="")return[/^$/,[],[]];let t=0,n=[],r=[];return e=e.replace(/#(\d+)|@(\d+)|\.\*\$/g,(s,i,a)=>i!==void 0?(n[++t]=Number(i),"$()"):(a!==void 0&&(r[Number(a)]=++t),"")),[new RegExp(`^${e}`),n,r]}};var ht=Object.create(null);function Tt(e){return ht[e]??=new RegExp(e==="*"?"":`^${e.replace(/\/\*$|([.\\+*[^\]$()])/g,(t,n)=>n?`\\${n}`:"(?:|/.*)")}$`)}function un(){ht=Object.create(null)}function _e(e,t){if(e){for(let n of Object.keys(e).sort((r,s)=>s.length-r.length))if(Tt(n).test(t))return[...e[n]]}}var ge=class{name="RegExpRouter";#t;#e;#n;constructor(){this.#t={[O]:Object.create(null)},this.#e={[O]:Object.create(null)},this.#n={[O]:new ke}}#i(e,t){try{this.#n[e].insert(t,!/\*|\/:/.test(t))}catch(n){throw n===P?new fe(t):n}}add(e,t,n){let r=this.#t,s=this.#e;if(!r||!s)throw new Error(me);r[e]||(this.#n[e]=new ke,[r,s].forEach(o=>{o[e]=Object.create(null),Object.keys(o[O]).forEach(u=>{o[e][u]=[...o[O][u]],this.#i(e,u)})})),t==="/*"&&(t="*");let i=(t.match(/\/:/g)||[]).length;if(/\*$/.test(t)){let o=Tt(t);Object.keys(r).forEach(u=>{(e===O||e===u)&&!r[u][t]&&(this.#i(u,t),r[u][t]=_e(r[u],t)||_e(r[O],t)||[])}),Object.keys(r).forEach(u=>{(e===O||e===u)&&Object.keys(r[u]).forEach(c=>{o.test(c)&&r[u][c].push([n,i])})}),Object.keys(s).forEach(u=>{(e===O||e===u)&&Object.keys(s[u]).forEach(c=>o.test(c)&&s[u][c].push([n,i]))});return}let a=Ee(t)||[t];for(let o=0,u=a.length;o<u;o++){let c=a[o];Object.keys(s).forEach(m=>{(e===O||e===m)&&(s[m][c]||(this.#i(m,c),s[m][c]=[..._e(r[m],c)||_e(r[O],c)||[]]),s[m][c].push([n,i-u+o+1]))})}}match=Me;buildAllMatchers(){let e=Object.create(null);return Object.keys(this.#e).concat(Object.keys(this.#t)).forEach(t=>{e[t]||=this.#r(t)}),this.#t=this.#e=this.#n=void 0,un(),e}#r(e){let t=this.#t[e],n=this.#e[e],r=this.#n[e],s=Object.create(null),i=[];[t,n].forEach(m=>{for(let p in m){let g=m[p],_=r.paths[p];if(!_){s[p]=[g.map(([R])=>[R,Object.create(null)]),pe];continue}let T=_[1];i[_[0]]=g.map(([R,A])=>{let L=Object.create(null);for(A-=1;A>=0;A--){let[F,Q]=T[A];L[F]=Q}return[R,L]})}});let[a,o,u]=r.buildRegExp();for(let m=0,p=i.length;m<p;m++)for(let g=0,_=i[m].length;g<_;g++){let T=i[m][g]?.[1];if(!T)continue;let R=Object.keys(T);for(let A=0,L=R.length;A<L;A++)T[R[A]]=u[T[R[A]]]}let c=[];for(let m in o)c[m]=i[o[m]];return[a,c,s]}};var He=class{name="SmartRouter";#t=[];#e=[];constructor(e){this.#t=e.routers}add(e,t,n){if(!this.#e)throw new Error(me);this.#e.push([e,t,n])}match(e,t){if(!this.#e)throw new Error("Fatal error");let n=this.#t,r=this.#e,s=n.length,i=0,a;for(;i<s;i++){let o=n[i];try{for(let u=0,c=r.length;u<c;u++)o.add(...r[u]);a=o.match(e,t)}catch(u){if(u instanceof fe)continue;throw u}this.match=o.match.bind(o),this.#t=[o],this.#e=void 0;break}if(i===s)throw new Error("Fatal error");return this.name=`SmartRouter + ${this.activeRouter.name}`,a}get activeRouter(){if(this.#e||this.#t.length!==1)throw new Error("No active router has been determined yet.");return this.#t[0]}};var ne=Object.create(null),cn=e=>{for(let t in e)return!0;return!1},vt=class yt{#t;#e;#n;#i=0;#r=ne;constructor(t,n,r){if(this.#e=r||Object.create(null),this.#t=[],t&&n){let s=Object.create(null);s[t]={handler:n,possibleKeys:[],score:0},this.#t=[s]}this.#n=[]}insert(t,n,r){this.#i=++this.#i;let s=this,i=rt(n),a=[];for(let o=0,u=i.length;o<u;o++){let c=i[o],m=i[o+1],p=st(c,m),g=Array.isArray(p)?p[0]:c;if(g in s.#e){s=s.#e[g],p&&a.push(p[1]);continue}s.#e[g]=new yt,p&&(s.#n.push(p),a.push(p[1])),s=s.#e[g]}return s.#t.push({[t]:{handler:r,possibleKeys:a.filter((o,u,c)=>c.indexOf(o)===u),score:this.#i}}),s}#s(t,n,r,s,i){for(let a=0,o=n.#t.length;a<o;a++){let u=n.#t[a],c=u[r]||u[O],m={};if(c!==void 0&&(c.params=Object.create(null),t.push(c),s!==ne||i&&i!==ne))for(let p=0,g=c.possibleKeys.length;p<g;p++){let _=c.possibleKeys[p],T=m[c.score];c.params[_]=i?.[_]&&!T?i[_]:s[_]??i?.[_],m[c.score]=!0}}}search(t,n){let r=[];this.#r=ne;let i=[this],a=Be(n),o=[],u=a.length,c=null;for(let m=0;m<u;m++){let p=a[m],g=m===u-1,_=[];for(let R=0,A=i.length;R<A;R++){let L=i[R],F=L.#e[p];F&&(F.#r=L.#r,g?(F.#e["*"]&&this.#s(r,F.#e["*"],t,L.#r),this.#s(r,F,t,L.#r)):_.push(F));for(let Q=0,Kt=L.#n.length;Q<Kt;Q++){let ze=L.#n[Q],x=L.#r===ne?{}:{...L.#r};if(ze==="*"){let W=L.#e["*"];W&&(this.#s(r,W,t,L.#r),W.#r=x,_.push(W));continue}let[Jt,Qe,Z]=ze;if(!p&&!(Z instanceof RegExp))continue;let U=L.#e[Jt];if(Z instanceof RegExp){if(c===null){c=new Array(u);let ue=n[0]==="/"?1:0;for(let ee=0;ee<u;ee++)c[ee]=ue,ue+=a[ee].length+1}let W=n.substring(c[m]),de=Z.exec(W);if(de){if(x[Qe]=de[0],this.#s(r,U,t,L.#r,x),de[0].length===W.length&&U.#e["*"]&&this.#s(r,U.#e["*"],t,L.#r,x),cn(U.#e)){U.#r=x;let ue=de[0].match(/\//g)?.length??0;(o[ue]||=[]).push(U)}continue}}(Z===!0||Z.test(p))&&(x[Qe]=p,g?(this.#s(r,U,t,x,L.#r),U.#e["*"]&&this.#s(r,U.#e["*"],t,x,L.#r)):(U.#r=x,_.push(U)))}}let T=o.shift();i=T?_.concat(T):_}return r.length>1&&r.sort((m,p)=>m.score-p.score),[r.map(({handler:m,params:p})=>[m,p])]}};var Fe=class{name="TrieRouter";#t;constructor(){this.#t=new vt}add(e,t,n){let r=Ee(t);if(r){for(let s=0,i=r.length;s<i;s++)this.#t.insert(e,r[s],n);return}this.#t.insert(e,t,n)}match(e,t){return this.#t.search(e,t)}};var je=class extends wt{constructor(e={}){super(e),this.router=e.router??new He({routers:[new ge,new Fe]})}};var ln=/^[\w!#$%&'*.^`|~+-]+$/,En=/^[!#-:<>-[\]-~]+$/,mn=/^[ !#-:<-[\]-~]*$/,Dt=e=>{let t=0,n=e.length;for(;t<n;){let r=e.charCodeAt(t);if(r!==32&&r!==9)break;t++}for(;n>t;){let r=e.charCodeAt(n-1);if(r!==32&&r!==9)break;n--}return t===0&&n===e.length?e:e.slice(t,n)},Pe=(e,t)=>{if(t&&e.indexOf(t)===-1)return{};let n=e.split(";"),r=Object.create(null);for(let s of n){let i=s.indexOf("=");if(i===-1)continue;let a=Dt(s.substring(0,i));if(t&&t!==a||!En.test(a)||a in r)continue;let o=Dt(s.substring(i+1));if(o.startsWith('"')&&o.endsWith('"')&&(o=o.slice(1,-1)),mn.test(o)&&(r[a]=Y(o),t))break}return r};var fn=(e,t,n={})=>{if(!ln.test(e))throw new Error("Invalid cookie name");let r=`${e}=${t}`;if(e.startsWith("__Secure-")&&!n.secure)throw new Error("__Secure- Cookie must have Secure attributes");if(e.startsWith("__Host-")){if(!n.secure)throw new Error("__Host- Cookie must have Secure attributes");if(n.path!=="/")throw new Error('__Host- Cookie must have Path attributes with "/"');if(n.domain)throw new Error("__Host- Cookie must not have Domain attributes")}for(let s of["domain","path","sameSite","priority"])if(n[s]&&/[;\r\n]/.test(n[s]))throw new Error(`${s} must not contain ";", "\\r", or "\\n"`);if(n&&typeof n.maxAge=="number"&&n.maxAge>=0){if(n.maxAge>3456e4)throw new Error("Cookies Max-Age SHOULD NOT be greater than 400 days (34560000 seconds) in duration.");r+=`; Max-Age=${n.maxAge|0}`}if(n.domain&&n.prefix!=="host"&&(r+=`; Domain=${n.domain}`),n.path&&(r+=`; Path=${n.path}`),n.expires){if(n.expires.getTime()-Date.now()>3456e7)throw new Error("Cookies Expires SHOULD NOT be greater than 400 days (34560000 seconds) in the future.");r+=`; Expires=${n.expires.toUTCString()}`}if(n.httpOnly&&(r+="; HttpOnly"),n.secure&&(r+="; Secure"),n.sameSite&&(r+=`; SameSite=${n.sameSite.charAt(0).toUpperCase()+n.sameSite.slice(1)}`),n.priority&&(r+=`; Priority=${n.priority.charAt(0).toUpperCase()+n.priority.slice(1)}`),n.partitioned){if(!n.secure)throw new Error("Partitioned Cookie must have Secure attributes");r+="; Partitioned"}return r},Re=(e,t,n)=>(t=encodeURIComponent(t),fn(e,t,n));var re=(e,t,n)=>{let r=e.req.raw.headers.get("Cookie");if(typeof t=="string"){if(!r)return;let i=t;return n==="secure"?i="__Secure-"+t:n==="host"&&(i="__Host-"+t),Pe(r,i)[i]}return r?Pe(r):{}};var pn=(e,t,n)=>{let r;return n?.prefix==="secure"?r=Re("__Secure-"+e,t,{path:"/",...n,secure:!0}):n?.prefix==="host"?r=Re("__Host-"+e,t,{...n,path:"/",secure:!0,domain:void 0}):r=Re(e,t,{path:"/",...n}),r},he=(e,t,n,r)=>{let s=pn(t,n,r);e.header("Set-Cookie",s,{append:!0})};var We=(e,t,n)=>{let r=re(e,t,n?.prefix);return he(e,t,"",{...n,maxAge:0}),r};var Lt=`
+// node_modules/hono/dist/compose.js
+var compose = (middleware, onError, onNotFound) => {
+  return (context, next) => {
+    let index = -1;
+    return dispatch(0);
+    async function dispatch(i) {
+      if (i <= index) {
+        throw new Error("next() called multiple times");
+      }
+      index = i;
+      let res;
+      let isError = false;
+      let handler;
+      if (middleware[i]) {
+        handler = middleware[i][0][0];
+        context.req.routeIndex = i;
+      } else {
+        handler = i === middleware.length && next || void 0;
+      }
+      if (handler) {
+        try {
+          res = await handler(context, () => dispatch(i + 1));
+        } catch (err) {
+          if (err instanceof Error && onError) {
+            context.error = err;
+            res = await onError(err, context);
+            isError = true;
+          } else {
+            throw err;
+          }
+        }
+      } else {
+        if (context.finalized === false && onNotFound) {
+          res = await onNotFound(context);
+        }
+      }
+      if (res && (context.finalized === false || isError)) {
+        context.res = res;
+      }
+      return context;
+    }
+  };
+};
+
+// node_modules/hono/dist/request/constants.js
+var GET_MATCH_RESULT = /* @__PURE__ */ Symbol();
+
+// node_modules/hono/dist/utils/buffer.js
+var bufferToFormData = (arrayBuffer, contentType) => {
+  const response = new Response(arrayBuffer, {
+    headers: {
+      // Normalize the media type (case-insensitive) while keeping parameters like the boundary
+      "Content-Type": contentType.replace(/^[^;]+/, (mediaType) => mediaType.toLowerCase())
+    }
+  });
+  return response.formData();
+};
+
+// node_modules/hono/dist/utils/body.js
+var isRawRequest = (request) => "headers" in request;
+var parseBody = async (request, options = /* @__PURE__ */ Object.create(null)) => {
+  const { all = false, dot = false } = options;
+  const headers = isRawRequest(request) ? request.headers : request.raw.headers;
+  const contentType = headers.get("Content-Type");
+  const mediaType = contentType?.split(";")[0].trim().toLowerCase();
+  if (mediaType === "multipart/form-data" || mediaType === "application/x-www-form-urlencoded") {
+    return parseFormData(request, { all, dot });
+  }
+  return {};
+};
+async function parseFormData(request, options) {
+  if (!isRawRequest(request) && request.bodyCache.formData) {
+    return convertFormDataToBodyData(
+      await request.bodyCache.formData,
+      options
+    );
+  }
+  const headers = isRawRequest(request) ? request.headers : request.raw.headers;
+  const arrayBuffer = await request.arrayBuffer();
+  const formDataPromise = bufferToFormData(arrayBuffer, headers.get("Content-Type") || "");
+  if (!isRawRequest(request)) {
+    request.bodyCache.formData = formDataPromise;
+  }
+  const formData = await formDataPromise;
+  if (formData) {
+    return convertFormDataToBodyData(formData, options);
+  }
+  return {};
+}
+function convertFormDataToBodyData(formData, options) {
+  const form = /* @__PURE__ */ Object.create(null);
+  formData.forEach((value, key) => {
+    const shouldParseAllValues = options.all || key.endsWith("[]");
+    if (!shouldParseAllValues) {
+      form[key] = value;
+    } else {
+      handleParsingAllValues(form, key, value);
+    }
+  });
+  if (options.dot) {
+    Object.entries(form).forEach(([key, value]) => {
+      const shouldParseDotValues = key.includes(".");
+      if (shouldParseDotValues) {
+        handleParsingNestedValues(form, key, value);
+        delete form[key];
+      }
+    });
+  }
+  return form;
+}
+var handleParsingAllValues = (form, key, value) => {
+  if (form[key] !== void 0) {
+    if (Array.isArray(form[key])) {
+      ;
+      form[key].push(value);
+    } else {
+      form[key] = [form[key], value];
+    }
+  } else {
+    if (!key.endsWith("[]")) {
+      form[key] = value;
+    } else {
+      form[key] = [value];
+    }
+  }
+};
+var handleParsingNestedValues = (form, key, value) => {
+  if (/(?:^|\.)__proto__\./.test(key)) {
+    return;
+  }
+  let nestedForm = form;
+  const keys = key.split(".");
+  keys.forEach((key2, index) => {
+    if (index === keys.length - 1) {
+      nestedForm[key2] = value;
+    } else {
+      if (!nestedForm[key2] || typeof nestedForm[key2] !== "object" || Array.isArray(nestedForm[key2]) || nestedForm[key2] instanceof File) {
+        nestedForm[key2] = /* @__PURE__ */ Object.create(null);
+      }
+      nestedForm = nestedForm[key2];
+    }
+  });
+};
+
+// node_modules/hono/dist/utils/url.js
+var splitPath = (path) => {
+  const paths = path.split("/");
+  if (paths[0] === "") {
+    paths.shift();
+  }
+  return paths;
+};
+var splitRoutingPath = (routePath) => {
+  const { groups, path } = extractGroupsFromPath(routePath);
+  const paths = splitPath(path);
+  return replaceGroupMarks(paths, groups);
+};
+var extractGroupsFromPath = (path) => {
+  const groups = [];
+  path = path.replace(/\{[^}]+\}/g, (match2, index) => {
+    const mark = `@${index}`;
+    groups.push([mark, match2]);
+    return mark;
+  });
+  return { groups, path };
+};
+var replaceGroupMarks = (paths, groups) => {
+  for (let i = groups.length - 1; i >= 0; i--) {
+    const [mark] = groups[i];
+    for (let j = paths.length - 1; j >= 0; j--) {
+      if (paths[j].includes(mark)) {
+        paths[j] = paths[j].replace(mark, groups[i][1]);
+        break;
+      }
+    }
+  }
+  return paths;
+};
+var patternCache = {};
+var getPattern = (label, next) => {
+  if (label === "*") {
+    return "*";
+  }
+  const match2 = label.match(/^\:([^\{\}]+)(?:\{(.+)\})?$/);
+  if (match2) {
+    const cacheKey = `${label}#${next}`;
+    if (!patternCache[cacheKey]) {
+      if (match2[2]) {
+        patternCache[cacheKey] = next && next[0] !== ":" && next[0] !== "*" ? [cacheKey, match2[1], new RegExp(`^${match2[2]}(?=/${next})`)] : [label, match2[1], new RegExp(`^${match2[2]}$`)];
+      } else {
+        patternCache[cacheKey] = [label, match2[1], true];
+      }
+    }
+    return patternCache[cacheKey];
+  }
+  return null;
+};
+var tryDecode = (str, decoder) => {
+  try {
+    return decoder(str);
+  } catch {
+    return str.replace(/(?:%[0-9A-Fa-f]{2})+/g, (match2) => {
+      try {
+        return decoder(match2);
+      } catch {
+        return match2;
+      }
+    });
+  }
+};
+var tryDecodeURI = (str) => tryDecode(str, decodeURI);
+var getPath = (request) => {
+  const url = request.url;
+  const start = url.indexOf("/", url.indexOf(":") + 4);
+  let i = start;
+  for (; i < url.length; i++) {
+    const charCode = url.charCodeAt(i);
+    if (charCode === 37) {
+      const queryIndex = url.indexOf("?", i);
+      const hashIndex = url.indexOf("#", i);
+      const end = queryIndex === -1 ? hashIndex === -1 ? void 0 : hashIndex : hashIndex === -1 ? queryIndex : Math.min(queryIndex, hashIndex);
+      const path = url.slice(start, end);
+      return tryDecodeURI(path.includes("%25") ? path.replace(/%25/g, "%2525") : path);
+    } else if (charCode === 63 || charCode === 35) {
+      break;
+    }
+  }
+  return url.slice(start, i);
+};
+var getPathNoStrict = (request) => {
+  const result = getPath(request);
+  return result.length > 1 && result.at(-1) === "/" ? result.slice(0, -1) : result;
+};
+var mergePath = (base, sub, ...rest) => {
+  if (rest.length) {
+    sub = mergePath(sub, ...rest);
+  }
+  return `${base?.[0] === "/" ? "" : "/"}${base}${sub === "/" ? "" : `${base?.at(-1) === "/" ? "" : "/"}${sub?.[0] === "/" ? sub.slice(1) : sub}`}`;
+};
+var checkOptionalParameter = (path) => {
+  if (path.charCodeAt(path.length - 1) !== 63 || !path.includes(":")) {
+    return null;
+  }
+  const segments = path.split("/");
+  const results = [];
+  let basePath = "";
+  segments.forEach((segment) => {
+    if (segment !== "" && !/\:/.test(segment)) {
+      basePath += "/" + segment;
+    } else if (/\:/.test(segment)) {
+      if (segment.charCodeAt(segment.length - 1) === 63) {
+        if (results.length === 0 && basePath === "") {
+          results.push("/");
+        } else {
+          results.push(basePath);
+        }
+        const optionalSegment = segment.slice(0, -1);
+        basePath += "/" + optionalSegment;
+        results.push(basePath);
+      } else {
+        basePath += "/" + segment;
+      }
+    }
+  });
+  return results.filter((v, i, a) => a.indexOf(v) === i);
+};
+var tryDecodeURIComponent = (str) => str.indexOf("%") !== -1 ? tryDecode(str, decodeURIComponent_) : str;
+var _decodeURI = (value) => {
+  if (value.indexOf("+") !== -1) {
+    value = value.replace(/\+/g, " ");
+  }
+  return tryDecodeURIComponent(value);
+};
+var _getQueryParam = (url, key, multiple) => {
+  let encoded;
+  if (!multiple && key && key.indexOf("%") === -1 && key.indexOf("+") === -1) {
+    let keyIndex2 = url.indexOf("?", 8);
+    if (keyIndex2 === -1) {
+      return void 0;
+    }
+    if (!url.startsWith(key, keyIndex2 + 1)) {
+      keyIndex2 = url.indexOf(`&${key}`, keyIndex2 + 1);
+    }
+    while (keyIndex2 !== -1) {
+      const trailingKeyCode = url.charCodeAt(keyIndex2 + key.length + 1);
+      if (trailingKeyCode === 61) {
+        const valueIndex = keyIndex2 + key.length + 2;
+        const endIndex = url.indexOf("&", valueIndex);
+        return _decodeURI(url.slice(valueIndex, endIndex === -1 ? void 0 : endIndex));
+      } else if (trailingKeyCode == 38 || isNaN(trailingKeyCode)) {
+        return "";
+      }
+      keyIndex2 = url.indexOf(`&${key}`, keyIndex2 + 1);
+    }
+    encoded = /[%+]/.test(url);
+    if (!encoded) {
+      return void 0;
+    }
+  }
+  const results = /* @__PURE__ */ Object.create(null);
+  encoded ??= /[%+]/.test(url);
+  let keyIndex = url.indexOf("?", 8);
+  while (keyIndex !== -1) {
+    const nextKeyIndex = url.indexOf("&", keyIndex + 1);
+    let valueIndex = url.indexOf("=", keyIndex);
+    if (valueIndex > nextKeyIndex && nextKeyIndex !== -1) {
+      valueIndex = -1;
+    }
+    let name = url.slice(
+      keyIndex + 1,
+      valueIndex === -1 ? nextKeyIndex === -1 ? void 0 : nextKeyIndex : valueIndex
+    );
+    if (encoded) {
+      name = _decodeURI(name);
+    }
+    keyIndex = nextKeyIndex;
+    if (name === "") {
+      continue;
+    }
+    let value;
+    if (valueIndex === -1) {
+      value = "";
+    } else {
+      value = url.slice(valueIndex + 1, nextKeyIndex === -1 ? void 0 : nextKeyIndex);
+      if (encoded) {
+        value = _decodeURI(value);
+      }
+    }
+    if (multiple) {
+      if (!(results[name] && Array.isArray(results[name]))) {
+        results[name] = [];
+      }
+      ;
+      results[name].push(value);
+    } else {
+      results[name] ??= value;
+    }
+  }
+  return key ? results[key] : results;
+};
+var getQueryParam = _getQueryParam;
+var getQueryParams = (url, key) => {
+  return _getQueryParam(url, key, true);
+};
+var decodeURIComponent_ = decodeURIComponent;
+
+// node_modules/hono/dist/request.js
+var HonoRequest = class {
+  /**
+   * `.raw` can get the raw Request object.
+   *
+   * @see {@link https://hono.dev/docs/api/request#raw}
+   *
+   * @example
+   * ```ts
+   * // For Cloudflare Workers
+   * app.post('/', async (c) => {
+   *   const metadata = c.req.raw.cf?.hostMetadata?
+   *   ...
+   * })
+   * ```
+   */
+  raw;
+  #validatedData;
+  // Short name of validatedData
+  #matchResult;
+  routeIndex = 0;
+  /**
+   * `.path` can get the pathname of the request.
+   *
+   * @see {@link https://hono.dev/docs/api/request#path}
+   *
+   * @example
+   * ```ts
+   * app.get('/about/me', (c) => {
+   *   const pathname = c.req.path // `/about/me`
+   * })
+   * ```
+   */
+  path;
+  bodyCache = {};
+  constructor(request, path = "/", matchResult = [[]]) {
+    this.raw = request;
+    this.path = path;
+    this.#matchResult = matchResult;
+  }
+  param(key) {
+    return key ? this.#getDecodedParam(key) : this.#getAllDecodedParams();
+  }
+  #getDecodedParam(key) {
+    const paramKey = this.#matchResult[0][this.routeIndex][1][key];
+    const param = this.#getParamValue(paramKey);
+    return param && tryDecodeURIComponent(param);
+  }
+  #getAllDecodedParams() {
+    const decoded = {};
+    const keys = Object.keys(this.#matchResult[0][this.routeIndex][1]);
+    for (const key of keys) {
+      const value = this.#getParamValue(this.#matchResult[0][this.routeIndex][1][key]);
+      if (value !== void 0) {
+        decoded[key] = tryDecodeURIComponent(value);
+      }
+    }
+    return decoded;
+  }
+  #getParamValue(paramKey) {
+    return this.#matchResult[1] ? this.#matchResult[1][paramKey] : paramKey;
+  }
+  query(key) {
+    return getQueryParam(this.url, key);
+  }
+  queries(key) {
+    return getQueryParams(this.url, key);
+  }
+  header(name) {
+    if (name) {
+      return this.raw.headers.get(name) ?? void 0;
+    }
+    const headerData = /* @__PURE__ */ Object.create(null);
+    this.raw.headers.forEach((value, key) => {
+      headerData[key] = value;
+    });
+    return headerData;
+  }
+  async parseBody(options) {
+    return parseBody(this, options);
+  }
+  #cachedBody = (key) => {
+    const { bodyCache, raw: raw2 } = this;
+    const cachedBody = bodyCache[key];
+    if (cachedBody) {
+      return cachedBody;
+    }
+    for (const anyCachedKey in bodyCache) {
+      return bodyCache[anyCachedKey].then((body) => {
+        if (anyCachedKey === "json") {
+          body = JSON.stringify(body);
+        }
+        return new Response(body)[key]();
+      });
+    }
+    return bodyCache[key] = raw2[key]();
+  };
+  /**
+   * `.json()` can parse Request body of type `application/json`
+   *
+   * @see {@link https://hono.dev/docs/api/request#json}
+   *
+   * @example
+   * ```ts
+   * app.post('/entry', async (c) => {
+   *   const body = await c.req.json()
+   * })
+   * ```
+   */
+  json() {
+    return this.#cachedBody("text").then((text) => JSON.parse(text));
+  }
+  /**
+   * `.text()` can parse Request body of type `text/plain`
+   *
+   * @see {@link https://hono.dev/docs/api/request#text}
+   *
+   * @example
+   * ```ts
+   * app.post('/entry', async (c) => {
+   *   const body = await c.req.text()
+   * })
+   * ```
+   */
+  text() {
+    return this.#cachedBody("text");
+  }
+  /**
+   * `.arrayBuffer()` parse Request body as an `ArrayBuffer`
+   *
+   * @see {@link https://hono.dev/docs/api/request#arraybuffer}
+   *
+   * @example
+   * ```ts
+   * app.post('/entry', async (c) => {
+   *   const body = await c.req.arrayBuffer()
+   * })
+   * ```
+   */
+  arrayBuffer() {
+    return this.#cachedBody("arrayBuffer");
+  }
+  /**
+   * `.bytes()` parses the request body as a `Uint8Array`.
+   *
+   * @see {@link https://hono.dev/docs/api/request#bytes}
+   *
+   * @example
+   * ```ts
+   * app.post('/entry', async (c) => {
+   *   const body = await c.req.bytes()
+   * })
+   * ```
+   */
+  bytes() {
+    return this.#cachedBody("arrayBuffer").then((buffer) => new Uint8Array(buffer));
+  }
+  /**
+   * Parses the request body as a `Blob`.
+   * @example
+   * ```ts
+   * app.post('/entry', async (c) => {
+   *   const body = await c.req.blob();
+   * });
+   * ```
+   * @see https://hono.dev/docs/api/request#blob
+   */
+  blob() {
+    return this.#cachedBody("blob");
+  }
+  /**
+   * Parses the request body as `FormData`.
+   * @example
+   * ```ts
+   * app.post('/entry', async (c) => {
+   *   const body = await c.req.formData();
+   * });
+   * ```
+   * @see https://hono.dev/docs/api/request#formdata
+   */
+  formData() {
+    return this.#cachedBody("formData");
+  }
+  /**
+   * Adds validated data to the request.
+   *
+   * @param target - The target of the validation.
+   * @param data - The validated data to add.
+   */
+  addValidatedData(target, data) {
+    ;
+    (this.#validatedData ??= {})[target] = data;
+  }
+  valid(target) {
+    return this.#validatedData?.[target];
+  }
+  /**
+   * `.url()` can get the request url strings.
+   *
+   * @see {@link https://hono.dev/docs/api/request#url}
+   *
+   * @example
+   * ```ts
+   * app.get('/about/me', (c) => {
+   *   const url = c.req.url // `http://localhost:8787/about/me`
+   *   ...
+   * })
+   * ```
+   */
+  get url() {
+    return this.raw.url;
+  }
+  /**
+   * `.method()` can get the method name of the request.
+   *
+   * @see {@link https://hono.dev/docs/api/request#method}
+   *
+   * @example
+   * ```ts
+   * app.get('/about/me', (c) => {
+   *   const method = c.req.method // `GET`
+   * })
+   * ```
+   */
+  get method() {
+    return this.raw.method;
+  }
+  get [GET_MATCH_RESULT]() {
+    return this.#matchResult;
+  }
+  /**
+   * `.matchedRoutes()` can return a matched route in the handler
+   *
+   * @deprecated
+   *
+   * Use matchedRoutes helper defined in "hono/route" instead.
+   *
+   * @see {@link https://hono.dev/docs/api/request#matchedroutes}
+   *
+   * @example
+   * ```ts
+   * app.use('*', async function logger(c, next) {
+   *   await next()
+   *   c.req.matchedRoutes.forEach(({ handler, method, path }, i) => {
+   *     const name = handler.name || (handler.length < 2 ? '[handler]' : '[middleware]')
+   *     console.log(
+   *       method,
+   *       ' ',
+   *       path,
+   *       ' '.repeat(Math.max(10 - path.length, 0)),
+   *       name,
+   *       i === c.req.routeIndex ? '<- respond from here' : ''
+   *     )
+   *   })
+   * })
+   * ```
+   */
+  get matchedRoutes() {
+    return this.#matchResult[0].map(([[, route]]) => route);
+  }
+  /**
+   * `routePath()` can retrieve the path registered within the handler
+   *
+   * @deprecated
+   *
+   * Use routePath helper defined in "hono/route" instead.
+   *
+   * @see {@link https://hono.dev/docs/api/request#routepath}
+   *
+   * @example
+   * ```ts
+   * app.get('/posts/:id', (c) => {
+   *   return c.json({ path: c.req.routePath })
+   * })
+   * ```
+   */
+  get routePath() {
+    return this.#matchResult[0].map(([[, route]]) => route)[this.routeIndex].path;
+  }
+};
+
+// node_modules/hono/dist/utils/html.js
+var HtmlEscapedCallbackPhase = {
+  Stringify: 1,
+  BeforeStream: 2,
+  Stream: 3
+};
+var raw = (value, callbacks) => {
+  const escapedString = new String(value);
+  escapedString.isEscaped = true;
+  escapedString.callbacks = callbacks;
+  return escapedString;
+};
+var resolveCallback = async (str, phase, preserveCallbacks, context, buffer) => {
+  if (typeof str === "object" && !(str instanceof String)) {
+    if (!(str instanceof Promise)) {
+      str = str.toString();
+    }
+    if (str instanceof Promise) {
+      str = await str;
+    }
+  }
+  const callbacks = str.callbacks;
+  if (!callbacks?.length) {
+    return Promise.resolve(str);
+  }
+  if (buffer) {
+    buffer[0] += str;
+  } else {
+    buffer = [str];
+  }
+  const resStr = Promise.all(callbacks.map((c) => c({ phase, buffer, context }))).then(
+    (res) => Promise.all(
+      res.filter(Boolean).map((str2) => resolveCallback(str2, phase, false, context, buffer))
+    ).then(() => buffer[0])
+  );
+  if (preserveCallbacks) {
+    return raw(await resStr, callbacks);
+  } else {
+    return resStr;
+  }
+};
+
+// node_modules/hono/dist/context.js
+var TEXT_PLAIN = "text/plain; charset=UTF-8";
+var setDefaultContentType = (contentType, headers) => {
+  return {
+    "Content-Type": contentType,
+    ...headers
+  };
+};
+var createResponseInstance = (body, init) => new Response(body, init);
+var Context = class {
+  #rawRequest;
+  #req;
+  /**
+   * `.env` can get bindings (environment variables, secrets, KV namespaces, D1 database, R2 bucket etc.) in Cloudflare Workers.
+   *
+   * @see {@link https://hono.dev/docs/api/context#env}
+   *
+   * @example
+   * ```ts
+   * // Environment object for Cloudflare Workers
+   * app.get('*', async c => {
+   *   const counter = c.env.COUNTER
+   * })
+   * ```
+   */
+  env = {};
+  #var;
+  finalized = false;
+  /**
+   * `.error` can get the error object from the middleware if the Handler throws an error.
+   *
+   * @see {@link https://hono.dev/docs/api/context#error}
+   *
+   * @example
+   * ```ts
+   * app.use('*', async (c, next) => {
+   *   await next()
+   *   if (c.error) {
+   *     // do something...
+   *   }
+   * })
+   * ```
+   */
+  error;
+  #status;
+  #executionCtx;
+  #res;
+  #layout;
+  #renderer;
+  #notFoundHandler;
+  #preparedHeaders;
+  #matchResult;
+  #path;
+  /**
+   * Creates an instance of the Context class.
+   *
+   * @param req - The Request object.
+   * @param options - Optional configuration options for the context.
+   */
+  constructor(req, options) {
+    this.#rawRequest = req;
+    if (options) {
+      this.#executionCtx = options.executionCtx;
+      this.env = options.env;
+      this.#notFoundHandler = options.notFoundHandler;
+      this.#path = options.path;
+      this.#matchResult = options.matchResult;
+    }
+  }
+  /**
+   * `.req` is the instance of {@link HonoRequest}.
+   */
+  get req() {
+    this.#req ??= new HonoRequest(this.#rawRequest, this.#path, this.#matchResult);
+    return this.#req;
+  }
+  /**
+   * @see {@link https://hono.dev/docs/api/context#event}
+   * The FetchEvent associated with the current request.
+   *
+   * @throws Will throw an error if the context does not have a FetchEvent.
+   */
+  get event() {
+    if (this.#executionCtx && "respondWith" in this.#executionCtx) {
+      return this.#executionCtx;
+    } else {
+      throw Error("This context has no FetchEvent");
+    }
+  }
+  /**
+   * @see {@link https://hono.dev/docs/api/context#executionctx}
+   * The ExecutionContext associated with the current request.
+   *
+   * @throws Will throw an error if the context does not have an ExecutionContext.
+   */
+  get executionCtx() {
+    if (this.#executionCtx) {
+      return this.#executionCtx;
+    } else {
+      throw Error("This context has no ExecutionContext");
+    }
+  }
+  /**
+   * @see {@link https://hono.dev/docs/api/context#res}
+   * The Response object for the current request.
+   */
+  get res() {
+    return this.#res ||= createResponseInstance(null, {
+      headers: this.#preparedHeaders ??= new Headers()
+    });
+  }
+  /**
+   * Sets the Response object for the current request.
+   *
+   * @param _res - The Response object to set.
+   */
+  set res(_res) {
+    if (this.#res && _res) {
+      _res = createResponseInstance(_res.body, _res);
+      for (const [k, v] of this.#res.headers.entries()) {
+        if (k === "content-type") {
+          continue;
+        }
+        if (k === "set-cookie") {
+          const cookies = this.#res.headers.getSetCookie();
+          _res.headers.delete("set-cookie");
+          for (const cookie of cookies) {
+            _res.headers.append("set-cookie", cookie);
+          }
+        } else {
+          _res.headers.set(k, v);
+        }
+      }
+    }
+    this.#res = _res;
+    this.finalized = true;
+  }
+  /**
+   * `.render()` can create a response within a layout.
+   *
+   * @see {@link https://hono.dev/docs/api/context#render-setrenderer}
+   *
+   * @example
+   * ```ts
+   * app.get('/', (c) => {
+   *   return c.render('Hello!')
+   * })
+   * ```
+   */
+  render = (...args) => {
+    this.#renderer ??= (content) => this.html(content);
+    return this.#renderer(...args);
+  };
+  /**
+   * Sets the layout for the response.
+   *
+   * @param layout - The layout to set.
+   * @returns The layout function.
+   */
+  setLayout = (layout) => this.#layout = layout;
+  /**
+   * Gets the current layout for the response.
+   *
+   * @returns The current layout function.
+   */
+  getLayout = () => this.#layout;
+  /**
+   * `.setRenderer()` can set the layout in the custom middleware.
+   *
+   * @see {@link https://hono.dev/docs/api/context#render-setrenderer}
+   *
+   * @example
+   * ```tsx
+   * app.use('*', async (c, next) => {
+   *   c.setRenderer((content) => {
+   *     return c.html(
+   *       <html>
+   *         <body>
+   *           <p>{content}</p>
+   *         </body>
+   *       </html>
+   *     )
+   *   })
+   *   await next()
+   * })
+   * ```
+   */
+  setRenderer = (renderer) => {
+    this.#renderer = renderer;
+  };
+  /**
+   * `.header()` can set headers.
+   *
+   * @see {@link https://hono.dev/docs/api/context#header}
+   *
+   * @example
+   * ```ts
+   * app.get('/welcome', (c) => {
+   *   // Set headers
+   *   c.header('X-Message', 'Hello!')
+   *   c.header('Content-Type', 'text/plain')
+   *
+   *   return c.body('Thank you for coming')
+   * })
+   * ```
+   */
+  header = (name, value, options) => {
+    if (this.finalized) {
+      this.#res = createResponseInstance(this.#res.body, this.#res);
+    }
+    const headers = this.#res ? this.#res.headers : this.#preparedHeaders ??= new Headers();
+    if (value === void 0) {
+      headers.delete(name);
+    } else if (options?.append) {
+      headers.append(name, value);
+    } else {
+      headers.set(name, value);
+    }
+  };
+  status = (status) => {
+    this.#status = status;
+  };
+  /**
+   * `.set()` can set the value specified by the key.
+   *
+   * @see {@link https://hono.dev/docs/api/context#set-get}
+   *
+   * @example
+   * ```ts
+   * app.use('*', async (c, next) => {
+   *   c.set('message', 'Hono is hot!!')
+   *   await next()
+   * })
+   * ```
+   */
+  set = (key, value) => {
+    this.#var ??= /* @__PURE__ */ new Map();
+    this.#var.set(key, value);
+  };
+  /**
+   * `.get()` can use the value specified by the key.
+   *
+   * @see {@link https://hono.dev/docs/api/context#set-get}
+   *
+   * @example
+   * ```ts
+   * app.get('/', (c) => {
+   *   const message = c.get('message')
+   *   return c.text(`The message is "${message}"`)
+   * })
+   * ```
+   */
+  get = (key) => {
+    return this.#var ? this.#var.get(key) : void 0;
+  };
+  /**
+   * `.var` can access the value of a variable.
+   *
+   * @see {@link https://hono.dev/docs/api/context#var}
+   *
+   * @example
+   * ```ts
+   * const result = c.var.client.oneMethod()
+   * ```
+   */
+  // c.var.propName is a read-only
+  get var() {
+    if (!this.#var) {
+      return {};
+    }
+    return Object.fromEntries(this.#var);
+  }
+  #newResponse(data, arg, headers) {
+    let responseHeaders = this.#res ? new Headers(this.#res.headers) : this.#preparedHeaders;
+    if (typeof arg === "object" && arg.headers) {
+      responseHeaders ??= new Headers();
+      for (const [key, value] of new Headers(arg.headers)) {
+        if (key === "set-cookie") {
+          responseHeaders.append(key, value);
+        } else {
+          responseHeaders.set(key, value);
+        }
+      }
+    }
+    if (headers) {
+      if (!responseHeaders) {
+        let count = 0;
+        for (const k in headers) {
+          if (++count > 1 || typeof headers[k] !== "string") {
+            responseHeaders = new Headers();
+            break;
+          }
+        }
+      }
+      if (responseHeaders) {
+        for (const k in headers) {
+          const v = headers[k];
+          if (typeof v === "string") {
+            responseHeaders.set(k, v);
+          } else {
+            responseHeaders.delete(k);
+            for (const v2 of v) {
+              responseHeaders.append(k, v2);
+            }
+          }
+        }
+      }
+    }
+    const status = typeof arg === "number" ? arg : arg?.status ?? this.#status;
+    return createResponseInstance(data, {
+      status,
+      headers: responseHeaders ?? headers
+    });
+  }
+  newResponse = (...args) => this.#newResponse(...args);
+  /**
+   * `.body()` can return the HTTP response.
+   * You can set headers with `.header()` and set HTTP status code with `.status`.
+   * This can also be set in `.text()`, `.json()` and so on.
+   *
+   * @see {@link https://hono.dev/docs/api/context#body}
+   *
+   * @example
+   * ```ts
+   * app.get('/welcome', (c) => {
+   *   // Set headers
+   *   c.header('X-Message', 'Hello!')
+   *   c.header('Content-Type', 'text/plain')
+   *   // Set HTTP status code
+   *   c.status(201)
+   *
+   *   // Return the response body
+   *   return c.body('Thank you for coming')
+   * })
+   * ```
+   */
+  body = (data, arg, headers) => this.#newResponse(data, arg, headers);
+  /**
+   * `.text()` can render text as `Content-Type:text/plain`.
+   *
+   * @see {@link https://hono.dev/docs/api/context#text}
+   *
+   * @example
+   * ```ts
+   * app.get('/say', (c) => {
+   *   return c.text('Hello!')
+   * })
+   * ```
+   */
+  text = (text, arg, headers) => {
+    return !this.#preparedHeaders && !this.#status && !arg && !headers && !this.finalized ? new Response(text) : this.#newResponse(
+      text,
+      arg,
+      setDefaultContentType(TEXT_PLAIN, headers)
+    );
+  };
+  /**
+   * `.json()` can render JSON as `Content-Type:application/json`.
+   *
+   * @see {@link https://hono.dev/docs/api/context#json}
+   *
+   * @example
+   * ```ts
+   * app.get('/api', (c) => {
+   *   return c.json({ message: 'Hello!' })
+   * })
+   * ```
+   */
+  json = (object, arg, headers) => {
+    return this.#newResponse(
+      JSON.stringify(object),
+      arg,
+      setDefaultContentType("application/json", headers)
+    );
+  };
+  html = (html, arg, headers) => {
+    const res = (html2) => this.#newResponse(html2, arg, setDefaultContentType("text/html; charset=UTF-8", headers));
+    return typeof html === "object" ? resolveCallback(html, HtmlEscapedCallbackPhase.Stringify, false, {}).then(res) : res(html);
+  };
+  /**
+   * `.redirect()` can Redirect, default status code is 302.
+   *
+   * @see {@link https://hono.dev/docs/api/context#redirect}
+   *
+   * @example
+   * ```ts
+   * app.get('/redirect', (c) => {
+   *   return c.redirect('/')
+   * })
+   * app.get('/redirect-permanently', (c) => {
+   *   return c.redirect('/', 301)
+   * })
+   * ```
+   */
+  redirect = (location, status) => {
+    const locationString = String(location);
+    this.header(
+      "Location",
+      // Multibyes should be encoded
+      // eslint-disable-next-line no-control-regex
+      !/[^\x00-\xFF]/.test(locationString) ? locationString : encodeURI(locationString)
+    );
+    return this.newResponse(null, status ?? 302);
+  };
+  /**
+   * `.notFound()` can return the Not Found Response.
+   *
+   * @see {@link https://hono.dev/docs/api/context#notfound}
+   *
+   * @example
+   * ```ts
+   * app.get('/notfound', (c) => {
+   *   return c.notFound()
+   * })
+   * ```
+   */
+  notFound = () => {
+    this.#notFoundHandler ??= () => createResponseInstance();
+    return this.#notFoundHandler(this);
+  };
+};
+
+// node_modules/hono/dist/router.js
+var METHOD_NAME_ALL = "ALL";
+var METHOD_NAME_ALL_LOWERCASE = "all";
+var METHODS = ["get", "post", "put", "delete", "options", "patch", "query"];
+var MESSAGE_MATCHER_IS_ALREADY_BUILT = "Can not add a route since the matcher is already built.";
+var UnsupportedPathError = class extends Error {
+};
+
+// node_modules/hono/dist/utils/constants.js
+var COMPOSED_HANDLER = "__COMPOSED_HANDLER";
+
+// node_modules/hono/dist/hono-base.js
+var notFoundHandler = (c) => {
+  return c.text("404 Not Found", 404);
+};
+var errorHandler = (err, c) => {
+  if ("getResponse" in err) {
+    const res = err.getResponse();
+    return c.newResponse(res.body, res);
+  }
+  console.error(err);
+  return c.text("Internal Server Error", 500);
+};
+var Hono = class _Hono {
+  get;
+  post;
+  put;
+  delete;
+  options;
+  patch;
+  query;
+  all;
+  on;
+  use;
+  /*
+    This class is like an abstract class and does not have a router.
+    To use it, inherit the class and implement router in the constructor.
+  */
+  router;
+  getPath;
+  // Cannot use `#` because it requires visibility at JavaScript runtime.
+  _basePath = "/";
+  #path = "/";
+  routes = [];
+  constructor(options = {}) {
+    const allMethods = [...METHODS, METHOD_NAME_ALL_LOWERCASE];
+    allMethods.forEach((method) => {
+      this[method] = (args1, ...args) => {
+        if (typeof args1 === "string") {
+          this.#path = args1;
+        } else {
+          this.#addRoute(method, this.#path, args1);
+        }
+        args.forEach((handler) => {
+          this.#addRoute(method, this.#path, handler);
+        });
+        return this;
+      };
+    });
+    this.on = (method, path, ...handlers) => {
+      for (const p of [path].flat()) {
+        this.#path = p;
+        for (const m of [method].flat()) {
+          handlers.map((handler) => {
+            this.#addRoute(m.toUpperCase(), this.#path, handler);
+          });
+        }
+      }
+      return this;
+    };
+    this.use = (arg1, ...handlers) => {
+      if (typeof arg1 === "string") {
+        this.#path = arg1;
+      } else {
+        this.#path = "*";
+        handlers.unshift(arg1);
+      }
+      handlers.forEach((handler) => {
+        this.#addRoute(METHOD_NAME_ALL, this.#path, handler);
+      });
+      return this;
+    };
+    const { strict, ...optionsWithoutStrict } = options;
+    Object.assign(this, optionsWithoutStrict);
+    this.getPath = strict ?? true ? options.getPath ?? getPath : getPathNoStrict;
+  }
+  #clone() {
+    const clone = new _Hono({
+      router: this.router,
+      getPath: this.getPath
+    });
+    clone.errorHandler = this.errorHandler;
+    clone.#notFoundHandler = this.#notFoundHandler;
+    clone.routes = this.routes;
+    return clone;
+  }
+  #notFoundHandler = notFoundHandler;
+  // Cannot use `#` because it requires visibility at JavaScript runtime.
+  errorHandler = errorHandler;
+  /**
+   * `.route()` allows grouping other Hono instance in routes.
+   *
+   * @see {@link https://hono.dev/docs/api/routing#grouping}
+   *
+   * @param {string} path - base Path
+   * @param {Hono} app - other Hono instance
+   * @returns {Hono} routed Hono instance
+   *
+   * @example
+   * ```ts
+   * const app = new Hono()
+   * const app2 = new Hono()
+   *
+   * app2.get("/user", (c) => c.text("user"))
+   * app.route("/api", app2) // GET /api/user
+   * ```
+   */
+  route(path, app2) {
+    const subApp = this.basePath(path);
+    app2.routes.map((r) => {
+      let handler;
+      if (app2.errorHandler === errorHandler) {
+        handler = r.handler;
+      } else {
+        handler = async (c, next) => (await compose([], app2.errorHandler)(c, () => r.handler(c, next))).res;
+        handler[COMPOSED_HANDLER] = r.handler;
+      }
+      subApp.#addRoute(r.method, r.path, handler, r.basePath);
+    });
+    return this;
+  }
+  /**
+   * `.basePath()` allows base paths to be specified.
+   *
+   * @see {@link https://hono.dev/docs/api/routing#base-path}
+   *
+   * @param {string} path - base Path
+   * @returns {Hono} changed Hono instance
+   *
+   * @example
+   * ```ts
+   * const api = new Hono().basePath('/api')
+   * ```
+   */
+  basePath(path) {
+    const subApp = this.#clone();
+    subApp._basePath = mergePath(this._basePath, path);
+    return subApp;
+  }
+  /**
+   * `.onError()` handles an error and returns a customized Response.
+   *
+   * @see {@link https://hono.dev/docs/api/hono#error-handling}
+   *
+   * @param {ErrorHandler} handler - request Handler for error
+   * @returns {Hono} changed Hono instance
+   *
+   * @example
+   * ```ts
+   * app.onError((err, c) => {
+   *   console.error(`${err}`)
+   *   return c.text('Custom Error Message', 500)
+   * })
+   * ```
+   */
+  onError = (handler) => {
+    this.errorHandler = handler;
+    return this;
+  };
+  /**
+   * `.notFound()` allows you to customize a Not Found Response.
+   *
+   * @see {@link https://hono.dev/docs/api/hono#not-found}
+   *
+   * @param {NotFoundHandler} handler - request handler for not-found
+   * @returns {Hono} changed Hono instance
+   *
+   * @example
+   * ```ts
+   * app.notFound((c) => {
+   *   return c.text('Custom 404 Message', 404)
+   * })
+   * ```
+   */
+  notFound = (handler) => {
+    this.#notFoundHandler = handler;
+    return this;
+  };
+  /**
+   * `.mount()` allows you to mount applications built with other frameworks into your Hono application.
+   *
+   * @see {@link https://hono.dev/docs/api/hono#mount}
+   *
+   * @param {string} path - base Path
+   * @param {Function} applicationHandler - other Request Handler
+   * @param {MountOptions} [options] - options of `.mount()`
+   * @returns {Hono} mounted Hono instance
+   *
+   * @example
+   * ```ts
+   * import { Router as IttyRouter } from 'itty-router'
+   * import { Hono } from 'hono'
+   * // Create itty-router application
+   * const ittyRouter = IttyRouter()
+   * // GET /itty-router/hello
+   * ittyRouter.get('/hello', () => new Response('Hello from itty-router'))
+   *
+   * const app = new Hono()
+   * app.mount('/itty-router', ittyRouter.handle)
+   * ```
+   *
+   * @example
+   * ```ts
+   * const app = new Hono()
+   * // Send the request to another application without modification.
+   * app.mount('/app', anotherApp, {
+   *   replaceRequest: (req) => req,
+   * })
+   * ```
+   */
+  mount(path, applicationHandler, options) {
+    let replaceRequest;
+    let optionHandler;
+    if (options) {
+      if (typeof options === "function") {
+        optionHandler = options;
+      } else {
+        optionHandler = options.optionHandler;
+        if (options.replaceRequest === false) {
+          replaceRequest = (request) => request;
+        } else {
+          replaceRequest = options.replaceRequest;
+        }
+      }
+    }
+    const getOptions = optionHandler ? (c) => {
+      const options2 = optionHandler(c);
+      return Array.isArray(options2) ? options2 : [options2];
+    } : (c) => {
+      let executionContext = void 0;
+      try {
+        executionContext = c.executionCtx;
+      } catch {
+      }
+      return [c.env, executionContext];
+    };
+    replaceRequest ||= (() => {
+      const mergedPath = mergePath(this._basePath, path);
+      const pathPrefixLength = mergedPath === "/" ? 0 : mergedPath.length;
+      return (request) => {
+        const url = new URL(request.url);
+        url.pathname = this.getPath(request).slice(pathPrefixLength) || "/";
+        return new Request(url, request);
+      };
+    })();
+    const handler = async (c, next) => {
+      const res = await applicationHandler(replaceRequest(c.req.raw), ...getOptions(c));
+      if (res) {
+        return res;
+      }
+      await next();
+    };
+    this.#addRoute(METHOD_NAME_ALL, mergePath(path, "*"), handler);
+    return this;
+  }
+  #addRoute(method, path, handler, baseRoutePath) {
+    method = method.toUpperCase();
+    path = mergePath(this._basePath, path);
+    const r = {
+      basePath: baseRoutePath !== void 0 ? mergePath(this._basePath, baseRoutePath) : this._basePath,
+      path,
+      method,
+      handler
+    };
+    this.router.add(method, path, [handler, r]);
+    this.routes.push(r);
+  }
+  #handleError(err, c) {
+    if (err instanceof Error) {
+      return this.errorHandler(err, c);
+    }
+    throw err;
+  }
+  #dispatch(request, executionCtx, env, method) {
+    if (method === "HEAD") {
+      return (async () => new Response(null, await this.#dispatch(request, executionCtx, env, "GET")))();
+    }
+    const path = this.getPath(request, { env });
+    const matchResult = this.router.match(method, path);
+    const c = new Context(request, {
+      path,
+      matchResult,
+      env,
+      executionCtx,
+      notFoundHandler: this.#notFoundHandler
+    });
+    if (matchResult[0].length === 1) {
+      let res;
+      try {
+        res = matchResult[0][0][0][0](c, async () => {
+          c.res = await this.#notFoundHandler(c);
+        });
+      } catch (err) {
+        return this.#handleError(err, c);
+      }
+      return res instanceof Promise ? res.then(
+        (resolved) => resolved || (c.finalized ? c.res : this.#notFoundHandler(c))
+      ).catch((err) => this.#handleError(err, c)) : res ?? this.#notFoundHandler(c);
+    }
+    const composed = compose(matchResult[0], this.errorHandler, this.#notFoundHandler);
+    return (async () => {
+      try {
+        const context = await composed(c);
+        if (!context.finalized) {
+          throw new Error(
+            "Context is not finalized. Did you forget to return a Response object or `await next()`?"
+          );
+        }
+        return context.res;
+      } catch (err) {
+        return this.#handleError(err, c);
+      }
+    })();
+  }
+  /**
+   * `.fetch()` will be entry point of your app.
+   *
+   * @see {@link https://hono.dev/docs/api/hono#fetch}
+   *
+   * @param {Request} request - request Object of request
+   * @param {Env} env - env Object
+   * @param {ExecutionContext} executionCtx - context of execution
+   * @returns {Response | Promise<Response>} response of request
+   *
+   */
+  fetch = (request, ...rest) => {
+    return this.#dispatch(request, rest[1], rest[0], request.method);
+  };
+  /**
+   * `.request()` is a useful method for testing.
+   * You can pass a URL or pathname to send a GET request.
+   * app will return a Response object.
+   * ```ts
+   * test('GET /hello is ok', async () => {
+   *   const res = await app.request('/hello')
+   *   expect(res.status).toBe(200)
+   * })
+   * ```
+   * @see https://hono.dev/docs/api/hono#request
+   */
+  request = (input, requestInit, Env, executionCtx) => {
+    if (input instanceof Request) {
+      return this.fetch(requestInit ? new Request(input, requestInit) : input, Env, executionCtx);
+    }
+    input = input.toString();
+    return this.fetch(
+      new Request(
+        /^https?:\/\//.test(input) ? input : `http://localhost${mergePath("/", input)}`,
+        requestInit
+      ),
+      Env,
+      executionCtx
+    );
+  };
+  /**
+   * `.fire()` automatically adds a global fetch event listener.
+   * This can be useful for environments that adhere to the Service Worker API, such as non-ES module Cloudflare Workers.
+   * @deprecated
+   * Use `fire` from `hono/service-worker` instead.
+   * ```ts
+   * import { Hono } from 'hono'
+   * import { fire } from 'hono/service-worker'
+   *
+   * const app = new Hono()
+   * // ...
+   * fire(app)
+   * ```
+   * @see https://hono.dev/docs/api/hono#fire
+   * @see https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API
+   * @see https://developers.cloudflare.com/workers/reference/migrate-to-module-workers/
+   */
+  fire = () => {
+    addEventListener("fetch", (event) => {
+      event.respondWith(this.#dispatch(event.request, event, void 0, event.request.method));
+    });
+  };
+};
+
+// node_modules/hono/dist/router/reg-exp-router/matcher.js
+var emptyParam = [];
+function match(method, path) {
+  const matchers = this.buildAllMatchers();
+  const match2 = ((method2, path2) => {
+    const matcher = matchers[method2] || matchers[METHOD_NAME_ALL];
+    const staticMatch = matcher[2][path2];
+    if (staticMatch) {
+      return staticMatch;
+    }
+    const match3 = path2.match(matcher[0]);
+    if (!match3) {
+      return [[], emptyParam];
+    }
+    const index = match3.indexOf("", 1);
+    return [matcher[1][index], match3];
+  });
+  this.match = match2;
+  return match2(method, path);
+}
+
+// node_modules/hono/dist/router/reg-exp-router/node.js
+var LABEL_REG_EXP_STR = "[^/]+";
+var ONLY_WILDCARD_REG_EXP_STR = ".*";
+var TAIL_WILDCARD_REG_EXP_STR = "(?:|/.*)";
+var PATH_ERROR = /* @__PURE__ */ Symbol();
+var regExpMetaChars = new Set(".\\+*[^]$()");
+function compareKey(a, b) {
+  if (a.length === 1) {
+    return b.length === 1 ? a < b ? -1 : 1 : -1;
+  }
+  if (b.length === 1) {
+    return 1;
+  }
+  if (a === ONLY_WILDCARD_REG_EXP_STR || a === TAIL_WILDCARD_REG_EXP_STR) {
+    return b === TAIL_WILDCARD_REG_EXP_STR ? -1 : 1;
+  } else if (b === ONLY_WILDCARD_REG_EXP_STR || b === TAIL_WILDCARD_REG_EXP_STR) {
+    return -1;
+  }
+  if (a === LABEL_REG_EXP_STR) {
+    return 1;
+  } else if (b === LABEL_REG_EXP_STR) {
+    return -1;
+  }
+  return a.length === b.length ? a < b ? -1 : 1 : b.length - a.length;
+}
+var Node = class _Node {
+  // handler index of a dynamic path, or -1 for a static path terminal
+  #index;
+  #varIndex;
+  #children = /* @__PURE__ */ Object.create(null);
+  insert(tokens, index, paramMap, context, isStatic) {
+    let node = this;
+    for (let i = 0, len = tokens.length; i < len; i++) {
+      const token = tokens[i];
+      const pattern = token.length === 1 ? token === "*" ? i === len - 1 ? ["", "", ONLY_WILDCARD_REG_EXP_STR] : ["", "", LABEL_REG_EXP_STR] : null : token === "/*" ? ["", "", TAIL_WILDCARD_REG_EXP_STR] : token.match(/^\:([^\{\}]+)(?:\{(.+)\})?$/);
+      let nextNode;
+      if (pattern) {
+        const name = pattern[1];
+        let regexpStr = pattern[2] || LABEL_REG_EXP_STR;
+        if (name && pattern[2]) {
+          if (regexpStr === ".*") {
+            throw PATH_ERROR;
+          }
+          regexpStr = regexpStr.replace(/^\((?!\?:)(?=[^)]+\)$)/, "(?:");
+          if (/\((?!\?:)/.test(regexpStr)) {
+            throw PATH_ERROR;
+          }
+          if (regexpStr.length === 1 && regExpMetaChars.has(regexpStr)) {
+            throw PATH_ERROR;
+          }
+        }
+        nextNode = node.#children[regexpStr];
+        if (!nextNode) {
+          if (regexpStr !== ONLY_WILDCARD_REG_EXP_STR && regexpStr !== TAIL_WILDCARD_REG_EXP_STR) {
+            for (const k in node.#children) {
+              if (
+                // a single-char pattern coexists with single-char literals as a literal does
+                (regexpStr.length > 1 || k.length > 1) && k !== ONLY_WILDCARD_REG_EXP_STR && k !== TAIL_WILDCARD_REG_EXP_STR
+              ) {
+                throw PATH_ERROR;
+              }
+            }
+          }
+          nextNode = node.#children[regexpStr] = new _Node();
+        }
+        if (name !== "") {
+          nextNode.#varIndex ??= context.varIndex++;
+          paramMap.push([name, nextNode.#varIndex]);
+        }
+      } else {
+        nextNode = node.#children[token];
+        if (!nextNode) {
+          for (const k in node.#children) {
+            if (k.length > 1 && k !== ONLY_WILDCARD_REG_EXP_STR && k !== TAIL_WILDCARD_REG_EXP_STR) {
+              throw PATH_ERROR;
+            }
+          }
+          nextNode = node.#children[token] = new _Node();
+        }
+      }
+      node = nextNode;
+    }
+    if (node.#index !== void 0) {
+      throw PATH_ERROR;
+    }
+    node.#index = isStatic ? -1 : index;
+  }
+  buildRegExpStr() {
+    const childKeys = Object.keys(this.#children).sort(compareKey);
+    const strList = childKeys.map((k) => {
+      const c = this.#children[k];
+      const childStr = c.buildRegExpStr();
+      return childStr === "" ? "" : (typeof c.#varIndex === "number" ? `(${k})@${c.#varIndex}` : regExpMetaChars.has(k) ? `\\${k}` : k) + childStr;
+    }).filter(Boolean);
+    if (typeof this.#index === "number" && this.#index !== -1) {
+      strList.unshift(`#${this.#index}`);
+    }
+    if (strList.length === 0) {
+      return "";
+    }
+    if (strList.length === 1) {
+      return strList[0];
+    }
+    return "(?:" + strList.join("|") + ")";
+  }
+};
+
+// node_modules/hono/dist/router/reg-exp-router/trie.js
+var Trie = class {
+  #context = { varIndex: 0 };
+  #root = new Node();
+  #index = 0;
+  // dynamic path -> [handler index, param assoc]; static paths are not registered
+  paths = /* @__PURE__ */ Object.create(null);
+  insert(path, isStatic) {
+    if (isStatic) {
+      this.#root.insert(path.split(""), 0, [], this.#context, true);
+      return;
+    }
+    const paramAssoc = [];
+    const groups = [];
+    let markedPath = path;
+    for (let i = 0; ; ) {
+      let replaced = false;
+      markedPath = markedPath.replace(/\{[^}]+\}/g, (m) => {
+        const mark = `@\\${i}`;
+        groups[i] = [mark, m];
+        i++;
+        replaced = true;
+        return mark;
+      });
+      if (!replaced) {
+        break;
+      }
+    }
+    const tokens = markedPath.match(/(?::[^\/]+)|(?:\/\*$)|./g) || [];
+    for (let i = groups.length - 1; i >= 0; i--) {
+      const [mark] = groups[i];
+      for (let j = tokens.length - 1; j >= 0; j--) {
+        if (tokens[j].indexOf(mark) !== -1) {
+          tokens[j] = tokens[j].replace(mark, groups[i][1]);
+          break;
+        }
+      }
+    }
+    this.#root.insert(tokens, this.#index, paramAssoc, this.#context, false);
+    this.paths[path] = [this.#index++, paramAssoc];
+  }
+  buildRegExp() {
+    let regexp = this.#root.buildRegExpStr();
+    if (regexp === "") {
+      return [/^$/, [], []];
+    }
+    let captureIndex = 0;
+    const indexReplacementMap = [];
+    const paramReplacementMap = [];
+    regexp = regexp.replace(/#(\d+)|@(\d+)|\.\*\$/g, (_, handlerIndex, paramIndex) => {
+      if (handlerIndex !== void 0) {
+        indexReplacementMap[++captureIndex] = Number(handlerIndex);
+        return "$()";
+      }
+      if (paramIndex !== void 0) {
+        paramReplacementMap[Number(paramIndex)] = ++captureIndex;
+        return "";
+      }
+      return "";
+    });
+    return [new RegExp(`^${regexp}`), indexReplacementMap, paramReplacementMap];
+  }
+};
+
+// node_modules/hono/dist/router/reg-exp-router/router.js
+var wildcardRegExpCache = /* @__PURE__ */ Object.create(null);
+function buildWildcardRegExp(path) {
+  return wildcardRegExpCache[path] ??= new RegExp(
+    path === "*" ? "" : `^${path.replace(
+      /\/\*$|([.\\+*[^\]$()])/g,
+      (_, metaChar) => metaChar ? `\\${metaChar}` : "(?:|/.*)"
+    )}$`
+  );
+}
+function clearWildcardRegExpCache() {
+  wildcardRegExpCache = /* @__PURE__ */ Object.create(null);
+}
+function findMiddleware(middleware, path) {
+  if (!middleware) {
+    return void 0;
+  }
+  for (const k of Object.keys(middleware).sort((a, b) => b.length - a.length)) {
+    if (buildWildcardRegExp(k).test(path)) {
+      return [...middleware[k]];
+    }
+  }
+  return void 0;
+}
+var RegExpRouter = class {
+  name = "RegExpRouter";
+  #middleware;
+  #routes;
+  #tries;
+  constructor() {
+    this.#middleware = { [METHOD_NAME_ALL]: /* @__PURE__ */ Object.create(null) };
+    this.#routes = { [METHOD_NAME_ALL]: /* @__PURE__ */ Object.create(null) };
+    this.#tries = { [METHOD_NAME_ALL]: new Trie() };
+  }
+  #insertPath(method, path) {
+    try {
+      this.#tries[method].insert(path, !/\*|\/:/.test(path));
+    } catch (e) {
+      throw e === PATH_ERROR ? new UnsupportedPathError(path) : e;
+    }
+  }
+  add(method, path, handler) {
+    const middleware = this.#middleware;
+    const routes = this.#routes;
+    if (!middleware || !routes) {
+      throw new Error(MESSAGE_MATCHER_IS_ALREADY_BUILT);
+    }
+    if (!middleware[method]) {
+      this.#tries[method] = new Trie();
+      [middleware, routes].forEach((handlerMap) => {
+        handlerMap[method] = /* @__PURE__ */ Object.create(null);
+        Object.keys(handlerMap[METHOD_NAME_ALL]).forEach((p) => {
+          handlerMap[method][p] = [...handlerMap[METHOD_NAME_ALL][p]];
+          this.#insertPath(method, p);
+        });
+      });
+    }
+    if (path === "/*") {
+      path = "*";
+    }
+    const paramCount = (path.match(/\/:/g) || []).length;
+    if (/\*$/.test(path)) {
+      const re = buildWildcardRegExp(path);
+      Object.keys(middleware).forEach((m) => {
+        if ((method === METHOD_NAME_ALL || method === m) && !middleware[m][path]) {
+          this.#insertPath(m, path);
+          middleware[m][path] = findMiddleware(middleware[m], path) || findMiddleware(middleware[METHOD_NAME_ALL], path) || [];
+        }
+      });
+      Object.keys(middleware).forEach((m) => {
+        if (method === METHOD_NAME_ALL || method === m) {
+          Object.keys(middleware[m]).forEach((p) => {
+            re.test(p) && middleware[m][p].push([handler, paramCount]);
+          });
+        }
+      });
+      Object.keys(routes).forEach((m) => {
+        if (method === METHOD_NAME_ALL || method === m) {
+          Object.keys(routes[m]).forEach(
+            (p) => re.test(p) && routes[m][p].push([handler, paramCount])
+          );
+        }
+      });
+      return;
+    }
+    const paths = checkOptionalParameter(path) || [path];
+    for (let i = 0, len = paths.length; i < len; i++) {
+      const path2 = paths[i];
+      Object.keys(routes).forEach((m) => {
+        if (method === METHOD_NAME_ALL || method === m) {
+          if (!routes[m][path2]) {
+            this.#insertPath(m, path2);
+            routes[m][path2] = [
+              ...findMiddleware(middleware[m], path2) || findMiddleware(middleware[METHOD_NAME_ALL], path2) || []
+            ];
+          }
+          routes[m][path2].push([handler, paramCount - len + i + 1]);
+        }
+      });
+    }
+  }
+  match = match;
+  buildAllMatchers() {
+    const matchers = /* @__PURE__ */ Object.create(null);
+    Object.keys(this.#routes).concat(Object.keys(this.#middleware)).forEach((method) => {
+      matchers[method] ||= this.#buildMatcher(method);
+    });
+    this.#middleware = this.#routes = this.#tries = void 0;
+    clearWildcardRegExpCache();
+    return matchers;
+  }
+  #buildMatcher(method) {
+    const middleware = this.#middleware[method];
+    const routes = this.#routes[method];
+    const trie = this.#tries[method];
+    const staticMap = /* @__PURE__ */ Object.create(null);
+    const handlerData = [];
+    [middleware, routes].forEach((r) => {
+      for (const path in r) {
+        const handlers = r[path];
+        const pathData = trie.paths[path];
+        if (!pathData) {
+          staticMap[path] = [handlers.map(([h]) => [h, /* @__PURE__ */ Object.create(null)]), emptyParam];
+          continue;
+        }
+        const paramAssoc = pathData[1];
+        handlerData[pathData[0]] = handlers.map(([h, paramCount]) => {
+          const paramIndexMap = /* @__PURE__ */ Object.create(null);
+          paramCount -= 1;
+          for (; paramCount >= 0; paramCount--) {
+            const [key, value] = paramAssoc[paramCount];
+            paramIndexMap[key] = value;
+          }
+          return [h, paramIndexMap];
+        });
+      }
+    });
+    const [regexp, indexReplacementMap, paramReplacementMap] = trie.buildRegExp();
+    for (let i = 0, len = handlerData.length; i < len; i++) {
+      for (let j = 0, len2 = handlerData[i].length; j < len2; j++) {
+        const map = handlerData[i][j]?.[1];
+        if (!map) {
+          continue;
+        }
+        const keys = Object.keys(map);
+        for (let k = 0, len3 = keys.length; k < len3; k++) {
+          map[keys[k]] = paramReplacementMap[map[keys[k]]];
+        }
+      }
+    }
+    const handlerMap = [];
+    for (const i in indexReplacementMap) {
+      handlerMap[i] = handlerData[indexReplacementMap[i]];
+    }
+    return [regexp, handlerMap, staticMap];
+  }
+};
+
+// node_modules/hono/dist/router/smart-router/router.js
+var SmartRouter = class {
+  name = "SmartRouter";
+  #routers = [];
+  #routes = [];
+  constructor(init) {
+    this.#routers = init.routers;
+  }
+  add(method, path, handler) {
+    if (!this.#routes) {
+      throw new Error(MESSAGE_MATCHER_IS_ALREADY_BUILT);
+    }
+    this.#routes.push([method, path, handler]);
+  }
+  match(method, path) {
+    if (!this.#routes) {
+      throw new Error("Fatal error");
+    }
+    const routers = this.#routers;
+    const routes = this.#routes;
+    const len = routers.length;
+    let i = 0;
+    let res;
+    for (; i < len; i++) {
+      const router = routers[i];
+      try {
+        for (let i2 = 0, len2 = routes.length; i2 < len2; i2++) {
+          router.add(...routes[i2]);
+        }
+        res = router.match(method, path);
+      } catch (e) {
+        if (e instanceof UnsupportedPathError) {
+          continue;
+        }
+        throw e;
+      }
+      this.match = router.match.bind(router);
+      this.#routers = [router];
+      this.#routes = void 0;
+      break;
+    }
+    if (i === len) {
+      throw new Error("Fatal error");
+    }
+    this.name = `SmartRouter + ${this.activeRouter.name}`;
+    return res;
+  }
+  get activeRouter() {
+    if (this.#routes || this.#routers.length !== 1) {
+      throw new Error("No active router has been determined yet.");
+    }
+    return this.#routers[0];
+  }
+};
+
+// node_modules/hono/dist/router/trie-router/node.js
+var emptyParams = /* @__PURE__ */ Object.create(null);
+var hasChildren = (children) => {
+  for (const _ in children) {
+    return true;
+  }
+  return false;
+};
+var Node2 = class _Node2 {
+  #methods;
+  #children;
+  #patterns;
+  #order = 0;
+  #params = emptyParams;
+  constructor(method, handler, children) {
+    this.#children = children || /* @__PURE__ */ Object.create(null);
+    this.#methods = [];
+    if (method && handler) {
+      const m = /* @__PURE__ */ Object.create(null);
+      m[method] = { handler, possibleKeys: [], score: 0 };
+      this.#methods = [m];
+    }
+    this.#patterns = [];
+  }
+  insert(method, path, handler) {
+    this.#order = ++this.#order;
+    let curNode = this;
+    const parts = splitRoutingPath(path);
+    const possibleKeys = [];
+    for (let i = 0, len = parts.length; i < len; i++) {
+      const p = parts[i];
+      const nextP = parts[i + 1];
+      const pattern = getPattern(p, nextP);
+      const key = Array.isArray(pattern) ? pattern[0] : p;
+      if (key in curNode.#children) {
+        curNode = curNode.#children[key];
+        if (pattern) {
+          possibleKeys.push(pattern[1]);
+        }
+        continue;
+      }
+      curNode.#children[key] = new _Node2();
+      if (pattern) {
+        curNode.#patterns.push(pattern);
+        possibleKeys.push(pattern[1]);
+      }
+      curNode = curNode.#children[key];
+    }
+    curNode.#methods.push({
+      [method]: {
+        handler,
+        possibleKeys: possibleKeys.filter((v, i, a) => a.indexOf(v) === i),
+        score: this.#order
+      }
+    });
+    return curNode;
+  }
+  #pushHandlerSets(handlerSets, node, method, nodeParams, params) {
+    for (let i = 0, len = node.#methods.length; i < len; i++) {
+      const m = node.#methods[i];
+      const handlerSet = m[method] || m[METHOD_NAME_ALL];
+      const processedSet = {};
+      if (handlerSet !== void 0) {
+        handlerSet.params = /* @__PURE__ */ Object.create(null);
+        handlerSets.push(handlerSet);
+        if (nodeParams !== emptyParams || params && params !== emptyParams) {
+          for (let i2 = 0, len2 = handlerSet.possibleKeys.length; i2 < len2; i2++) {
+            const key = handlerSet.possibleKeys[i2];
+            const processed = processedSet[handlerSet.score];
+            handlerSet.params[key] = params?.[key] && !processed ? params[key] : nodeParams[key] ?? params?.[key];
+            processedSet[handlerSet.score] = true;
+          }
+        }
+      }
+    }
+  }
+  search(method, path) {
+    const handlerSets = [];
+    this.#params = emptyParams;
+    const curNode = this;
+    let curNodes = [curNode];
+    const parts = splitPath(path);
+    const curNodesQueue = [];
+    const len = parts.length;
+    let partOffsets = null;
+    for (let i = 0; i < len; i++) {
+      const part = parts[i];
+      const isLast = i === len - 1;
+      const tempNodes = [];
+      for (let j = 0, len2 = curNodes.length; j < len2; j++) {
+        const node = curNodes[j];
+        const nextNode = node.#children[part];
+        if (nextNode) {
+          nextNode.#params = node.#params;
+          if (isLast) {
+            if (nextNode.#children["*"]) {
+              this.#pushHandlerSets(handlerSets, nextNode.#children["*"], method, node.#params);
+            }
+            this.#pushHandlerSets(handlerSets, nextNode, method, node.#params);
+          } else {
+            tempNodes.push(nextNode);
+          }
+        }
+        for (let k = 0, len3 = node.#patterns.length; k < len3; k++) {
+          const pattern = node.#patterns[k];
+          const params = node.#params === emptyParams ? {} : { ...node.#params };
+          if (pattern === "*") {
+            const astNode = node.#children["*"];
+            if (astNode) {
+              this.#pushHandlerSets(handlerSets, astNode, method, node.#params);
+              astNode.#params = params;
+              tempNodes.push(astNode);
+            }
+            continue;
+          }
+          const [key, name, matcher] = pattern;
+          if (!part && !(matcher instanceof RegExp)) {
+            continue;
+          }
+          const child = node.#children[key];
+          if (matcher instanceof RegExp) {
+            if (partOffsets === null) {
+              partOffsets = new Array(len);
+              let offset = path[0] === "/" ? 1 : 0;
+              for (let p = 0; p < len; p++) {
+                partOffsets[p] = offset;
+                offset += parts[p].length + 1;
+              }
+            }
+            const restPathString = path.substring(partOffsets[i]);
+            const m = matcher.exec(restPathString);
+            if (m) {
+              params[name] = m[0];
+              this.#pushHandlerSets(handlerSets, child, method, node.#params, params);
+              if (m[0].length === restPathString.length && child.#children["*"]) {
+                this.#pushHandlerSets(
+                  handlerSets,
+                  child.#children["*"],
+                  method,
+                  node.#params,
+                  params
+                );
+              }
+              if (hasChildren(child.#children)) {
+                child.#params = params;
+                const componentCount = m[0].match(/\//g)?.length ?? 0;
+                const targetCurNodes = curNodesQueue[componentCount] ||= [];
+                targetCurNodes.push(child);
+              }
+              continue;
+            }
+          }
+          if (matcher === true || matcher.test(part)) {
+            params[name] = part;
+            if (isLast) {
+              this.#pushHandlerSets(handlerSets, child, method, params, node.#params);
+              if (child.#children["*"]) {
+                this.#pushHandlerSets(
+                  handlerSets,
+                  child.#children["*"],
+                  method,
+                  params,
+                  node.#params
+                );
+              }
+            } else {
+              child.#params = params;
+              tempNodes.push(child);
+            }
+          }
+        }
+      }
+      const shifted = curNodesQueue.shift();
+      curNodes = shifted ? tempNodes.concat(shifted) : tempNodes;
+    }
+    if (handlerSets.length > 1) {
+      handlerSets.sort((a, b) => {
+        return a.score - b.score;
+      });
+    }
+    return [handlerSets.map(({ handler, params }) => [handler, params])];
+  }
+};
+
+// node_modules/hono/dist/router/trie-router/router.js
+var TrieRouter = class {
+  name = "TrieRouter";
+  #node;
+  constructor() {
+    this.#node = new Node2();
+  }
+  add(method, path, handler) {
+    const results = checkOptionalParameter(path);
+    if (results) {
+      for (let i = 0, len = results.length; i < len; i++) {
+        this.#node.insert(method, results[i], handler);
+      }
+      return;
+    }
+    this.#node.insert(method, path, handler);
+  }
+  match(method, path) {
+    return this.#node.search(method, path);
+  }
+};
+
+// node_modules/hono/dist/hono.js
+var Hono2 = class extends Hono {
+  /**
+   * Creates an instance of the Hono class.
+   *
+   * @param options - Optional configuration options for the Hono instance.
+   */
+  constructor(options = {}) {
+    super(options);
+    this.router = options.router ?? new SmartRouter({
+      routers: [new RegExpRouter(), new TrieRouter()]
+    });
+  }
+};
+
+// node_modules/hono/dist/utils/cookie.js
+var validCookieNameRegEx = /^[\w!#$%&'*.^`|~+-]+$/;
+var relaxedCookieNameRegEx = /^[!#-:<>-[\]-~]+$/;
+var validCookieValueRegEx = /^[ !#-:<-[\]-~]*$/;
+var trimCookieWhitespace = (value) => {
+  let start = 0;
+  let end = value.length;
+  while (start < end) {
+    const charCode = value.charCodeAt(start);
+    if (charCode !== 32 && charCode !== 9) {
+      break;
+    }
+    start++;
+  }
+  while (end > start) {
+    const charCode = value.charCodeAt(end - 1);
+    if (charCode !== 32 && charCode !== 9) {
+      break;
+    }
+    end--;
+  }
+  return start === 0 && end === value.length ? value : value.slice(start, end);
+};
+var parse = (cookie, name) => {
+  if (name && cookie.indexOf(name) === -1) {
+    return {};
+  }
+  const pairs = cookie.split(";");
+  const parsedCookie = /* @__PURE__ */ Object.create(null);
+  for (const pairStr of pairs) {
+    const valueStartPos = pairStr.indexOf("=");
+    if (valueStartPos === -1) {
+      continue;
+    }
+    const cookieName = trimCookieWhitespace(pairStr.substring(0, valueStartPos));
+    if (name && name !== cookieName || !relaxedCookieNameRegEx.test(cookieName) || cookieName in parsedCookie) {
+      continue;
+    }
+    let cookieValue = trimCookieWhitespace(pairStr.substring(valueStartPos + 1));
+    if (cookieValue.startsWith('"') && cookieValue.endsWith('"')) {
+      cookieValue = cookieValue.slice(1, -1);
+    }
+    if (validCookieValueRegEx.test(cookieValue)) {
+      parsedCookie[cookieName] = tryDecodeURIComponent(cookieValue);
+      if (name) {
+        break;
+      }
+    }
+  }
+  return parsedCookie;
+};
+var _serialize = (name, value, opt = {}) => {
+  if (!validCookieNameRegEx.test(name)) {
+    throw new Error("Invalid cookie name");
+  }
+  let cookie = `${name}=${value}`;
+  if (name.startsWith("__Secure-") && !opt.secure) {
+    throw new Error("__Secure- Cookie must have Secure attributes");
+  }
+  if (name.startsWith("__Host-")) {
+    if (!opt.secure) {
+      throw new Error("__Host- Cookie must have Secure attributes");
+    }
+    if (opt.path !== "/") {
+      throw new Error('__Host- Cookie must have Path attributes with "/"');
+    }
+    if (opt.domain) {
+      throw new Error("__Host- Cookie must not have Domain attributes");
+    }
+  }
+  for (const key of ["domain", "path", "sameSite", "priority"]) {
+    if (opt[key] && /[;\r\n]/.test(opt[key])) {
+      throw new Error(`${key} must not contain ";", "\\r", or "\\n"`);
+    }
+  }
+  if (opt && typeof opt.maxAge === "number" && opt.maxAge >= 0) {
+    if (opt.maxAge > 3456e4) {
+      throw new Error(
+        "Cookies Max-Age SHOULD NOT be greater than 400 days (34560000 seconds) in duration."
+      );
+    }
+    cookie += `; Max-Age=${opt.maxAge | 0}`;
+  }
+  if (opt.domain && opt.prefix !== "host") {
+    cookie += `; Domain=${opt.domain}`;
+  }
+  if (opt.path) {
+    cookie += `; Path=${opt.path}`;
+  }
+  if (opt.expires) {
+    if (opt.expires.getTime() - Date.now() > 3456e7) {
+      throw new Error(
+        "Cookies Expires SHOULD NOT be greater than 400 days (34560000 seconds) in the future."
+      );
+    }
+    cookie += `; Expires=${opt.expires.toUTCString()}`;
+  }
+  if (opt.httpOnly) {
+    cookie += "; HttpOnly";
+  }
+  if (opt.secure) {
+    cookie += "; Secure";
+  }
+  if (opt.sameSite) {
+    cookie += `; SameSite=${opt.sameSite.charAt(0).toUpperCase() + opt.sameSite.slice(1)}`;
+  }
+  if (opt.priority) {
+    cookie += `; Priority=${opt.priority.charAt(0).toUpperCase() + opt.priority.slice(1)}`;
+  }
+  if (opt.partitioned) {
+    if (!opt.secure) {
+      throw new Error("Partitioned Cookie must have Secure attributes");
+    }
+    cookie += "; Partitioned";
+  }
+  return cookie;
+};
+var serialize = (name, value, opt) => {
+  value = encodeURIComponent(value);
+  return _serialize(name, value, opt);
+};
+
+// node_modules/hono/dist/helper/cookie/index.js
+var getCookie = (c, key, prefix) => {
+  const cookie = c.req.raw.headers.get("Cookie");
+  if (typeof key === "string") {
+    if (!cookie) {
+      return void 0;
+    }
+    let finalKey = key;
+    if (prefix === "secure") {
+      finalKey = "__Secure-" + key;
+    } else if (prefix === "host") {
+      finalKey = "__Host-" + key;
+    }
+    const obj2 = parse(cookie, finalKey);
+    return obj2[finalKey];
+  }
+  if (!cookie) {
+    return {};
+  }
+  const obj = parse(cookie);
+  return obj;
+};
+var generateCookie = (name, value, opt) => {
+  let cookie;
+  if (opt?.prefix === "secure") {
+    cookie = serialize("__Secure-" + name, value, { path: "/", ...opt, secure: true });
+  } else if (opt?.prefix === "host") {
+    cookie = serialize("__Host-" + name, value, {
+      ...opt,
+      path: "/",
+      secure: true,
+      domain: void 0
+    });
+  } else {
+    cookie = serialize(name, value, { path: "/", ...opt });
+  }
+  return cookie;
+};
+var setCookie = (c, name, value, opt) => {
+  const cookie = generateCookie(name, value, opt);
+  c.header("Set-Cookie", cookie, { append: true });
+};
+var deleteCookie = (c, name, opt) => {
+  const deletedCookie = getCookie(c, name, opt?.prefix);
+  setCookie(c, name, "", { ...opt, maxAge: 0 });
+  return deletedCookie;
+};
+
+// src/api/schema.ts
+var SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   username TEXT NOT NULL UNIQUE,
@@ -136,16 +2412,100 @@ CREATE TABLE IF NOT EXISTS delete_challenges (
   expires_at INTEGER NOT NULL,
   created_at INTEGER NOT NULL
 );
-`;var Te=["bubble","name","react","voice","story","signature","anim"],qe={bubble:!0,name:!0,react:!0,voice:!0,story:!0,signature:!0,anim:!0},ve={bubble:!1,name:!1,react:!1,voice:!1,story:!1,signature:!1,anim:!1};async function l(e,t,...n){return e.prepare(t).bind(...n).first()}async function h(e,t,...n){return(await e.prepare(t).bind(...n).all()).results??[]}async function E(e,t,...n){await e.prepare(t).bind(...n).run()}var wn=["ALTER TABLE users ADD COLUMN avatar TEXT","ALTER TABLE messages ADD COLUMN media_id TEXT","ALTER TABLE messages ADD COLUMN duration_ms INTEGER","ALTER TABLE conversations ADD COLUMN invite_code TEXT","ALTER TABLE users ADD COLUMN premium INTEGER DEFAULT 0","ALTER TABLE users ADD COLUMN signature TEXT DEFAULT ''","ALTER TABLE conversations ADD COLUMN public_id TEXT","CREATE UNIQUE INDEX IF NOT EXISTS idx_conv_public ON conversations(public_id)","ALTER TABLE users ADD COLUMN deleted_at INTEGER","ALTER TABLE messages ADD COLUMN purge_at INTEGER","ALTER TABLE users ADD COLUMN banned_at INTEGER","ALTER TABLE users ADD COLUMN ban_reason TEXT","ALTER TABLE users ADD COLUMN muted_until INTEGER","ALTER TABLE users ADD COLUMN can_create_space INTEGER DEFAULT 1","ALTER TABLE users ADD COLUMN premium_until INTEGER","ALTER TABLE users ADD COLUMN premium_note TEXT DEFAULT ''","ALTER TABLE users ADD COLUMN premium_flags TEXT","ALTER TABLE conversations ADD COLUMN join_locked INTEGER DEFAULT 0","ALTER TABLE conversations ADD COLUMN public_id_locked INTEGER DEFAULT 0",`CREATE TABLE IF NOT EXISTS delete_challenges (
+`;
+
+// src/api/db.ts
+var PACK_KEYS = ["bubble", "name", "react", "voice", "story", "signature", "anim"];
+var PACK_ALL = {
+  bubble: true,
+  name: true,
+  react: true,
+  voice: true,
+  story: true,
+  signature: true,
+  anim: true
+};
+var PACK_NONE = {
+  bubble: false,
+  name: false,
+  react: false,
+  voice: false,
+  story: false,
+  signature: false,
+  anim: false
+};
+async function one(db, sql, ...params) {
+  return db.prepare(sql).bind(...params).first();
+}
+async function many(db, sql, ...params) {
+  const res = await db.prepare(sql).bind(...params).all();
+  return res.results ?? [];
+}
+async function run(db, sql, ...params) {
+  await db.prepare(sql).bind(...params).run();
+}
+var EXTRA_SQL = [
+  "ALTER TABLE users ADD COLUMN avatar TEXT",
+  "ALTER TABLE messages ADD COLUMN media_id TEXT",
+  "ALTER TABLE messages ADD COLUMN duration_ms INTEGER",
+  "ALTER TABLE conversations ADD COLUMN invite_code TEXT",
+  "ALTER TABLE users ADD COLUMN premium INTEGER DEFAULT 0",
+  "ALTER TABLE users ADD COLUMN signature TEXT DEFAULT ''",
+  "ALTER TABLE conversations ADD COLUMN public_id TEXT",
+  "CREATE UNIQUE INDEX IF NOT EXISTS idx_conv_public ON conversations(public_id)",
+  "ALTER TABLE users ADD COLUMN deleted_at INTEGER",
+  "ALTER TABLE messages ADD COLUMN purge_at INTEGER",
+  "ALTER TABLE users ADD COLUMN banned_at INTEGER",
+  "ALTER TABLE users ADD COLUMN ban_reason TEXT",
+  "ALTER TABLE users ADD COLUMN muted_until INTEGER",
+  "ALTER TABLE users ADD COLUMN can_create_space INTEGER DEFAULT 1",
+  "ALTER TABLE users ADD COLUMN premium_until INTEGER",
+  "ALTER TABLE users ADD COLUMN premium_note TEXT DEFAULT ''",
+  "ALTER TABLE users ADD COLUMN premium_flags TEXT",
+  "ALTER TABLE conversations ADD COLUMN join_locked INTEGER DEFAULT 0",
+  "ALTER TABLE conversations ADD COLUMN public_id_locked INTEGER DEFAULT 0",
+  "ALTER TABLE conversations ADD COLUMN frozen INTEGER DEFAULT 0",
+  "ALTER TABLE users ADD COLUMN shadowban INTEGER DEFAULT 0",
+  "ALTER TABLE users ADD COLUMN legal_hold INTEGER DEFAULT 0",
+  "ALTER TABLE users ADD COLUMN watchlisted INTEGER DEFAULT 0",
+  "ALTER TABLE users ADD COLUMN staff_scope TEXT DEFAULT 'full'",
+  "ALTER TABLE users ADD COLUMN last_country TEXT",
+  `CREATE TABLE IF NOT EXISTS premium_codes (
+    code TEXT PRIMARY KEY,
+    days INTEGER NOT NULL,
+    pack TEXT,
+    note TEXT NOT NULL DEFAULT '',
+    uses_left INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    created_by TEXT
+  )`,
+  `CREATE TABLE IF NOT EXISTS invite_tickets (
+    code TEXT PRIMARY KEY,
+    uses_left INTEGER NOT NULL,
+    created_at INTEGER NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS pending_messages (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL,
+    author_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    body TEXT NOT NULL,
+    media_id TEXT,
+    duration_ms INTEGER,
+    created_at INTEGER NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS delete_challenges (
     token TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
     code TEXT NOT NULL,
     expires_at INTEGER NOT NULL,
     created_at INTEGER NOT NULL
-  )`,`CREATE TABLE IF NOT EXISTS site_settings (
+  )`,
+  `CREATE TABLE IF NOT EXISTS site_settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
-  )`,`CREATE TABLE IF NOT EXISTS reports (
+  )`,
+  `CREATE TABLE IF NOT EXISTS reports (
     id TEXT PRIMARY KEY,
     reporter_id TEXT NOT NULL,
     target_user_id TEXT,
@@ -158,39 +2518,1279 @@ CREATE TABLE IF NOT EXISTS delete_challenges (
     created_at INTEGER NOT NULL,
     resolved_at INTEGER,
     resolver_id TEXT
-  )`,`CREATE TABLE IF NOT EXISTS admin_log (
+  )`,
+  `CREATE TABLE IF NOT EXISTS admin_log (
     id TEXT PRIMARY KEY,
     actor_id TEXT NOT NULL,
     action TEXT NOT NULL,
     target_id TEXT,
     detail TEXT NOT NULL DEFAULT '',
     created_at INTEGER NOT NULL
-  )`],Nt=!1;async function bt(e,t){if(Nt)return;let n=t.split(";").map(r=>r.trim()).filter(Boolean);for(let r of n)try{await e.prepare(r).bind().run()}catch{}for(let r of wn)try{await e.prepare(r).bind().run()}catch{}Nt=!0}var se=35e3,X="\u0627\u06CC\u0646 \u062D\u0633\u0627\u0628 \u067E\u0627\u06A9 \u0634\u062F\u0647";function M(e){return Number(e.deleted_at||0)>0}function J(e){return Number(e.banned_at||0)>0}function Ot(e,t=Date.now()){return Number(e.muted_until||0)>t}function Xe(e,t=Date.now()){if(Number(e.premium||0)!==1)return!1;let n=Number(e.premium_until||0);return!(n>0&&n<t)}function $e(e,t){if(!t)return{...ve};if(!e||e==="all")return{...qe};try{let n=JSON.parse(e),r={...ve};for(let s of Te)r[s]=n[s]===!0||n[s]===1||n[s]==="1";return Te.every(s=>!r[s])?{...qe}:r}catch{return{...qe}}}function St(e){if(!e)return"all";let t={...ve};for(let n of Te)t[n]=!!e[n];return Te.every(n=>t[n])?"all":JSON.stringify(t)}async function N(e,t,n=""){try{return(await l(e,"SELECT value FROM site_settings WHERE key = ?",t))?.value??n}catch{return n}}async function k(e,t,n){await E(e,`INSERT INTO site_settings (key, value) VALUES (?, ?)
-     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,t,n)}async function b(e,t,n,r,s=""){try{await E(e,"INSERT INTO admin_log (id, actor_id, action, target_id, detail, created_at) VALUES (?, ?, ?, ?, ?, ?)",crypto.randomUUID(),t,n,r,s.slice(0,400),Date.now())}catch{}}function Bt(e,t,n){if(M(e))return{id:e.id,username:"",displayName:X,bio:"",hue:e.hue||40,avatar:null,badge:null,premium:!1,signature:"",lastSeen:null,online:!1,createdAt:e.created_at,deleted:!0,banned:!1,mutedUntil:null,canCreateSpace:!1,premiumUntil:null,premiumNote:"",pack:{...ve}};let r=Date.now(),s=Xe(e,r),i=$e(e.premium_flags,s),a=r-e.last_seen<se,o=e.last_seen;return e.id===t?o=e.last_seen:(e.last_seen_vis==="nobody"||e.last_seen_vis==="contacts"&&!n)&&(o=null),{id:e.id,username:e.username,displayName:e.display_name,bio:e.bio,hue:e.hue,avatar:e.avatar||null,badge:e.badge,premium:s,signature:s&&i.signature?String(e.signature||""):"",lastSeen:o,online:o!==null&&a,createdAt:e.created_at,deleted:!1,banned:J(e),banReason:J(e)?e.ban_reason||"":null,mutedUntil:Number(e.muted_until||0)>r?Number(e.muted_until):null,canCreateSpace:Number(e.can_create_space??1)!==0,premiumUntil:Number(e.premium_until||0)||null,premiumNote:String(e.premium_note||""),pack:i}}var _n=new TextEncoder;function Ge(e){return[...e].map(t=>t.toString(16).padStart(2,"0")).join("")}function I(){return crypto.randomUUID()}function ye(){return Ge(crypto.getRandomValues(new Uint8Array(32)))}async function $(e){let t=await crypto.subtle.digest("SHA-256",_n.encode(e));return Ge(new Uint8Array(t))}async function ie(e){let t=Ge(crypto.getRandomValues(new Uint8Array(16))),n=await $(`${t}:${e}`);return`${t}.${n}`}async function De(e,t){let[n,r]=t.split(".");if(!n||!r)return!1;let s=await $(`${n}:${e}`);if(s.length!==r.length)return!1;let i=0;for(let a=0;a<s.length;a++)i|=s.charCodeAt(a)^r.charCodeAt(a);return i===0}function At(e){let t=0;for(let n=0;n<e.length;n++)t=t*33+e.charCodeAt(n)>>>0;return t%360}var gn=/^[a-zA-Z][a-zA-Z0-9_]{2,19}$/,Rn=["\u2764","\u{1F525}","\u2728","\u{1F602}","\u{1F44D}","\u26A1","\u{1F5A4}"],hn="\u2726",G="t_session",Ne=1e3*60*60*24*30,f=new je().basePath("/api");f.use("*",async(e,t)=>{if(!e.env?.DB)return d(e,"\u062F\u06CC\u062A\u0627\u0628\u06CC\u0633 \u0648\u0635\u0644 \u0646\u06CC\u0633\u062A. \u062F\u0631 Pages \u06CC\u06A9 D1 \u0628\u0647 \u0627\u0633\u0645 DB \u0628\u0628\u0646\u062F.",503);try{await bt(e.env.DB,Lt)}catch(n){return d(e,`\u0627\u0633\u06A9\u06CC\u0645\u0627 \u0633\u0627\u062E\u062A\u0647 \u0646\u0634\u062F: ${n instanceof Error?n.message:String(n)}`,500)}try{await Pn(e.env.DB)}catch{}try{if(await N(e.env.DB,"maintenance","0")==="1"){let r=new URL(e.req.url).pathname;if(!(r.endsWith("/health")||r.endsWith("/site")||r.includes("/auth/login")||r.includes("/auth/logout")||r.includes("/account/delete"))){let i=re(e,G),a=await Ut(e.env.DB,i);if(!a||a.badge!=="owner")return d(e,"\u0633\u0627\u06CC\u062A \u062F\u0631 \u062D\u0627\u0644 \u062A\u0639\u0645\u06CC\u0631 \u0627\u0633\u062A",503)}}}catch{}await t()});f.get("/health",async e=>{try{let t=await l(e.env.DB,"SELECT 1 as n");return e.json({ok:!0,db:t?.n===1})}catch(t){return d(e,`\u0633\u0644\u0627\u0645\u062A \u062F\u06CC\u062A\u0627\u0628\u06CC\u0633: ${t instanceof Error?t.message:String(t)}`,500)}});function d(e,t,n=400){return e.json({error:t},n)}function Tn(e){return new URL(e.req.url).protocol==="https:"}function Ct(e,t){return{httpOnly:!0,sameSite:"Lax",path:"/",maxAge:t,secure:Tn(e)}}async function y(e,t,n,r,s={}){await E(e,"INSERT INTO events (ts, kind, conversation_id, actor_id, payload) VALUES (?, ?, ?, ?, ?)",Date.now(),t,n,r,JSON.stringify(s))}async function Ut(e,t){if(!t)return null;let n=await $(t),r=await l(e,"SELECT user_id, expires_at FROM sessions WHERE token_hash = ?",n);return!r||r.expires_at<Date.now()?null:l(e,"SELECT * FROM users WHERE id = ?",r.user_id)}async function w(e,t=!1){let n=re(e,G),r=await Ut(e.env.DB,n);return!r||M(r)?t?null:d(e,"\u0646\u06CC\u0627\u0632 \u0628\u0647 \u0648\u0631\u0648\u062F \u062F\u0627\u0631\u06CC",401):J(r)?t?null:d(e,r.ban_reason?`\u062D\u0633\u0627\u0628 \u0645\u0633\u062F\u0648\u062F \u0627\u0633\u062A: ${r.ban_reason}`:"\u0627\u06CC\u0646 \u062D\u0633\u0627\u0628 \u0645\u0633\u062F\u0648\u062F \u0627\u0633\u062A",403):(e.set("user",r),r)}function Mt(e){if(typeof e!="string")return null;let t=e.trim();return gn.test(t)?t:null}function V(e,t,n){if(typeof e!="string")return null;let r=e.replace(/\s+/g," ").trim();return r.length<t||r.length>n?null:r}var vn=/^data:image\/(jpeg|jpg|png|webp);base64,[A-Za-z0-9+/=]+$/,yn=12e4;function xt(e){if(e===void 0)return;if(e===null||e==="")return null;if(typeof e!="string")return!1;let t=e.replace(/\s+/g,"");return t.length>yn||!vn.test(t)?!1:t}function Le(e){return e.length>80?e.slice(0,79)+"\u2026":e}function kt(e,t){return e==="photo"?t?Le(t):"\u{1F4F7} \u0639\u06A9\u0633":e==="video"?t?Le(t):"\u{1F3AC} \u0641\u06CC\u0644\u0645":e==="voice"?"\u{1F3A4} \u0648\u06CC\u0633":Le(t)}var Dn=12e5,Ln=/^data:(image|video|audio)\/[a-z0-9.+-]+(;[^,]*)?;base64,[A-Za-z0-9+/=]+$/i;function Nn(e,t){if(!e||typeof e!="object")return null;let n=e;if(typeof n.data!="string")return null;let r=n.data.replace(/\s+/g,"");if(r.length<32||r.length>Dn||!Ln.test(r))return null;let s=/^data:([^;,]+)/i.exec(r),i=typeof n.mime=="string"&&n.mime||s?.[1]||"";if(t==="photo"&&!i.startsWith("image/")||t==="video"&&!i.startsWith("video/")||t==="voice"&&!i.startsWith("audio/"))return null;let a=r.slice(r.indexOf(",")+1),o=Math.floor(a.length*3/4),u=typeof n.durationMs=="number"&&n.durationMs>=0&&n.durationMs<=12e4?Math.round(n.durationMs):0;return{mime:i,data:r,durationMs:u,bytes:o}}function bn(e){let t=/^data:([^;,]+)?(?:;[^,]*)?;base64,(.+)$/i.exec(e);if(!t)return null;try{let n=atob(t[2]),r=new Uint8Array(n.length);for(let s=0;s<n.length;s++)r[s]=n.charCodeAt(s);return{mime:t[1]||"application/octet-stream",bytes:r}}catch{return null}}async function ae(e,t,n){return((await l(e,`SELECT COUNT(*) as n FROM conversations c
+  )`
+];
+var booted = false;
+async function ensureSchema(db, schema) {
+  if (booted) return;
+  const parts = schema.split(";").map((s) => s.trim()).filter(Boolean);
+  for (const sql of parts) {
+    try {
+      await db.prepare(sql).bind().run();
+    } catch {
+    }
+  }
+  for (const sql of EXTRA_SQL) {
+    try {
+      await db.prepare(sql).bind().run();
+    } catch {
+    }
+  }
+  booted = true;
+}
+var ONLINE_MS = 35e3;
+var GONE_NAME = "\u0627\u06CC\u0646 \u062D\u0633\u0627\u0628 \u067E\u0627\u06A9 \u0634\u062F\u0647";
+function isGone(u) {
+  return Number(u.deleted_at || 0) > 0;
+}
+function isBanned(u) {
+  return Number(u.banned_at || 0) > 0;
+}
+function isMuted(u, now = Date.now()) {
+  return Number(u.muted_until || 0) > now;
+}
+function livePremium(u, now = Date.now()) {
+  if (Number(u.premium || 0) !== 1) return false;
+  const until = Number(u.premium_until || 0);
+  if (until > 0 && until < now) return false;
+  return true;
+}
+function parsePack(raw2, premium) {
+  if (!premium) return { ...PACK_NONE };
+  if (!raw2 || raw2 === "all") return { ...PACK_ALL };
+  try {
+    const o = JSON.parse(raw2);
+    const out = { ...PACK_NONE };
+    for (const k of PACK_KEYS) out[k] = o[k] === true || o[k] === 1 || o[k] === "1";
+    if (PACK_KEYS.every((k) => !out[k])) return { ...PACK_ALL };
+    return out;
+  } catch {
+    return { ...PACK_ALL };
+  }
+}
+function encodePack(p) {
+  if (!p) return "all";
+  const out = { ...PACK_NONE };
+  for (const k of PACK_KEYS) out[k] = !!p[k];
+  if (PACK_KEYS.every((k) => out[k])) return "all";
+  return JSON.stringify(out);
+}
+async function setting(db, key, fallback = "") {
+  try {
+    const row = await one(db, `SELECT value FROM site_settings WHERE key = ?`, key);
+    return row?.value ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+async function setSetting(db, key, value) {
+  await run(
+    db,
+    `INSERT INTO site_settings (key, value) VALUES (?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+    key,
+    value
+  );
+}
+async function logAdmin(db, actorId, action, targetId, detail = "") {
+  try {
+    await run(
+      db,
+      `INSERT INTO admin_log (id, actor_id, action, target_id, detail, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+      crypto.randomUUID(),
+      actorId,
+      action,
+      targetId,
+      detail.slice(0, 400),
+      Date.now()
+    );
+  } catch {
+  }
+}
+function publicUser(u, viewerId, isContact) {
+  if (isGone(u)) {
+    return {
+      id: u.id,
+      username: "",
+      displayName: GONE_NAME,
+      bio: "",
+      hue: u.hue || 40,
+      avatar: null,
+      badge: null,
+      premium: false,
+      signature: "",
+      lastSeen: null,
+      online: false,
+      createdAt: u.created_at,
+      deleted: true,
+      banned: false,
+      mutedUntil: null,
+      canCreateSpace: false,
+      premiumUntil: null,
+      premiumNote: "",
+      pack: { ...PACK_NONE },
+      shadowban: false,
+      legalHold: false,
+      watchlisted: false,
+      staffScope: null,
+      lastCountry: null
+    };
+  }
+  const now = Date.now();
+  const prem = livePremium(u, now);
+  const pack = parsePack(u.premium_flags, prem);
+  const online = now - u.last_seen < ONLINE_MS;
+  let lastSeen = u.last_seen;
+  if (u.id === viewerId) {
+    lastSeen = u.last_seen;
+  } else if (u.last_seen_vis === "nobody") {
+    lastSeen = null;
+  } else if (u.last_seen_vis === "contacts" && !isContact) {
+    lastSeen = null;
+  }
+  return {
+    id: u.id,
+    username: u.username,
+    displayName: u.display_name,
+    bio: u.bio,
+    hue: u.hue,
+    avatar: u.avatar || null,
+    badge: u.badge,
+    premium: prem,
+    signature: prem && pack.signature ? String(u.signature || "") : "",
+    lastSeen,
+    online: lastSeen !== null && online,
+    createdAt: u.created_at,
+    deleted: false,
+    banned: isBanned(u),
+    banReason: isBanned(u) ? u.ban_reason || "" : null,
+    mutedUntil: Number(u.muted_until || 0) > now ? Number(u.muted_until) : null,
+    canCreateSpace: Number(u.can_create_space ?? 1) !== 0,
+    premiumUntil: Number(u.premium_until || 0) || null,
+    premiumNote: String(u.premium_note || ""),
+    pack,
+    shadowban: Number(u.shadowban || 0) === 1,
+    legalHold: Number(u.legal_hold || 0) === 1,
+    watchlisted: Number(u.watchlisted || 0) === 1,
+    staffScope: u.staff_scope || "full",
+    lastCountry: u.last_country || null
+  };
+}
+
+// src/api/crypto.ts
+var enc = new TextEncoder();
+function toHex(bytes) {
+  return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+function randomId() {
+  return crypto.randomUUID();
+}
+function randomToken() {
+  return toHex(crypto.getRandomValues(new Uint8Array(32)));
+}
+async function sha256Hex(value) {
+  const buf = await crypto.subtle.digest("SHA-256", enc.encode(value));
+  return toHex(new Uint8Array(buf));
+}
+async function hashPassword(password) {
+  const salt = toHex(crypto.getRandomValues(new Uint8Array(16)));
+  const digest = await sha256Hex(`${salt}:${password}`);
+  return `${salt}.${digest}`;
+}
+async function verifyPassword(password, stored) {
+  const [salt, digest] = stored.split(".");
+  if (!salt || !digest) return false;
+  const next = await sha256Hex(`${salt}:${password}`);
+  if (next.length !== digest.length) return false;
+  let diff = 0;
+  for (let i = 0; i < next.length; i++) diff |= next.charCodeAt(i) ^ digest.charCodeAt(i);
+  return diff === 0;
+}
+function hueFrom(input) {
+  let h = 0;
+  for (let i = 0; i < input.length; i++) h = h * 33 + input.charCodeAt(i) >>> 0;
+  return h % 360;
+}
+
+// src/api/app.ts
+var USERNAME_RE = /^[a-zA-Z][a-zA-Z0-9_]{2,19}$/;
+var EMOJIS = ["\u2764", "\u{1F525}", "\u2728", "\u{1F602}", "\u{1F44D}", "\u26A1", "\u{1F5A4}"];
+var PREMIUM_REACT = "\u2726";
+var COOKIE = "t_session";
+var SESSION_MS = 1e3 * 60 * 60 * 24 * 30;
+var app = new Hono2().basePath("/api");
+app.use("*", async (c, next) => {
+  if (!c.env?.DB) {
+    return jsonError(c, "\u062F\u06CC\u062A\u0627\u0628\u06CC\u0633 \u0648\u0635\u0644 \u0646\u06CC\u0633\u062A. \u062F\u0631 Pages \u06CC\u06A9 D1 \u0628\u0647 \u0627\u0633\u0645 DB \u0628\u0628\u0646\u062F.", 503);
+  }
+  try {
+    await ensureSchema(c.env.DB, SCHEMA);
+  } catch (e) {
+    return jsonError(c, `\u0627\u0633\u06A9\u06CC\u0645\u0627 \u0633\u0627\u062E\u062A\u0647 \u0646\u0634\u062F: ${e instanceof Error ? e.message : String(e)}`, 500);
+  }
+  try {
+    await purgeExpired(c.env.DB);
+  } catch {
+  }
+  try {
+    const maint = await setting(c.env.DB, "maintenance", "0");
+    if (maint === "1") {
+      const path = new URL(c.req.url).pathname;
+      const open = path.endsWith("/health") || path.endsWith("/site") || path.includes("/auth/login") || path.includes("/auth/logout") || path.includes("/account/delete");
+      if (!open) {
+        const token = getCookie(c, COOKIE);
+        const who = await userByToken(c.env.DB, token);
+        if (!who || who.badge !== "owner") {
+          const custom = (await setting(c.env.DB, "maintenance_text", "")).trim();
+          return jsonError(c, custom || "\u0633\u0627\u06CC\u062A \u062F\u0631 \u062D\u0627\u0644 \u062A\u0639\u0645\u06CC\u0631 \u0627\u0633\u062A", 503);
+        }
+      }
+    }
+  } catch {
+  }
+  await next();
+});
+app.get("/health", async (c) => {
+  try {
+    const row = await one(c.env.DB, "SELECT 1 as n");
+    return c.json({ ok: true, db: row?.n === 1 });
+  } catch (e) {
+    return jsonError(c, `\u0633\u0644\u0627\u0645\u062A \u062F\u06CC\u062A\u0627\u0628\u06CC\u0633: ${e instanceof Error ? e.message : String(e)}`, 500);
+  }
+});
+function jsonError(c, message, status = 400) {
+  return c.json({ error: message }, status);
+}
+function isHttps(c) {
+  return new URL(c.req.url).protocol === "https:";
+}
+function cookieOpts(c, maxAge) {
+  return {
+    httpOnly: true,
+    sameSite: "Lax",
+    path: "/",
+    maxAge,
+    secure: isHttps(c)
+  };
+}
+async function emit(db, kind, conversationId, actorId, payload = {}) {
+  await run(
+    db,
+    `INSERT INTO events (ts, kind, conversation_id, actor_id, payload) VALUES (?, ?, ?, ?, ?)`,
+    Date.now(),
+    kind,
+    conversationId,
+    actorId,
+    JSON.stringify(payload)
+  );
+}
+async function userByToken(db, token) {
+  if (!token) return null;
+  const hash = await sha256Hex(token);
+  const row = await one(
+    db,
+    `SELECT user_id, expires_at FROM sessions WHERE token_hash = ?`,
+    hash
+  );
+  if (!row || row.expires_at < Date.now()) return null;
+  return one(db, `SELECT * FROM users WHERE id = ?`, row.user_id);
+}
+async function auth(c, optional = false) {
+  const token = getCookie(c, COOKIE);
+  const user = await userByToken(c.env.DB, token);
+  if (!user || isGone(user)) {
+    if (optional) return null;
+    return jsonError(c, "\u0646\u06CC\u0627\u0632 \u0628\u0647 \u0648\u0631\u0648\u062F \u062F\u0627\u0631\u06CC", 401);
+  }
+  if (isBanned(user)) {
+    if (optional) return null;
+    return jsonError(c, user.ban_reason ? `\u062D\u0633\u0627\u0628 \u0645\u0633\u062F\u0648\u062F \u0627\u0633\u062A: ${user.ban_reason}` : "\u0627\u06CC\u0646 \u062D\u0633\u0627\u0628 \u0645\u0633\u062F\u0648\u062F \u0627\u0633\u062A", 403);
+  }
+  c.set("user", user);
+  return user;
+}
+function cleanUsername(raw2) {
+  if (typeof raw2 !== "string") return null;
+  const u = raw2.trim();
+  if (!USERNAME_RE.test(u)) return null;
+  return u;
+}
+function cleanText(raw2, min, max) {
+  if (typeof raw2 !== "string") return null;
+  const t = raw2.replace(/\s+/g, " ").trim();
+  if (t.length < min || t.length > max) return null;
+  return t;
+}
+var AVATAR_RE = /^data:image\/(jpeg|jpg|png|webp);base64,[A-Za-z0-9+/=]+$/;
+var AVATAR_MAX = 12e4;
+function parseAvatar(raw2) {
+  if (raw2 === void 0) return void 0;
+  if (raw2 === null || raw2 === "") return null;
+  if (typeof raw2 !== "string") return false;
+  const t = raw2.replace(/\s+/g, "");
+  if (t.length > AVATAR_MAX) return false;
+  if (!AVATAR_RE.test(t)) return false;
+  return t;
+}
+function previewOf(body) {
+  return body.length > 80 ? body.slice(0, 79) + "\u2026" : body;
+}
+function previewFor(type, body) {
+  if (type === "photo") return body ? previewOf(body) : "\u{1F4F7} \u0639\u06A9\u0633";
+  if (type === "video") return body ? previewOf(body) : "\u{1F3AC} \u0641\u06CC\u0644\u0645";
+  if (type === "voice") return "\u{1F3A4} \u0648\u06CC\u0633";
+  return previewOf(body);
+}
+var MEDIA_MAX = 12e5;
+var MEDIA_RE = /^data:(image|video|audio)\/[a-z0-9.+-]+(;[^,]*)?;base64,[A-Za-z0-9+/=]+$/i;
+function parseMedia(raw2, kind, maxData = MEDIA_MAX, maxDur = 12e4) {
+  if (!raw2 || typeof raw2 !== "object") return null;
+  const rec = raw2;
+  if (typeof rec.data !== "string") return null;
+  const data = rec.data.replace(/\s+/g, "");
+  if (data.length < 32 || data.length > maxData) return null;
+  if (!MEDIA_RE.test(data)) return null;
+  const mimeMatch = /^data:([^;,]+)/i.exec(data);
+  const mime = typeof rec.mime === "string" && rec.mime || mimeMatch?.[1] || "";
+  if (kind === "photo" && !mime.startsWith("image/")) return null;
+  if (kind === "video" && !mime.startsWith("video/")) return null;
+  if (kind === "voice" && !mime.startsWith("audio/")) return null;
+  const b64 = data.slice(data.indexOf(",") + 1);
+  const bytes = Math.floor(b64.length * 3 / 4);
+  const durationMs = typeof rec.durationMs === "number" && rec.durationMs >= 0 && rec.durationMs <= maxDur ? Math.round(rec.durationMs) : 0;
+  return { mime, data, durationMs, bytes };
+}
+function decodeDataUrl(data) {
+  const m = /^data:([^;,]+)?(?:;[^,]*)?;base64,(.+)$/i.exec(data);
+  if (!m) return null;
+  try {
+    const bin = atob(m[2]);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return { mime: m[1] || "application/octet-stream", bytes: out };
+  } catch {
+    return null;
+  }
+}
+async function areContacts(db, a, b) {
+  const row = await one(
+    db,
+    `SELECT COUNT(*) as n FROM conversations c
      JOIN members m1 ON m1.conversation_id = c.id AND m1.user_id = ?
      JOIN members m2 ON m2.conversation_id = c.id AND m2.user_id = ?
-     WHERE c.type = 'dm'`,t,n))?.n??0)>0}async function D(e,t,n){return l(e,"SELECT * FROM members WHERE conversation_id = ? AND user_id = ?",t,n)}async function be(e,t,n){return((await l(e,"SELECT COUNT(*) as n FROM blocks WHERE (blocker_id = ? AND blocked_id = ?) OR (blocker_id = ? AND blocked_id = ?)",t,n,n,t))?.n??0)>0}function B(e,t,n){return Bt(e,t,n)}async function Ve(e,t,n){let r=[];for(let s of t){let i=n?await ae(e,n.id,s.id):!1;r.push(B(s,n?.id??null,i))}return r}function Ht(){return[...crypto.getRandomValues(new Uint8Array(6))].map(t=>t.toString(36).padStart(2,"0")).join("").slice(0,10)}var On=/^[a-zA-Z][a-zA-Z0-9_]{2,23}$/,Sn=new Set(["api","login","rooms","channels","settings","stories","atdelele","admin","inbox","explore","me","c","j","u","t"]);function Ft(){return"t"+[...crypto.getRandomValues(new Uint8Array(5))].map(t=>t.toString(36).padStart(2,"0")).join("").replace(/[^a-z0-9]/gi,"x").slice(0,8)}function jt(e,t=[]){if(typeof e!="string")return null;let n=e.trim().replace(/^@+/,"");return!On.test(n)||Sn.has(n.toLowerCase())||t.some(r=>r.toLowerCase()===n.toLowerCase())?null:n}async function Bn(e){return(await N(e,"reserved_ids","")).split(/[, \n]+/).map(n=>n.trim().replace(/^@+/,"")).filter(Boolean)}async function Ye(e,t){if(t.type==="dm")return null;if(t.public_id)return t.public_id;for(let n=0;n<8;n++){let r=Ft();try{await E(e,"UPDATE conversations SET public_id = ? WHERE id = ? AND (public_id IS NULL OR public_id = '')",r,t.id);let s=await l(e,"SELECT * FROM conversations WHERE id = ?",t.id);if(s?.public_id)return t.public_id=s.public_id,s.public_id}catch{}}return t.public_id||null}function An(){return[...crypto.getRandomValues(new Uint8Array(12))].map(t=>t.toString(36).padStart(2,"0")).join("").slice(0,20)}function In(){let e=crypto.getRandomValues(new Uint32Array(1))[0]%9e4;return String(1e4+e)}async function Cn(e,t){if(t.type==="dm")return null;if(t.invite_code)return t.invite_code;let n=Ht();try{return await E(e,"UPDATE conversations SET invite_code = ? WHERE id = ? AND (invite_code IS NULL OR invite_code = '')",n,t.id),t.invite_code=n,n}catch{return(await l(e,"SELECT * FROM conversations WHERE id = ?",t.id))?.invite_code||null}}async function Un(e,t,n){let r=await D(e,t.id,n.id),s=t.title,i=null,a=null;if(t.type==="dm"){let c=await l(e,`SELECT u.* FROM members m
+     WHERE c.type = 'dm'`,
+    a,
+    b
+  );
+  return (row?.n ?? 0) > 0;
+}
+async function memberOf(db, convId, userId) {
+  return one(db, `SELECT * FROM members WHERE conversation_id = ? AND user_id = ?`, convId, userId);
+}
+async function blocked(db, a, b) {
+  const row = await one(
+    db,
+    `SELECT COUNT(*) as n FROM blocks WHERE (blocker_id = ? AND blocked_id = ?) OR (blocker_id = ? AND blocked_id = ?)`,
+    a,
+    b,
+    b,
+    a
+  );
+  return (row?.n ?? 0) > 0;
+}
+function pub(u, viewerId, contact) {
+  return publicUser(u, viewerId, contact);
+}
+async function hydrateUsers(db, users, viewer) {
+  const out = [];
+  for (const u of users) {
+    const contact = viewer ? await areContacts(db, viewer.id, u.id) : false;
+    out.push(pub(u, viewer?.id ?? null, contact));
+  }
+  return out;
+}
+function makeInviteCode() {
+  const bytes = crypto.getRandomValues(new Uint8Array(6));
+  return [...bytes].map((b) => b.toString(36).padStart(2, "0")).join("").slice(0, 10);
+}
+var PUBLIC_ID_RE = /^[a-zA-Z][a-zA-Z0-9_]{2,23}$/;
+var RESERVED_PUBLIC = /* @__PURE__ */ new Set([
+  "api",
+  "login",
+  "rooms",
+  "channels",
+  "settings",
+  "stories",
+  "atdelele",
+  "admin",
+  "inbox",
+  "explore",
+  "me",
+  "c",
+  "j",
+  "u",
+  "t"
+]);
+function makePublicId() {
+  const bytes = crypto.getRandomValues(new Uint8Array(5));
+  return "t" + [...bytes].map((b) => b.toString(36).padStart(2, "0")).join("").replace(/[^a-z0-9]/gi, "x").slice(0, 8);
+}
+function cleanPublicId(raw2, extraReserved = []) {
+  if (typeof raw2 !== "string") return null;
+  const t = raw2.trim().replace(/^@+/, "");
+  if (!PUBLIC_ID_RE.test(t)) return null;
+  if (RESERVED_PUBLIC.has(t.toLowerCase())) return null;
+  if (extraReserved.some((x) => x.toLowerCase() === t.toLowerCase())) return null;
+  return t;
+}
+async function reservedList(db) {
+  const raw2 = await setting(db, "reserved_ids", "");
+  return raw2.split(/[, \n]+/).map((s) => s.trim().replace(/^@+/, "")).filter(Boolean);
+}
+async function ensurePublicId(db, conv) {
+  if (conv.type === "dm") return null;
+  if (conv.public_id) return conv.public_id;
+  for (let i = 0; i < 8; i++) {
+    const pid = makePublicId();
+    try {
+      await run(
+        db,
+        `UPDATE conversations SET public_id = ? WHERE id = ? AND (public_id IS NULL OR public_id = '')`,
+        pid,
+        conv.id
+      );
+      const fresh = await one(db, `SELECT * FROM conversations WHERE id = ?`, conv.id);
+      if (fresh?.public_id) {
+        conv.public_id = fresh.public_id;
+        return fresh.public_id;
+      }
+    } catch {
+    }
+  }
+  return conv.public_id || null;
+}
+function makeDeleteToken() {
+  const bytes = crypto.getRandomValues(new Uint8Array(12));
+  return [...bytes].map((b) => b.toString(36).padStart(2, "0")).join("").slice(0, 20);
+}
+function makeFiveDigit() {
+  const n = crypto.getRandomValues(new Uint32Array(1))[0] % 9e4;
+  return String(1e4 + n);
+}
+async function ensureInviteCode(db, conv) {
+  if (conv.type === "dm") return null;
+  if (conv.invite_code) return conv.invite_code;
+  const code = makeInviteCode();
+  try {
+    await run(db, `UPDATE conversations SET invite_code = ? WHERE id = ? AND (invite_code IS NULL OR invite_code = '')`, code, conv.id);
+    conv.invite_code = code;
+    return code;
+  } catch {
+    const fresh = await one(db, `SELECT * FROM conversations WHERE id = ?`, conv.id);
+    return fresh?.invite_code || null;
+  }
+}
+async function inboxItem(db, conv, user) {
+  const mem = await memberOf(db, conv.id, user.id);
+  let title = conv.title;
+  let peer = null;
+  let peerName = null;
+  if (conv.type === "dm") {
+    const otherRow = await one(
+      db,
+      `SELECT u.* FROM members m
        JOIN users u ON u.id = m.user_id
        WHERE m.conversation_id = ? AND m.user_id != ?
-       LIMIT 1`,t.id,n.id);c?(i={...B(c,n.id,!0),role:"member",muted:!1,pinned:!1,lastReadAt:0},a=B(c,n.id,!0).displayName,s=a):(s=X,a=X)}let o=await l(e,`SELECT COUNT(*) as n FROM messages
-     WHERE conversation_id = ? AND created_at > ? AND (author_id IS NULL OR author_id != ?) AND deleted_at IS NULL`,t.id,r?.last_read_at??0,n.id),u=await l(e,"SELECT COUNT(*) as n FROM members WHERE conversation_id = ?",t.id);return{id:t.id,type:t.type,title:s,description:t.description,ownerId:t.owner_id,createdAt:t.created_at,lastMessageAt:t.last_message_at,lastMessagePreview:t.last_message_preview,lastAuthorId:null,peerName:a,muted:!!r?.muted,pinned:!!r?.pinned,role:r?.role??"member",unread:o?.n??0,members:[],peer:i,pinnedMessages:[],inviteCode:t.type==="dm"?null:t.invite_code||null,publicId:t.type==="dm"?null:await Ye(e,t),memberCount:u?.n??0,joinLocked:!!t.join_locked,publicIdLocked:!!t.public_id_locked}}async function H(e,t,n){let r=await Cn(e,t),s=await D(e,t.id,n.id),i=await h(e,`SELECT m.conversation_id, m.user_id, m.role, m.muted, m.pinned, m.joined_at, m.last_read_at,
+       LIMIT 1`,
+      conv.id,
+      user.id
+    );
+    if (otherRow) {
+      peer = {
+        ...pub(otherRow, user.id, true),
+        role: "member",
+        muted: false,
+        pinned: false,
+        lastReadAt: 0
+      };
+      peerName = pub(otherRow, user.id, true).displayName;
+      title = peerName;
+    } else {
+      title = GONE_NAME;
+      peerName = GONE_NAME;
+    }
+  }
+  const unreadRow = await one(
+    db,
+    `SELECT COUNT(*) as n FROM messages
+     WHERE conversation_id = ? AND created_at > ? AND (author_id IS NULL OR author_id != ?) AND deleted_at IS NULL`,
+    conv.id,
+    mem?.last_read_at ?? 0,
+    user.id
+  );
+  const count = await one(db, `SELECT COUNT(*) as n FROM members WHERE conversation_id = ?`, conv.id);
+  return {
+    id: conv.id,
+    type: conv.type,
+    title,
+    description: conv.description,
+    ownerId: conv.owner_id,
+    createdAt: conv.created_at,
+    lastMessageAt: conv.last_message_at,
+    lastMessagePreview: conv.last_message_preview,
+    lastAuthorId: null,
+    peerName,
+    muted: !!mem?.muted,
+    pinned: !!mem?.pinned,
+    role: mem?.role ?? "member",
+    unread: unreadRow?.n ?? 0,
+    members: [],
+    peer,
+    pinnedMessages: [],
+    inviteCode: conv.type === "dm" ? null : conv.invite_code || null,
+    publicId: conv.type === "dm" ? null : await ensurePublicId(db, conv),
+    memberCount: count?.n ?? 0,
+    joinLocked: !!conv.join_locked,
+    publicIdLocked: !!conv.public_id_locked,
+    frozen: !!conv.frozen
+  };
+}
+async function conversationPayload(db, conv, user) {
+  const inviteCode = await ensureInviteCode(db, conv);
+  const mem = await memberOf(db, conv.id, user.id);
+  const members = await many(
+    db,
+    `SELECT m.conversation_id, m.user_id, m.role, m.muted, m.pinned, m.joined_at, m.last_read_at,
             u.id, u.username, u.username_lc, u.password_hash, u.display_name, u.bio, u.hue, u.badge,
             u.premium, u.signature, u.last_seen, u.last_seen_vis, u.created_at, u.avatar, u.deleted_at,
             u.banned_at, u.muted_until, u.can_create_space, u.premium_until, u.premium_note, u.premium_flags
      FROM members m JOIN users u ON u.id = m.user_id
-     WHERE m.conversation_id = ?`,t.id),a=[];for(let _ of i){let T=String(_.id||_.user_id),R=await ae(e,n.id,_.user_id);a.push({...B({..._,id:T},n.id,R),id:T,role:_.role,muted:!!_.muted,pinned:!!_.pinned,lastReadAt:_.last_read_at})}let o=t.title,u=null,c=null;if(t.type==="dm"){let _=await l(e,`SELECT u.* FROM members m
+     WHERE m.conversation_id = ?`,
+    conv.id
+  );
+  const people = [];
+  for (const m of members) {
+    const uid = String(m.id || m.user_id);
+    const contact = await areContacts(db, user.id, m.user_id);
+    people.push({
+      ...pub({ ...m, id: uid }, user.id, contact),
+      id: uid,
+      role: m.role,
+      muted: !!m.muted,
+      pinned: !!m.pinned,
+      lastReadAt: m.last_read_at
+    });
+  }
+  let title = conv.title;
+  let peer = null;
+  let peerName = null;
+  if (conv.type === "dm") {
+    const otherRow = await one(
+      db,
+      `SELECT u.* FROM members m
        JOIN users u ON u.id = m.user_id
        WHERE m.conversation_id = ? AND m.user_id != ?
-       LIMIT 1`,t.id,n.id);if(_){let T=await ae(e,n.id,_.id);u={...B(_,n.id,T),role:"member",muted:!1,pinned:!1,lastReadAt:0},c=B(_,n.id,!0).displayName,o=c}else o=X,c=X}let m=await l(e,`SELECT COUNT(*) as n FROM messages
-     WHERE conversation_id = ? AND created_at > ? AND (author_id IS NULL OR author_id != ?) AND deleted_at IS NULL`,t.id,s?.last_read_at??0,n.id),p=await h(e,"SELECT * FROM messages WHERE conversation_id = ? AND pinned = 1 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 5",t.id),g=await l(e,"SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at DESC LIMIT 1",t.id);return{id:t.id,type:t.type,title:o,description:t.description,ownerId:t.owner_id,createdAt:t.created_at,lastMessageAt:t.last_message_at,lastMessagePreview:t.last_message_preview,lastAuthorId:g?.author_id??null,peerName:c,muted:!!s?.muted,pinned:!!s?.pinned,role:s?.role??"member",unread:m?.n??0,members:a,peer:u,pinnedMessages:p.map(_=>oe(_,n.id)),inviteCode:r,publicId:t.type==="dm"?null:await Ye(e,t),memberCount:a.length}}function Mn(e){let t=e.author_id??e.authorId??null;return t==null||t===""?null:String(t)}function oe(e,t){let n=Mn(e),r=t==null?"":String(t);return{id:e.id,conversationId:e.conversation_id,authorId:n,mine:!!(r&&n&&n===r),type:e.type,body:e.deleted_at?"":e.body,replyToId:e.reply_to_id,forwardedFrom:e.forwarded_from,editedAt:e.edited_at,deleted:!!e.deleted_at,pinned:!!e.pinned,createdAt:e.created_at,mediaId:e.deleted_at?null:e.media_id??null,durationMs:e.duration_ms??null}}async function Ke(e,t,n){if(!t.length)return[];let r=t.map(c=>c.id),s=r.map(()=>"?").join(","),i=await h(e,`SELECT message_id, user_id, emoji FROM reactions WHERE message_id IN (${s})`,...r),a={};for(let c of i)(a[c.message_id]||=[]).push({emoji:c.emoji,userId:c.user_id});let o=[...new Set(t.map(c=>c.reply_to_id).filter(Boolean))],u={};if(o.length){let c=o.map(()=>"?").join(","),m=await h(e,`SELECT * FROM messages WHERE id IN (${c})`,...o);u=Object.fromEntries(m.map(p=>[p.id,p]))}return t.map(c=>({...oe(c,n),reactions:a[c.id]||[],replyTo:c.reply_to_id&&u[c.reply_to_id]?oe(u[c.reply_to_id],n):null}))}async function Je(e,t,n,r){await E(e,"UPDATE conversations SET last_message_at = ?, last_message_preview = ? WHERE id = ?",r,n,t)}async function z(e,t,n){let r=I(),s=Date.now();return await E(e,"INSERT INTO messages (id, conversation_id, author_id, type, body, created_at) VALUES (?, ?, NULL, 'system', ?, ?)",r,t,n,s),await Je(e,t,n,s),await y(e,"message",t,null,{id:r}),r}async function Pt(e,t){return t.type==="channel"?e.role==="owner"||e.role==="admin":!0}async function S(e,t){return await l(t,"SELECT id FROM users WHERE badge = 'owner' LIMIT 1")?e.badge==="owner"?"owner":e.badge==="admin"?"admin":null:"bootstrap"}function C(e){return e==="owner"||e==="bootstrap"}function Wt(e){return $e(e.premium_flags,Xe(e))}function xn(e){let t=e.req.header("cf-ipcountry")||e.req.header("CF-IPCountry")||"";return(e.req.raw?.cf?.country||t||"").toUpperCase()}function qt(e=Date.now()){let n=new Date(e+126e5);return n.setUTCHours(0,0,0,0),n.getTime()-126e5}async function kn(e,t=""){if(await N(e.env.DB,"maintenance","0")==="1")return d(e,"\u0633\u0627\u06CC\u062A \u062F\u0631 \u062D\u0627\u0644 \u062A\u0639\u0645\u06CC\u0631 \u0627\u0633\u062A",503);let n=await N(e.env.DB,"register_mode","open")||"open";if(n==="closed")return d(e,"\u062B\u0628\u062A\u200C\u0646\u0627\u0645 \u0641\u0639\u0644\u0627\u064B \u0628\u0633\u062A\u0647 \u0627\u0633\u062A",403);if(n==="invite"){let s=await N(e.env.DB,"invite_code",""),i=t.trim();if(!s||i!==s)return d(e,"\u06A9\u062F \u062F\u0639\u0648\u062A \u0644\u0627\u0632\u0645 \u0627\u0633\u062A",403)}if(await N(e.env.DB,"iran_only","0")==="1"){let s=xn(e);if(s&&s!=="IR"&&s!=="XX"&&s!=="T1")return d(e,"\u062B\u0628\u062A\u200C\u0646\u0627\u0645 \u0641\u0642\u0637 \u0627\u0632 \u0627\u06CC\u0631\u0627\u0646 \u0645\u0645\u06A9\u0646 \u0627\u0633\u062A",403)}let r=Number(await N(e.env.DB,"register_daily_cap","0"))||0;return r>0&&((await l(e.env.DB,"SELECT COUNT(*) as n FROM users WHERE created_at >= ? AND IFNULL(deleted_at, 0) = 0",qt()))?.n??0)>=r?d(e,"\u0633\u0642\u0641 \u062B\u0628\u062A\u200C\u0646\u0627\u0645 \u0627\u0645\u0631\u0648\u0632 \u067E\u0631 \u0634\u062F",429):null}function Xt(e,t){if(J(t))return d(e,"\u0627\u06CC\u0646 \u062D\u0633\u0627\u0628 \u0645\u0633\u062F\u0648\u062F \u0627\u0633\u062A",403);if(Ot(t)){let n=Math.max(1,Math.ceil((Number(t.muted_until)-Date.now())/6e4));return d(e,`\u0627\u06CC\u0646 \u062D\u0633\u0627\u0628 \u062A\u0627 ${n} \u062F\u0642\u06CC\u0642\u0647 \u0633\u06A9\u0648\u062A \u0627\u0633\u062A`,403)}return null}f.post("/auth/register",async e=>{let t=await e.req.json().catch(()=>({})),n=Mt(t.username),r=typeof t.password=="string"?t.password:"",s=V(t.displayName??t.username,1,40),i=xt(t.avatar);if(!n)return d(e,"\u06CC\u0648\u0632\u0631\u0646\u06CC\u0645 \u0628\u0627\u06CC\u062F \u0628\u0627 \u062D\u0631\u0641 \u0634\u0631\u0648\u0639 \u0628\u0634\u0647 \u0648 \u06F3 \u062A\u0627 \u06F2\u06F0 \u06A9\u0627\u0631\u0627\u06A9\u062A\u0631 \u0644\u0627\u062A\u06CC\u0646 \u0628\u0627\u0634\u0647");if(r.length<6||r.length>72)return d(e,"\u0631\u0645\u0632 \u062D\u062F\u0627\u0642\u0644 \u06F6 \u06A9\u0627\u0631\u0627\u06A9\u062A\u0631");if(!s)return d(e,"\u0627\u0633\u0645 \u0646\u0645\u0627\u06CC\u0634\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631\u0647");if(i===!1)return d(e,"\u0639\u06A9\u0633 \u067E\u0631\u0648\u0641\u0627\u06CC\u0644 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A");if(await l(e.env.DB,"SELECT id FROM users WHERE username_lc = ?",n.toLowerCase()))return d(e,"\u0627\u06CC\u0646 \u06CC\u0648\u0632\u0631\u0646\u06CC\u0645 \u06AF\u0631\u0641\u062A\u0647 \u0634\u062F\u0647",409);let o=await kn(e,typeof t.invite=="string"?t.invite:"");if(o)return o;let u=Date.now(),c=I();await E(e.env.DB,`INSERT INTO users (id, username, username_lc, password_hash, display_name, bio, hue, avatar, badge, last_seen, last_seen_vis, created_at)
-     VALUES (?, ?, ?, ?, ?, '', ?, ?, NULL, ?, 'everyone', ?)`,c,n,n.toLowerCase(),await ie(r),s,At(n.toLowerCase()),i??null,u,u);let m=ye();await E(e.env.DB,"INSERT INTO sessions (id, user_id, token_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?)",I(),c,await $(m),u+Ne,u),he(e,G,m,Ct(e,Ne/1e3));let p=await l(e.env.DB,"SELECT * FROM users WHERE id = ?",c);return e.json({user:B(p,c,!0)})});f.post("/auth/login",async e=>{let t=await e.req.json().catch(()=>({})),n=typeof t.username=="string"?t.username.trim().toLowerCase():"",r=typeof t.password=="string"?t.password:"",s=await l(e.env.DB,"SELECT * FROM users WHERE username_lc = ?",n);if(!s||M(s)||!await De(r,s.password_hash))return d(e,"\u06CC\u0648\u0632\u0631\u0646\u06CC\u0645 \u06CC\u0627 \u0631\u0645\u0632 \u0627\u0634\u062A\u0628\u0627\u0647\u0647",401);if(J(s))return d(e,s.ban_reason?`\u062D\u0633\u0627\u0628 \u0645\u0633\u062F\u0648\u062F \u0627\u0633\u062A: ${s.ban_reason}`:"\u0627\u06CC\u0646 \u062D\u0633\u0627\u0628 \u0645\u0633\u062F\u0648\u062F \u0627\u0633\u062A",403);if(await N(e.env.DB,"maintenance","0")==="1"&&s.badge!=="owner")return d(e,"\u0633\u0627\u06CC\u062A \u062F\u0631 \u062D\u0627\u0644 \u062A\u0639\u0645\u06CC\u0631 \u0627\u0633\u062A",503);let i=Date.now(),a=ye();return await E(e.env.DB,"INSERT INTO sessions (id, user_id, token_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?)",I(),s.id,await $(a),i+Ne,i),await E(e.env.DB,"UPDATE users SET last_seen = ? WHERE id = ?",i,s.id),he(e,G,a,Ct(e,Ne/1e3)),e.json({user:B(s,s.id,!0)})});f.post("/auth/logout",async e=>{let t=re(e,G);return t&&await E(e.env.DB,"DELETE FROM sessions WHERE token_hash = ?",await $(t)),We(e,G,{path:"/"}),e.json({ok:!0})});f.get("/me",async e=>{let t=await w(e);return t instanceof Response?t:e.json({user:B(t,t.id,!0)})});f.patch("/me",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await e.req.json().catch(()=>({})),r=t.display_name,s=t.bio,i=t.last_seen_vis,a=t.avatar??null,o=t.signature??"";if(n.displayName!==void 0){let c=V(n.displayName,1,40);if(!c)return d(e,"\u0627\u0633\u0645 \u0646\u0645\u0627\u06CC\u0634\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631\u0647");r=c}if(n.bio!==void 0){if(typeof n.bio!="string"||n.bio.length>180)return d(e,"\u0628\u0627\u06CC\u0648 \u062D\u062F\u0627\u06A9\u062B\u0631 \u06F1\u06F8\u06F0 \u062D\u0631\u0641");s=n.bio.trim()}if(n.lastSeenVis!==void 0){if(!["everyone","contacts","nobody"].includes(n.lastSeenVis))return d(e,"\u062D\u0631\u06CC\u0645 \u0646\u0627\u0645\u0639\u062A\u0628\u0631");i=n.lastSeenVis}if(n.avatar!==void 0){let c=xt(n.avatar);if(c===!1)return d(e,"\u0639\u06A9\u0633 \u067E\u0631\u0648\u0641\u0627\u06CC\u0644 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A");c!==void 0&&(a=c)}if(n.signature!==void 0){if(!Wt(t).signature)return d(e,"\u0627\u0645\u0636\u0627 \u0641\u0642\u0637 \u0628\u0631\u0627\u06CC \u067E\u0631\u0645\u06CC\u0648\u0645 \u0627\u0633\u062A",403);if(typeof n.signature!="string")return d(e,"\u0627\u0645\u0636\u0627 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A");let c=n.signature.replace(/\s+/g," ").trim();if(c.length>40)return d(e,"\u0627\u0645\u0636\u0627 \u062D\u062F\u0627\u06A9\u062B\u0631 \u06F4\u06F0 \u062D\u0631\u0641");o=c}await E(e.env.DB,"UPDATE users SET display_name = ?, bio = ?, last_seen_vis = ?, avatar = ?, signature = ? WHERE id = ?",r,s,i,a,o,t.id);let u=await l(e.env.DB,"SELECT * FROM users WHERE id = ?",t.id);return e.json({user:B(u,t.id,!0)})});f.patch("/me/password",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await e.req.json().catch(()=>({}));if(!await De(String(n.oldPassword||""),t.password_hash))return d(e,"\u0631\u0645\u0632 \u0641\u0639\u0644\u06CC \u0627\u0634\u062A\u0628\u0627\u0647\u0647",403);let r=String(n.newPassword||"");return r.length<6||r.length>72?d(e,"\u0631\u0645\u0632 \u062C\u062F\u06CC\u062F \u062D\u062F\u0627\u0642\u0644 \u06F6 \u06A9\u0627\u0631\u0627\u06A9\u062A\u0631"):(await E(e.env.DB,"UPDATE users SET password_hash = ? WHERE id = ?",await ie(r),t.id),e.json({ok:!0}))});f.get("/users/search",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=(e.req.query("q")||"").trim().toLowerCase();if(n.length<1)return e.json({users:[]});let r=await h(e.env.DB,`SELECT * FROM users
+       LIMIT 1`,
+      conv.id,
+      user.id
+    );
+    if (otherRow) {
+      const contact = await areContacts(db, user.id, otherRow.id);
+      peer = {
+        ...pub(otherRow, user.id, contact),
+        role: "member",
+        muted: false,
+        pinned: false,
+        lastReadAt: 0
+      };
+      peerName = pub(otherRow, user.id, true).displayName;
+      title = peerName;
+    } else {
+      title = GONE_NAME;
+      peerName = GONE_NAME;
+    }
+  }
+  const unreadRow = await one(
+    db,
+    `SELECT COUNT(*) as n FROM messages
+     WHERE conversation_id = ? AND created_at > ? AND (author_id IS NULL OR author_id != ?) AND deleted_at IS NULL`,
+    conv.id,
+    mem?.last_read_at ?? 0,
+    user.id
+  );
+  const pinned = await many(
+    db,
+    `SELECT * FROM messages WHERE conversation_id = ? AND pinned = 1 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 5`,
+    conv.id
+  );
+  const last = await one(
+    db,
+    `SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at DESC LIMIT 1`,
+    conv.id
+  );
+  return {
+    id: conv.id,
+    type: conv.type,
+    title,
+    description: conv.description,
+    ownerId: conv.owner_id,
+    createdAt: conv.created_at,
+    lastMessageAt: conv.last_message_at,
+    lastMessagePreview: conv.last_message_preview,
+    lastAuthorId: last?.author_id ?? null,
+    peerName,
+    muted: !!mem?.muted,
+    pinned: !!mem?.pinned,
+    role: mem?.role ?? "member",
+    unread: unreadRow?.n ?? 0,
+    members: people,
+    peer,
+    pinnedMessages: pinned.map((m) => serializeMessage(m, user.id)),
+    inviteCode,
+    publicId: conv.type === "dm" ? null : await ensurePublicId(db, conv),
+    memberCount: people.length,
+    joinLocked: !!conv.join_locked,
+    publicIdLocked: !!conv.public_id_locked,
+    frozen: !!conv.frozen
+  };
+}
+function rowAuthorId(m) {
+  const raw2 = m.author_id ?? m.authorId ?? null;
+  if (raw2 == null || raw2 === "") return null;
+  return String(raw2);
+}
+function serializeMessage(m, viewerId) {
+  const authorId = rowAuthorId(m);
+  const vid = viewerId == null ? "" : String(viewerId);
+  return {
+    id: m.id,
+    conversationId: m.conversation_id,
+    authorId,
+    mine: !!(vid && authorId && authorId === vid),
+    type: m.type,
+    body: m.deleted_at ? "" : m.body,
+    replyToId: m.reply_to_id,
+    forwardedFrom: m.forwarded_from,
+    editedAt: m.edited_at,
+    deleted: !!m.deleted_at,
+    pinned: !!m.pinned,
+    createdAt: m.created_at,
+    mediaId: m.deleted_at ? null : m.media_id ?? null,
+    durationMs: m.duration_ms ?? null
+  };
+}
+async function messagesWithExtras(db, rows, viewerId) {
+  if (!rows.length) return [];
+  const ids = rows.map((r) => r.id);
+  const placeholders = ids.map(() => "?").join(",");
+  const reacts = await many(
+    db,
+    `SELECT message_id, user_id, emoji FROM reactions WHERE message_id IN (${placeholders})`,
+    ...ids
+  );
+  const byMsg = {};
+  for (const r of reacts) {
+    (byMsg[r.message_id] ||= []).push({ emoji: r.emoji, userId: r.user_id });
+  }
+  const replyIds = [...new Set(rows.map((r) => r.reply_to_id).filter(Boolean))];
+  let replies = {};
+  if (replyIds.length) {
+    const ph = replyIds.map(() => "?").join(",");
+    const rr = await many(db, `SELECT * FROM messages WHERE id IN (${ph})`, ...replyIds);
+    replies = Object.fromEntries(rr.map((x) => [x.id, x]));
+  }
+  return rows.map((m) => ({
+    ...serializeMessage(m, viewerId),
+    reactions: byMsg[m.id] || [],
+    replyTo: m.reply_to_id && replies[m.reply_to_id] ? serializeMessage(replies[m.reply_to_id], viewerId) : null
+  }));
+}
+async function touchConv(db, id, preview, at) {
+  await run(
+    db,
+    `UPDATE conversations SET last_message_at = ?, last_message_preview = ? WHERE id = ?`,
+    at,
+    preview,
+    id
+  );
+}
+async function addSystem(db, convId, body) {
+  const id = randomId();
+  const now = Date.now();
+  await run(
+    db,
+    `INSERT INTO messages (id, conversation_id, author_id, type, body, created_at) VALUES (?, ?, NULL, 'system', ?, ?)`,
+    id,
+    convId,
+    body,
+    now
+  );
+  await touchConv(db, convId, body, now);
+  await emit(db, "message", convId, null, { id });
+  return id;
+}
+async function canPost(mem, conv) {
+  if (conv.type === "channel") return mem.role === "owner" || mem.role === "admin";
+  return true;
+}
+async function requireOwnerLike(user, db) {
+  const owner = await one(db, `SELECT id FROM users WHERE badge = 'owner' LIMIT 1`);
+  if (!owner) return "bootstrap";
+  if (user.badge === "owner") return "owner";
+  if (user.badge === "admin") return "admin";
+  return null;
+}
+function isOwnerGate(gate) {
+  return gate === "owner" || gate === "bootstrap";
+}
+function isReportsOnly(user, gate) {
+  return gate === "admin" && String(user.staff_scope || "full") === "reports";
+}
+function denyReportsOnly(c, user, gate) {
+  if (isReportsOnly(user, gate)) return jsonError(c, "\u0627\u06CC\u0646 \u062D\u0633\u0627\u0628 \u0641\u0642\u0637 \u06AF\u0632\u0627\u0631\u0634 \u0645\u06CC\u200C\u0628\u06CC\u0646\u062F", 403);
+  return null;
+}
+async function featureOn(db, key) {
+  return await setting(db, key, "1") !== "0";
+}
+function parseHm(raw2) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(raw2 || "").trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (h > 23 || min > 59) return null;
+  return h * 60 + min;
+}
+function tehranMinutes(now = Date.now()) {
+  const offset = 3.5 * 3600 * 1e3;
+  const d = new Date(now + offset);
+  return d.getUTCHours() * 60 + d.getUTCMinutes();
+}
+async function inQuietHours(db, now = Date.now()) {
+  const start = parseHm(await setting(db, "quiet_start", ""));
+  const end = parseHm(await setting(db, "quiet_end", ""));
+  if (start == null || end == null) return false;
+  if (start === end) return false;
+  const cur = tehranMinutes(now);
+  if (start < end) return cur >= start && cur < end;
+  return cur >= start || cur < end;
+}
+function filterWords(raw2) {
+  return raw2.split(/[,|\n]+/).map((s) => s.trim().toLowerCase()).filter((s) => s.length >= 2);
+}
+function hitsFilter(text, words) {
+  const t = text.toLowerCase();
+  for (const w of words) if (t.includes(w)) return w;
+  return null;
+}
+async function liveAnnounce(db) {
+  if (await setting(db, "announce_on", "0") !== "1") return null;
+  const now = Date.now();
+  const start = Number(await setting(db, "announce_start", "0")) || 0;
+  const end = Number(await setting(db, "announce_end", "0")) || 0;
+  if (start > 0 && now < start) return null;
+  if (end > 0 && now > end) return null;
+  const body = (await setting(db, "announce_body", "")).trim();
+  return body || null;
+}
+function makeShortCode(prefix = "T") {
+  const bytes = crypto.getRandomValues(new Uint8Array(5));
+  return prefix + [...bytes].map((b) => b.toString(36).toUpperCase()).join("").replace(/[^A-Z0-9]/g, "X").slice(0, 8);
+}
+function packOfUser(u) {
+  return parsePack(u.premium_flags, livePremium(u));
+}
+function countryOf(c) {
+  const h = c.req.header("cf-ipcountry") || c.req.header("CF-IPCountry") || "";
+  const cf = c.req.raw?.cf?.country;
+  return (cf || h || "").toUpperCase();
+}
+function tehranDayStart(now = Date.now()) {
+  const offset = 3.5 * 3600 * 1e3;
+  const shifted = new Date(now + offset);
+  shifted.setUTCHours(0, 0, 0, 0);
+  return shifted.getTime() - offset;
+}
+async function registerGate(c, invite = "") {
+  if (await setting(c.env.DB, "maintenance", "0") === "1") {
+    return jsonError(c, "\u0633\u0627\u06CC\u062A \u062F\u0631 \u062D\u0627\u0644 \u062A\u0639\u0645\u06CC\u0631 \u0627\u0633\u062A", 503);
+  }
+  const mode = await setting(c.env.DB, "register_mode", "open") || "open";
+  if (mode === "closed") return jsonError(c, "\u062B\u0628\u062A\u200C\u0646\u0627\u0645 \u0641\u0639\u0644\u0627\u064B \u0628\u0633\u062A\u0647 \u0627\u0633\u062A", 403);
+  if (mode === "invite") {
+    const got = invite.trim();
+    if (!got) return jsonError(c, "\u06A9\u062F \u062F\u0639\u0648\u062A \u0644\u0627\u0632\u0645 \u0627\u0633\u062A", 403);
+    const ticket = await one(
+      c.env.DB,
+      `SELECT code, uses_left FROM invite_tickets WHERE code = ? AND uses_left > 0`,
+      got
+    );
+    if (ticket) {
+      await run(c.env.DB, `UPDATE invite_tickets SET uses_left = uses_left - 1 WHERE code = ? AND uses_left > 0`, got);
+    } else {
+      const need = await setting(c.env.DB, "invite_code", "");
+      if (!need || got !== need) return jsonError(c, "\u06A9\u062F \u062F\u0639\u0648\u062A \u0644\u0627\u0632\u0645 \u0627\u0633\u062A", 403);
+    }
+  }
+  if (await setting(c.env.DB, "iran_only", "0") === "1") {
+    const cc = countryOf(c);
+    if (cc && cc !== "IR" && cc !== "XX" && cc !== "T1") {
+      return jsonError(c, "\u062B\u0628\u062A\u200C\u0646\u0627\u0645 \u0641\u0642\u0637 \u0627\u0632 \u0627\u06CC\u0631\u0627\u0646 \u0645\u0645\u06A9\u0646 \u0627\u0633\u062A", 403);
+    }
+  }
+  const cap = Number(await setting(c.env.DB, "register_daily_cap", "0")) || 0;
+  if (cap > 0) {
+    const n = await one(
+      c.env.DB,
+      `SELECT COUNT(*) as n FROM users WHERE created_at >= ? AND IFNULL(deleted_at, 0) = 0`,
+      tehranDayStart()
+    );
+    if ((n?.n ?? 0) >= cap) return jsonError(c, "\u0633\u0642\u0641 \u062B\u0628\u062A\u200C\u0646\u0627\u0645 \u0627\u0645\u0631\u0648\u0632 \u067E\u0631 \u0634\u062F", 429);
+  }
+  return null;
+}
+async function denyWrite(c, user) {
+  if (isBanned(user)) return jsonError(c, "\u0627\u06CC\u0646 \u062D\u0633\u0627\u0628 \u0645\u0633\u062F\u0648\u062F \u0627\u0633\u062A", 403);
+  if (isMuted(user)) {
+    const left = Math.max(1, Math.ceil((Number(user.muted_until) - Date.now()) / 6e4));
+    return jsonError(c, `\u0627\u06CC\u0646 \u062D\u0633\u0627\u0628 \u062A\u0627 ${left} \u062F\u0642\u06CC\u0642\u0647 \u0633\u06A9\u0648\u062A \u0627\u0633\u062A`, 403);
+  }
+  if (user.badge === "owner") return null;
+  if (await setting(c.env.DB, "panic", "0") === "1") {
+    return jsonError(c, "\u0646\u0648\u0634\u062A\u0646 \u062F\u0631 \u06A9\u0644 \u0633\u0627\u06CC\u062A \u0641\u0639\u0644\u0627\u064B \u0642\u0637\u0639 \u0627\u0633\u062A", 403);
+  }
+  if (await inQuietHours(c.env.DB)) {
+    return jsonError(c, "\u0633\u0627\u0639\u062A \u0633\u06A9\u0648\u062A \u0627\u0633\u062A\u061B \u0628\u0639\u062F\u0627\u064B \u0628\u0646\u0648\u06CC\u0633", 403);
+  }
+  const coolH = Number(await setting(c.env.DB, "register_cooldown_hours", "0")) || 0;
+  if (coolH > 0 && Number(user.created_at || 0) + coolH * 36e5 > Date.now()) {
+    return jsonError(c, "\u062D\u0633\u0627\u0628 \u062A\u0627\u0632\u0647 \u0627\u0633\u062A\u061B \u06A9\u0645\u06CC \u0628\u0639\u062F \u0628\u0646\u0648\u06CC\u0633", 403);
+  }
+  return null;
+}
+app.post("/auth/register", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const username = cleanUsername(body.username);
+  const password = typeof body.password === "string" ? body.password : "";
+  const displayName = cleanText(body.displayName ?? body.username, 1, 40);
+  const avatar = parseAvatar(body.avatar);
+  if (!username) return jsonError(c, "\u06CC\u0648\u0632\u0631\u0646\u06CC\u0645 \u0628\u0627\u06CC\u062F \u0628\u0627 \u062D\u0631\u0641 \u0634\u0631\u0648\u0639 \u0628\u0634\u0647 \u0648 \u06F3 \u062A\u0627 \u06F2\u06F0 \u06A9\u0627\u0631\u0627\u06A9\u062A\u0631 \u0644\u0627\u062A\u06CC\u0646 \u0628\u0627\u0634\u0647");
+  if (password.length < 6 || password.length > 72) return jsonError(c, "\u0631\u0645\u0632 \u062D\u062F\u0627\u0642\u0644 \u06F6 \u06A9\u0627\u0631\u0627\u06A9\u062A\u0631");
+  if (!displayName) return jsonError(c, "\u0627\u0633\u0645 \u0646\u0645\u0627\u06CC\u0634\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631\u0647");
+  if (avatar === false) return jsonError(c, "\u0639\u06A9\u0633 \u067E\u0631\u0648\u0641\u0627\u06CC\u0644 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A");
+  const exists = await one(c.env.DB, `SELECT id FROM users WHERE username_lc = ?`, username.toLowerCase());
+  if (exists) return jsonError(c, "\u0627\u06CC\u0646 \u06CC\u0648\u0632\u0631\u0646\u06CC\u0645 \u06AF\u0631\u0641\u062A\u0647 \u0634\u062F\u0647", 409);
+  const gate = await registerGate(c, typeof body.invite === "string" ? body.invite : "");
+  if (gate) return gate;
+  const now = Date.now();
+  const id = randomId();
+  await run(
+    c.env.DB,
+    `INSERT INTO users (id, username, username_lc, password_hash, display_name, bio, hue, avatar, badge, last_seen, last_seen_vis, created_at)
+     VALUES (?, ?, ?, ?, ?, '', ?, ?, NULL, ?, 'everyone', ?)`,
+    id,
+    username,
+    username.toLowerCase(),
+    await hashPassword(password),
+    displayName,
+    hueFrom(username.toLowerCase()),
+    avatar ?? null,
+    now,
+    now
+  );
+  const token = randomToken();
+  await run(
+    c.env.DB,
+    `INSERT INTO sessions (id, user_id, token_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?)`,
+    randomId(),
+    id,
+    await sha256Hex(token),
+    now + SESSION_MS,
+    now
+  );
+  setCookie(c, COOKIE, token, cookieOpts(c, SESSION_MS / 1e3));
+  const cc = countryOf(c);
+  if (cc) await run(c.env.DB, `UPDATE users SET last_country = ? WHERE id = ?`, cc, id);
+  const user = await one(c.env.DB, `SELECT * FROM users WHERE id = ?`, id);
+  return c.json({ user: pub(user, id, true) });
+});
+app.post("/auth/login", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const username = typeof body.username === "string" ? body.username.trim().toLowerCase() : "";
+  const password = typeof body.password === "string" ? body.password : "";
+  const user = await one(c.env.DB, `SELECT * FROM users WHERE username_lc = ?`, username);
+  if (!user || isGone(user) || !await verifyPassword(password, user.password_hash)) {
+    return jsonError(c, "\u06CC\u0648\u0632\u0631\u0646\u06CC\u0645 \u06CC\u0627 \u0631\u0645\u0632 \u0627\u0634\u062A\u0628\u0627\u0647\u0647", 401);
+  }
+  if (isBanned(user)) return jsonError(c, user.ban_reason ? `\u062D\u0633\u0627\u0628 \u0645\u0633\u062F\u0648\u062F \u0627\u0633\u062A: ${user.ban_reason}` : "\u0627\u06CC\u0646 \u062D\u0633\u0627\u0628 \u0645\u0633\u062F\u0648\u062F \u0627\u0633\u062A", 403);
+  if (await setting(c.env.DB, "maintenance", "0") === "1" && user.badge !== "owner") {
+    const custom = (await setting(c.env.DB, "maintenance_text", "")).trim();
+    return jsonError(c, custom || "\u0633\u0627\u06CC\u062A \u062F\u0631 \u062D\u0627\u0644 \u062A\u0639\u0645\u06CC\u0631 \u0627\u0633\u062A", 503);
+  }
+  const now = Date.now();
+  const token = randomToken();
+  await run(
+    c.env.DB,
+    `INSERT INTO sessions (id, user_id, token_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?)`,
+    randomId(),
+    user.id,
+    await sha256Hex(token),
+    now + SESSION_MS,
+    now
+  );
+  const cc = countryOf(c);
+  await run(c.env.DB, `UPDATE users SET last_seen = ?${cc ? ", last_country = ?" : ""} WHERE id = ?`, ...cc ? [now, cc, user.id] : [now, user.id]);
+  setCookie(c, COOKIE, token, cookieOpts(c, SESSION_MS / 1e3));
+  return c.json({ user: pub(user, user.id, true) });
+});
+app.post("/auth/logout", async (c) => {
+  const token = getCookie(c, COOKIE);
+  if (token) {
+    await run(c.env.DB, `DELETE FROM sessions WHERE token_hash = ?`, await sha256Hex(token));
+  }
+  deleteCookie(c, COOKIE, { path: "/" });
+  return c.json({ ok: true });
+});
+app.get("/me", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  return c.json({ user: pub(user, user.id, true) });
+});
+app.patch("/me", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const body = await c.req.json().catch(() => ({}));
+  let display = user.display_name;
+  let bio = user.bio;
+  let vis = user.last_seen_vis;
+  let avatar = user.avatar ?? null;
+  let signature = user.signature ?? "";
+  if (body.displayName !== void 0) {
+    const d = cleanText(body.displayName, 1, 40);
+    if (!d) return jsonError(c, "\u0627\u0633\u0645 \u0646\u0645\u0627\u06CC\u0634\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631\u0647");
+    display = d;
+  }
+  if (body.bio !== void 0) {
+    if (typeof body.bio !== "string" || body.bio.length > 180) return jsonError(c, "\u0628\u0627\u06CC\u0648 \u062D\u062F\u0627\u06A9\u062B\u0631 \u06F1\u06F8\u06F0 \u062D\u0631\u0641");
+    bio = body.bio.trim();
+  }
+  if (body.lastSeenVis !== void 0) {
+    if (!["everyone", "contacts", "nobody"].includes(body.lastSeenVis)) return jsonError(c, "\u062D\u0631\u06CC\u0645 \u0646\u0627\u0645\u0639\u062A\u0628\u0631");
+    vis = body.lastSeenVis;
+  }
+  if (body.avatar !== void 0) {
+    const parsed = parseAvatar(body.avatar);
+    if (parsed === false) return jsonError(c, "\u0639\u06A9\u0633 \u067E\u0631\u0648\u0641\u0627\u06CC\u0644 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A");
+    if (parsed !== void 0) avatar = parsed;
+  }
+  if (body.signature !== void 0) {
+    if (!packOfUser(user).signature) return jsonError(c, "\u0627\u0645\u0636\u0627 \u0641\u0642\u0637 \u0628\u0631\u0627\u06CC \u067E\u0631\u0645\u06CC\u0648\u0645 \u0627\u0633\u062A", 403);
+    if (typeof body.signature !== "string") return jsonError(c, "\u0627\u0645\u0636\u0627 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A");
+    const s = body.signature.replace(/\s+/g, " ").trim();
+    if (s.length > 40) return jsonError(c, "\u0627\u0645\u0636\u0627 \u062D\u062F\u0627\u06A9\u062B\u0631 \u06F4\u06F0 \u062D\u0631\u0641");
+    signature = s;
+  }
+  await run(
+    c.env.DB,
+    `UPDATE users SET display_name = ?, bio = ?, last_seen_vis = ?, avatar = ?, signature = ? WHERE id = ?`,
+    display,
+    bio,
+    vis,
+    avatar,
+    signature,
+    user.id
+  );
+  const fresh = await one(c.env.DB, `SELECT * FROM users WHERE id = ?`, user.id);
+  return c.json({ user: pub(fresh, user.id, true) });
+});
+app.patch("/me/password", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const body = await c.req.json().catch(() => ({}));
+  if (!await verifyPassword(String(body.oldPassword || ""), user.password_hash)) {
+    return jsonError(c, "\u0631\u0645\u0632 \u0641\u0639\u0644\u06CC \u0627\u0634\u062A\u0628\u0627\u0647\u0647", 403);
+  }
+  const next = String(body.newPassword || "");
+  if (next.length < 6 || next.length > 72) return jsonError(c, "\u0631\u0645\u0632 \u062C\u062F\u06CC\u062F \u062D\u062F\u0627\u0642\u0644 \u06F6 \u06A9\u0627\u0631\u0627\u06A9\u062A\u0631");
+  await run(c.env.DB, `UPDATE users SET password_hash = ? WHERE id = ?`, await hashPassword(next), user.id);
+  return c.json({ ok: true });
+});
+app.get("/users/search", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const q = (c.req.query("q") || "").trim().toLowerCase();
+  if (q.length < 1) return c.json({ users: [] });
+  const rows = await many(
+    c.env.DB,
+    `SELECT * FROM users
      WHERE id != ? AND IFNULL(deleted_at, 0) = 0 AND (username_lc LIKE ? OR lower(display_name) LIKE ?)
-     ORDER BY username_lc LIMIT 20`,t.id,`%${n}%`,`%${n}%`),s=new Set((await h(e.env.DB,"SELECT blocked_id FROM blocks WHERE blocker_id = ?",t.id)).map(a=>a.blocked_id)),i=r.filter(a=>!s.has(a.id));return e.json({users:await Ve(e.env.DB,i,t)})});f.get("/users/:username",async e=>{let t=await w(e,!0);if(t instanceof Response)return t;let n=await l(e.env.DB,"SELECT * FROM users WHERE username_lc = ?",e.req.param("username").toLowerCase());if(!n)return d(e,"\u06A9\u0627\u0631\u0628\u0631 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F",404);let r=t?await ae(e.env.DB,t.id,n.id):!1,s=t?await be(e.env.DB,t.id,n.id):!1;return e.json({user:B(n,t?.id??null,r),blocked:s})});f.get("/conversations",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await h(e.env.DB,`SELECT c.* FROM conversations c
+     ORDER BY username_lc LIMIT 20`,
+    user.id,
+    `%${q}%`,
+    `%${q}%`
+  );
+  const blockedIds = new Set(
+    (await many(c.env.DB, `SELECT blocked_id FROM blocks WHERE blocker_id = ?`, user.id)).map((b) => b.blocked_id)
+  );
+  const filtered = rows.filter((r) => !blockedIds.has(r.id));
+  return c.json({ users: await hydrateUsers(c.env.DB, filtered, user) });
+});
+app.get("/users/:username", async (c) => {
+  const user = await auth(c, true);
+  if (user instanceof Response) return user;
+  const target = await one(
+    c.env.DB,
+    `SELECT * FROM users WHERE username_lc = ?`,
+    c.req.param("username").toLowerCase()
+  );
+  if (!target) return jsonError(c, "\u06A9\u0627\u0631\u0628\u0631 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F", 404);
+  const contact = user ? await areContacts(c.env.DB, user.id, target.id) : false;
+  const isBlocked = user ? await blocked(c.env.DB, user.id, target.id) : false;
+  return c.json({ user: pub(target, user?.id ?? null, contact), blocked: isBlocked });
+});
+app.get("/conversations", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const rows = await many(
+    c.env.DB,
+    `SELECT c.* FROM conversations c
      JOIN members m ON m.conversation_id = c.id AND m.user_id = ?
-     ORDER BY m.pinned DESC, c.last_message_at DESC`,t.id),r=[];for(let s of n)r.push(await Un(e.env.DB,s,t));return e.json({conversations:r})});f.get("/conversations/:id",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await l(e.env.DB,"SELECT * FROM conversations WHERE id = ?",e.req.param("id"));return n?await D(e.env.DB,n.id,t.id)?e.json({conversation:await H(e.env.DB,n,t)}):d(e,"\u0639\u0636\u0648 \u0627\u06CC\u0646 \u06AF\u0641\u062A\u06AF\u0648 \u0646\u06CC\u0633\u062A\u06CC",403):d(e,"\u06AF\u0641\u062A\u06AF\u0648 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F",404)});f.post("/conversations/dm",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await e.req.json().catch(()=>({})),r=typeof n.username=="string"?n.username.trim().toLowerCase():"",s=await l(e.env.DB,"SELECT * FROM users WHERE username_lc = ?",r);if(!s||M(s))return d(e,"\u06A9\u0627\u0631\u0628\u0631 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F",404);if(s.id===t.id)return d(e,"\u0646\u0645\u06CC\u200C\u062A\u0648\u0646\u06CC \u0628\u0627 \u062E\u0648\u062F\u062A \u0686\u062A \u06A9\u0646\u06CC");if(await be(e.env.DB,t.id,s.id))return d(e,"\u0627\u06CC\u0646 \u06AF\u0641\u062A\u06AF\u0648 \u0645\u0633\u062F\u0648\u062F\u0647",403);let i=[t.id,s.id].sort().join(":"),a=await l(e.env.DB,"SELECT * FROM conversations WHERE dm_key = ?",i);if(!a){let o=I(),u=Date.now();await E(e.env.DB,`INSERT INTO conversations (id, type, title, description, owner_id, dm_key, created_at, last_message_at, last_message_preview)
-       VALUES (?, 'dm', NULL, '', ?, ?, ?, ?, '')`,o,t.id,i,u,u),await E(e.env.DB,"INSERT INTO members (conversation_id, user_id, role, joined_at, last_read_at) VALUES (?, ?, 'member', ?, ?)",o,t.id,u,u),await E(e.env.DB,"INSERT INTO members (conversation_id, user_id, role, joined_at, last_read_at) VALUES (?, ?, 'member', ?, ?)",o,s.id,u,u),a=await l(e.env.DB,"SELECT * FROM conversations WHERE id = ?",o),await y(e.env.DB,"conversation",o,t.id,{type:"dm"})}return e.json({conversation:await H(e.env.DB,a,t)})});f.post("/conversations/group",async e=>{let t=await w(e);if(t instanceof Response)return t;if(Number(t.can_create_space??1)===0)return d(e,"\u0633\u0627\u062E\u062A \u06AF\u0631\u0648\u0647 \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u062D\u0633\u0627\u0628 \u0628\u0633\u062A\u0647 \u0627\u0633\u062A",403);let n=await e.req.json().catch(()=>({})),r=V(n.title,1,40);if(!r)return d(e,"\u0627\u0633\u0645 \u06AF\u0631\u0648\u0647 \u0644\u0627\u0632\u0645 \u0627\u0633\u062A");let s=Array.isArray(n.usernames)?n.usernames:[],i=I(),a=Date.now(),o=Ht(),u=Ft();await E(e.env.DB,`INSERT INTO conversations (id, type, title, description, owner_id, created_at, last_message_at, last_message_preview, invite_code, public_id)
-     VALUES (?, 'group', ?, ?, ?, ?, ?, ?, ?, ?)`,i,r,typeof n.description=="string"?n.description.slice(0,240):"",t.id,a,a,"\u06AF\u0631\u0648\u0647 \u0633\u0627\u062E\u062A\u0647 \u0634\u062F",o,u),await E(e.env.DB,"INSERT INTO members (conversation_id, user_id, role, joined_at, last_read_at) VALUES (?, ?, 'owner', ?, ?)",i,t.id,a,a);for(let m of s.slice(0,40)){let p=await l(e.env.DB,"SELECT * FROM users WHERE username_lc = ?",String(m).toLowerCase());!p||M(p)||p.id===t.id||await be(e.env.DB,t.id,p.id)||await E(e.env.DB,"INSERT OR IGNORE INTO members (conversation_id, user_id, role, joined_at, last_read_at) VALUES (?, ?, 'member', ?, ?)",i,p.id,a,0)}await z(e.env.DB,i,`${t.display_name} \u06AF\u0631\u0648\u0647 \xAB${r}\xBB \u0631\u0627 \u0633\u0627\u062E\u062A`),await y(e.env.DB,"conversation",i,t.id,{type:"group"});let c=await l(e.env.DB,"SELECT * FROM conversations WHERE id = ?",i);return e.json({conversation:await H(e.env.DB,c,t)})});f.post("/conversations/channel",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await e.req.json().catch(()=>({})),r=V(n.title,1,40);if(!r)return d(e,"\u0627\u0633\u0645 \u06A9\u0627\u0646\u0627\u0644 \u0644\u0627\u0632\u0645 \u0627\u0633\u062A");let s=I(),i=Date.now();await E(e.env.DB,`INSERT INTO conversations (id, type, title, description, owner_id, created_at, last_message_at, last_message_preview)
-     VALUES (?, 'channel', ?, ?, ?, ?, ?, ?)`,s,r,typeof n.description=="string"?n.description.slice(0,240):"",t.id,i,i,"\u06A9\u0627\u0646\u0627\u0644 \u0633\u0627\u062E\u062A\u0647 \u0634\u062F"),await E(e.env.DB,"INSERT INTNTO members (conversation_id, user_id, role, joined_at, last_read_at) VALUES (?, ?, 'owner', ?, ?)",s,t.id,i,i),await z(e.env.DB,s,`${t.display_name} \u06A9\u0627\u0646\u0627\u0644 \xAB${r}\xBB \u0631\u0627 \u0633\u0627\u062E\u062A`),await y(e.env.DB,"conversation",s,t.id,{type:"channel"});let a=await l(e.env.DB,"SELECT * FROM conversations WHERE id = ?",s);return e.json({conversation:await H(e.env.DB,a,t)})});f.get("/invites/:code",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=String(e.req.param("code")||"").trim().toLowerCase();if(!n)return d(e,"\u0644\u06CC\u0646\u06A9 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A");let r=await l(e.env.DB,"SELECT * FROM conversations WHERE lower(invite_code) = ? AND type IN ('group', 'channel')",n);if(!r)return d(e,"\u0627\u06CC\u0646 \u0644\u06CC\u0646\u06A9 \u0645\u0639\u062A\u0628\u0631 \u0646\u06CC\u0633\u062A",404);let s=await D(e.env.DB,r.id,t.id),i=await l(e.env.DB,"SELECT COUNT(*) as n FROM members WHERE conversation_id = ?",r.id);return e.json({invite:{code:r.invite_code,id:r.id,type:r.type,title:r.title,description:r.description,members:i?.n??0,joined:!!s}})});f.post("/invites/:code/join",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=String(e.req.param("code")||"").trim().toLowerCase(),r=await l(e.env.DB,"SELECT * FROM conversations WHERE lower(invite_code) = ? AND type IN ('group', 'channel')",n);if(!r)return d(e,"\u0627\u06CC\u0646 \u0644\u06CC\u0646\u06A9 \u0645\u0639\u062A\u0628\u0631 \u0646\u06CC\u0633\u062A",404);let s=await D(e.env.DB,r.id,t.id);if(!s&&r.join_locked)return d(e,"\u0639\u0636\u0648\u06CC\u062A \u0627\u06CC\u0646 \u0641\u0636\u0627 \u0628\u0633\u062A\u0647 \u0627\u0633\u062A",403);if(!s){let i=Date.now(),a=r.type==="channel"?"subscriber":"member";await E(e.env.DB,"INSERT OR IGNORE INTO members (conversation_id, user_id, role, joined_at, last_read_at) VALUES (?, ?, ?, ?, ?)",r.id,t.id,a,i,i),await z(e.env.DB,r.id,`${t.display_name} \u0648\u0627\u0631\u062F \u0634\u062F`),await y(e.env.DB,"members",r.id,t.id,{join:!0})}return e.json({conversation:await H(e.env.DB,r,t)})});f.get("/explore/spaces",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=e.req.query("type")==="channel"?"channel":"group",r=(e.req.query("q")||"").trim().replace(/^@+/,""),s=[];r?s=await h(e.env.DB,`SELECT * FROM conversations
+     ORDER BY m.pinned DESC, c.last_message_at DESC`,
+    user.id
+  );
+  const items = [];
+  for (const row of rows) items.push(await inboxItem(c.env.DB, row, user));
+  return c.json({ conversations: items });
+});
+app.get("/conversations/:id", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const conv = await one(c.env.DB, `SELECT * FROM conversations WHERE id = ?`, c.req.param("id"));
+  if (!conv) return jsonError(c, "\u06AF\u0641\u062A\u06AF\u0648 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F", 404);
+  const mem = await memberOf(c.env.DB, conv.id, user.id);
+  if (!mem) return jsonError(c, "\u0639\u0636\u0648 \u0627\u06CC\u0646 \u06AF\u0641\u062A\u06AF\u0648 \u0646\u06CC\u0633\u062A\u06CC", 403);
+  return c.json({ conversation: await conversationPayload(c.env.DB, conv, user) });
+});
+app.post("/conversations/dm", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const body = await c.req.json().catch(() => ({}));
+  const uname = typeof body.username === "string" ? body.username.trim().toLowerCase() : "";
+  const other = await one(c.env.DB, `SELECT * FROM users WHERE username_lc = ?`, uname);
+  if (!other || isGone(other)) return jsonError(c, "\u06A9\u0627\u0631\u0628\u0631 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F", 404);
+  if (other.id === user.id) return jsonError(c, "\u0646\u0645\u06CC\u200C\u062A\u0648\u0646\u06CC \u0628\u0627 \u062E\u0648\u062F\u062A \u0686\u062A \u06A9\u0646\u06CC");
+  if (await blocked(c.env.DB, user.id, other.id)) return jsonError(c, "\u0627\u06CC\u0646 \u06AF\u0641\u062A\u06AF\u0648 \u0645\u0633\u062F\u0648\u062F\u0647", 403);
+  const key = [user.id, other.id].sort().join(":");
+  let conv = await one(c.env.DB, `SELECT * FROM conversations WHERE dm_key = ?`, key);
+  if (!conv) {
+    const id = randomId();
+    const now = Date.now();
+    await run(
+      c.env.DB,
+      `INSERT INTO conversations (id, type, title, description, owner_id, dm_key, created_at, last_message_at, last_message_preview)
+       VALUES (?, 'dm', NULL, '', ?, ?, ?, ?, '')`,
+      id,
+      user.id,
+      key,
+      now,
+      now
+    );
+    await run(
+      c.env.DB,
+      `INSERT INTO members (conversation_id, user_id, role, joined_at, last_read_at) VALUES (?, ?, 'member', ?, ?)`,
+      id,
+      user.id,
+      now,
+      now
+    );
+    await run(
+      c.env.DB,
+      `INSERT INTO members (conversation_id, user_id, role, joined_at, last_read_at) VALUES (?, ?, 'member', ?, ?)`,
+      id,
+      other.id,
+      now,
+      now
+    );
+    conv = await one(c.env.DB, `SELECT * FROM conversations WHERE id = ?`, id);
+    await emit(c.env.DB, "conversation", id, user.id, { type: "dm" });
+  }
+  return c.json({ conversation: await conversationPayload(c.env.DB, conv, user) });
+});
+app.post("/conversations/group", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  if (user.badge !== "owner" && !await featureOn(c.env.DB, "feature_create_space")) {
+    return jsonError(c, "\u0633\u0627\u062E\u062A \u06AF\u0631\u0648\u0647 \u0641\u0639\u0644\u0627\u064B \u062E\u0627\u0645\u0648\u0634 \u0627\u0633\u062A", 403);
+  }
+  if (Number(user.can_create_space ?? 1) === 0) return jsonError(c, "\u0633\u0627\u062E\u062A \u06AF\u0631\u0648\u0647 \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u062D\u0633\u0627\u0628 \u0628\u0633\u062A\u0647 \u0627\u0633\u062A", 403);
+  const body = await c.req.json().catch(() => ({}));
+  const title = cleanText(body.title, 1, 40);
+  if (!title) return jsonError(c, "\u0627\u0633\u0645 \u06AF\u0631\u0648\u0647 \u0644\u0627\u0632\u0645 \u0627\u0633\u062A");
+  const usernames = Array.isArray(body.usernames) ? body.usernames : [];
+  const id = randomId();
+  const now = Date.now();
+  const invite = makeInviteCode();
+  const publicId = makePublicId();
+  await run(
+    c.env.DB,
+    `INSERT INTO conversations (id, type, title, description, owner_id, created_at, last_message_at, last_message_preview, invite_code, public_id)
+     VALUES (?, 'group', ?, ?, ?, ?, ?, ?, ?, ?)`,
+    id,
+    title,
+    typeof body.description === "string" ? body.description.slice(0, 240) : "",
+    user.id,
+    now,
+    now,
+    "\u06AF\u0631\u0648\u0647 \u0633\u0627\u062E\u062A\u0647 \u0634\u062F",
+    invite,
+    publicId
+  );
+  await run(
+    c.env.DB,
+    `INSERT INTO members (conversation_id, user_id, role, joined_at, last_read_at) VALUES (?, ?, 'owner', ?, ?)`,
+    id,
+    user.id,
+    now,
+    now
+  );
+  for (const raw2 of usernames.slice(0, 40)) {
+    const u = await one(c.env.DB, `SELECT * FROM users WHERE username_lc = ?`, String(raw2).toLowerCase());
+    if (!u || isGone(u) || u.id === user.id) continue;
+    if (await blocked(c.env.DB, user.id, u.id)) continue;
+    await run(
+      c.env.DB,
+      `INSERT OR IGNORE INTO members (conversation_id, user_id, role, joined_at, last_read_at) VALUES (?, ?, 'member', ?, ?)`,
+      id,
+      u.id,
+      now,
+      0
+    );
+  }
+  await addSystem(c.env.DB, id, `${user.display_name} \u06AF\u0631\u0648\u0647 \xAB${title}\xBB \u0631\u0627 \u0633\u0627\u062E\u062A`);
+  await emit(c.env.DB, "conversation", id, user.id, { type: "group" });
+  const conv = await one(c.env.DB, `SELECT * FROM conversations WHERE id = ?`, id);
+  return c.json({ conversation: await conversationPayload(c.env.DB, conv, user) });
+});
+app.post("/conversations/channel", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  if (user.badge !== "owner" && !await featureOn(c.env.DB, "feature_create_space")) {
+    return jsonError(c, "\u0633\u0627\u062E\u062A \u06A9\u0627\u0646\u0627\u0644 \u0641\u0639\u0644\u0627\u064B \u062E\u0627\u0645\u0648\u0634 \u0627\u0633\u062A", 403);
+  }
+  if (Number(user.can_create_space ?? 1) === 0) return jsonError(c, "\u0633\u0627\u062E\u062A \u06A9\u0627\u0646\u0627\u0644 \u0628\u0631\u0627\u06CC \u0627\u06CC\u0646 \u062D\u0633\u0627\u0628 \u0628\u0633\u062A\u0647 \u0627\u0633\u062A", 403);
+  const body = await c.req.json().catch(() => ({}));
+  const title = cleanText(body.title, 1, 40);
+  if (!title) return jsonError(c, "\u0627\u0633\u0645 \u06A9\u0627\u0646\u0627\u0644 \u0644\u0627\u0632\u0645 \u0627\u0633\u062A");
+  const id = randomId();
+  const now = Date.now();
+  await run(
+    c.env.DB,
+    `INSERT INTO conversations (id, type, title, description, owner_id, created_at, last_message_at, last_message_preview)
+     VALUES (?, 'channel', ?, ?, ?, ?, ?, ?)`,
+    id,
+    title,
+    typeof body.description === "string" ? body.description.slice(0, 240) : "",
+    user.id,
+    now,
+    now,
+    "\u06A9\u0627\u0646\u0627\u0644 \u0633\u0627\u062E\u062A\u0647 \u0634\u062F"
+  );
+  await run(
+    c.env.DB,
+    `INSERT INTO members (conversation_id, user_id, role, joined_at, last_read_at) VALUES (?, ?, 'owner', ?, ?)`,
+    id,
+    user.id,
+    now,
+    now
+  );
+  await addSystem(c.env.DB, id, `${user.display_name} \u06A9\u0627\u0646\u0627\u0644 \xAB${title}\xBB \u0631\u0627 \u0633\u0627\u062E\u062A`);
+  await emit(c.env.DB, "conversation", id, user.id, { type: "channel" });
+  const conv = await one(c.env.DB, `SELECT * FROM conversations WHERE id = ?`, id);
+  return c.json({ conversation: await conversationPayload(c.env.DB, conv, user) });
+});
+app.get("/invites/:code", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const code = String(c.req.param("code") || "").trim().toLowerCase();
+  if (!code) return jsonError(c, "\u0644\u06CC\u0646\u06A9 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A");
+  const conv = await one(
+    c.env.DB,
+    `SELECT * FROM conversations WHERE lower(invite_code) = ? AND type IN ('group', 'channel')`,
+    code
+  );
+  if (!conv) return jsonError(c, "\u0627\u06CC\u0646 \u0644\u06CC\u0646\u06A9 \u0645\u0639\u062A\u0628\u0631 \u0646\u06CC\u0633\u062A", 404);
+  const mem = await memberOf(c.env.DB, conv.id, user.id);
+  const count = await one(c.env.DB, `SELECT COUNT(*) as n FROM members WHERE conversation_id = ?`, conv.id);
+  return c.json({
+    invite: {
+      code: conv.invite_code,
+      id: conv.id,
+      type: conv.type,
+      title: conv.title,
+      description: conv.description,
+      members: count?.n ?? 0,
+      joined: !!mem
+    }
+  });
+});
+app.post("/invites/:code/join", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const code = String(c.req.param("code") || "").trim().toLowerCase();
+  const conv = await one(
+    c.env.DB,
+    `SELECT * FROM conversations WHERE lower(invite_code) = ? AND type IN ('group', 'channel')`,
+    code
+  );
+  if (!conv) return jsonError(c, "\u0627\u06CC\u0646 \u0644\u06CC\u0646\u06A9 \u0645\u0639\u062A\u0628\u0631 \u0646\u06CC\u0633\u062A", 404);
+  const existing = await memberOf(c.env.DB, conv.id, user.id);
+  if (!existing && conv.join_locked) return jsonError(c, "\u0639\u0636\u0648\u06CC\u062A \u0627\u06CC\u0646 \u0641\u0636\u0627 \u0628\u0633\u062A\u0647 \u0627\u0633\u062A", 403);
+  if (!existing) {
+    const now = Date.now();
+    const role = conv.type === "channel" ? "subscriber" : "member";
+    await run(
+      c.env.DB,
+      `INSERT OR IGNORE INTO members (conversation_id, user_id, role, joined_at, last_read_at) VALUES (?, ?, ?, ?, ?)`,
+      conv.id,
+      user.id,
+      role,
+      now,
+      now
+    );
+    await addSystem(c.env.DB, conv.id, `${user.display_name} \u0648\u0627\u0631\u062F \u0634\u062F`);
+    await emit(c.env.DB, "members", conv.id, user.id, { join: true });
+  }
+  return c.json({ conversation: await conversationPayload(c.env.DB, conv, user) });
+});
+app.get("/explore/spaces", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  if (!await featureOn(c.env.DB, "feature_explore")) return c.json({ spaces: [] });
+  const type = c.req.query("type") === "channel" ? "channel" : "group";
+  const q = (c.req.query("q") || "").trim().replace(/^@+/, "");
+  let rows = [];
+  if (!q) {
+    rows = await many(
+      c.env.DB,
+      `SELECT c.* FROM conversations c
+       JOIN members m ON m.conversation_id = c.id AND m.user_id = ?
+       WHERE c.type = ?
+       ORDER BY c.last_message_at DESC LIMIT 60`,
+      user.id,
+      type
+    );
+  } else {
+    rows = await many(
+      c.env.DB,
+      `SELECT * FROM conversations
        WHERE type = ?
          AND (
            lower(public_id) = ?
@@ -198,28 +3798,722 @@ CREATE TABLE IF NOT EXISTS delete_challenges (
            OR lower(title) LIKE ?
          )
        ORDER BY CASE WHEN lower(public_id) = ? THEN 0 ELSE 1 END, last_message_at DESC
-       LIMIT 40`,n,r.toLowerCase(),`${r.toLowerCase()}%`,`%${r.toLowerCase()}%`,r.toLowerCase()):s=await h(e.env.DB,`SELECT c.* FROM conversations c
-       JOIN members m ON m.conversation_id = c.id AND m.user_id = ?
-       WHERE c.type = ?
-       ORDER BY c.last_message_at DESC LIMIT 60`,t.id,n);let i=[];for(let a of s){let o=await Ye(e.env.DB,a),u=await l(e.env.DB,"SELECT COUNT(*) as n FROM members WHERE conversation_id = ?",a.id),c=await D(e.env.DB,a.id,t.id);i.push({id:a.id,type:a.type,title:a.title,description:a.description,publicId:o,lastMessageAt:a.last_message_at,members:u?.n??0,joined:!!c})}return e.json({spaces:i})});f.post("/spaces/:pid/join",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=String(e.req.param("pid")||"").trim().replace(/^@+/,"");if(!n)return d(e,"\u0622\u06CC\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A");let r=await l(e.env.DB,"SELECT * FROM conversations WHERE lower(public_id) = ? AND type IN ('group', 'channel')",n.toLowerCase());if(!r)return d(e,"\u06AF\u0631\u0648\u0647 \u06CC\u0627 \u06A9\u0627\u0646\u0627\u0644 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F",404);let s=await D(e.env.DB,r.id,t.id);if(!s&&r.join_locked)return d(e,"\u0639\u0636\u0648\u06CC\u062A \u0627\u06CC\u0646 \u0641\u0636\u0627 \u0628\u0633\u062A\u0647 \u0627\u0633\u062A",403);if(!s){let a=Date.now(),o=r.type==="channel"?"subscriber":"member";await E(e.env.DB,"INSERT OR IGNORE INTO members (conversation_id, user_id, role, joined_at, last_read_at) VALUES (?, ?, ?, ?, ?)",r.id,t.id,o,a,a),await z(e.env.DB,r.id,`${t.display_name} \u0648\u0627\u0631\u062F \u0634\u062F`),await y(e.env.DB,"members",r.id,t.id,{join:!0})}let i=await l(e.env.DB,"SELECT * FROM conversations WHERE id = ?",r.id);return e.json({conversation:await H(e.env.DB,i,t)})});f.get("/explore/channels",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=(e.req.query("q")||"").trim(),r=await h(e.env.DB,`SELECT * FROM conversations WHERE type = 'channel' AND (? = '' OR title LIKE ?)
-     ORDER BY last_message_at DESC LIMIT 40`,n,`%${n}%`),s=[];for(let i of r){let a=await l(e.env.DB,"SELECT COUNT(*) as n FROM members WHERE conversation_id = ?",i.id),o=await D(e.env.DB,i.id,t.id);s.push({id:i.id,title:i.title,description:i.description,lastMessageAt:i.last_message_at,members:a?.n??0,joined:!!o})}return e.json({channels:s})});f.post("/conversations/:id/subscribe",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await l(e.env.DB,"SELECT * FROM conversations WHERE id = ?",e.req.param("id"));if(!n||n.type!=="channel")return d(e,"\u06A9\u0627\u0646\u0627\u0644 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F",404);if(n.join_locked&&!await D(e.env.DB,n.id,t.id))return d(e,"\u0639\u0636\u0648\u06CC\u062A \u0627\u06CC\u0646 \u0641\u0636\u0627 \u0628\u0633\u062A\u0647 \u0627\u0633\u062A",403);let r=Date.now();return await E(e.env.DB,"INSERT OR IGNORE INTO members (conversation_id, user_id, role, joined_at, last_read_at) VALUES (?, ?, 'subscriber', ?, ?)",n.id,t.id,r,r),await y(e.env.DB,"conversation",n.id,t.id,{join:!0}),e.json({conversation:await H(e.env.DB,n,t)})});f.post("/conversations/:id/members",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await l(e.env.DB,"SELECT * FROM conversations WHERE id = ?",e.req.param("id"));if(!n)return d(e,"\u06AF\u0641\u062A\u06AF\u0648 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F",404);if(n.type==="dm")return d(e,"\u0628\u0647 \u067E\u06CC\u0648\u06CC \u0646\u0645\u06CC\u200C\u0634\u0648\u062F \u06A9\u0633\u06CC \u0627\u0636\u0627\u0641\u0647 \u06A9\u0631\u062F");let r=await D(e.env.DB,n.id,t.id);if(!r||r.role!=="owner"&&r.role!=="admin")return d(e,"\u0627\u062C\u0627\u0632\u0647 \u0646\u062F\u0627\u0631\u06CC",403);let s=await e.req.json().catch(()=>({})),i=String(s.username||"").toLowerCase(),a=await l(e.env.DB,"SELECT * FROM users WHERE username_lc = ?",i);if(!a||M(a))return d(e,"\u06A9\u0627\u0631\u0628\u0631 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F",404);let o=Date.now(),u=n.type==="channel"?"subscriber":"member";return await E(e.env.DB,"INSERT OR IGNORE INTO members (conversation_id, user_id, role, joined_at, last_read_at) VALUES (?, ?, ?, ?, 0)",n.id,a.id,u,o),await z(e.env.DB,n.id,`${t.display_name} ${a.display_name} \u0631\u0627 \u0627\u0636\u0627\u0641\u0647 \u06A9\u0631\u062F`),await y(e.env.DB,"members",n.id,t.id,{}),e.json({ok:!0})});f.patch("/conversations/:id/members/:userId",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await l(e.env.DB,"SELECT * FROM conversations WHERE id = ?",e.req.param("id"));if(!n||n.type==="dm")return d(e,"\u0646\u0627\u0645\u0639\u062A\u0628\u0631",400);let r=await D(e.env.DB,n.id,t.id);if(!r||r.role!=="owner")return d(e,"\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u0646\u0642\u0634 \u0628\u062F\u0647\u062F",403);let s=e.req.query("role")||(await e.req.json().catch(()=>({}))).role;return["admin","member","subscriber"].includes(s)?e.req.param("userId")===n.owner_id?d(e,"\u0646\u0642\u0634 \u0645\u0627\u0644\u06A9 \u0639\u0648\u0636 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F"):(await E(e.env.DB,"UPDATE members SET role = ? WHERE conversation_id = ? AND user_id = ?",s,n.id,e.req.param("userId")),await y(e.env.DB,"members",n.id,t.id,{}),e.json({ok:!0})):d(e,"\u0646\u0642\u0634 \u0646\u0627\u0645\u0639\u062A\u0628\u0631")});f.delete("/conversations/:id/members/:userId",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await l(e.env.DB,"SELECT * FROM conversations WHERE id = ?",e.req.param("id"));if(!n||n.type==="dm")return d(e,"\u0646\u0627\u0645\u0639\u062A\u0628\u0631",400);let r=await D(e.env.DB,n.id,t.id),s=e.req.param("userId"),i=s===t.id;if(!r)return d(e,"\u0639\u0636\u0648 \u0646\u06CC\u0633\u062A\u06CC",403);if(!i&&r.role!=="owner"&&r.role!=="admin")return d(e,"\u0627\u062C\u0627\u0632\u0647 \u0646\u062F\u0627\u0631\u06CC",403);if(s===n.owner_id&&!i)return d(e,"\u0645\u0627\u0644\u06A9 \u0631\u0627 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F \u062D\u0630\u0641 \u06A9\u0631\u062F");await E(e.env.DB,"DELETE FROM members WHERE conversation_id = ? AND user_id = ?",n.id,s);let a=await l(e.env.DB,"SELECT * FROM users WHERE id = ?",s);return await z(e.env.DB,n.id,i?`${t.display_name} \u0631\u0641\u062A`:`${t.display_name} ${a?.display_name??"\u06A9\u0633\u06CC"} \u0631\u0627 \u062D\u0630\u0641 \u06A9\u0631\u062F`),await y(e.env.DB,"members",n.id,t.id,{}),e.json({ok:!0})});f.post("/conversations/:id/mute",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await D(e.env.DB,e.req.param("id"),t.id);if(!n)return d(e,"\u0639\u0636\u0648 \u0646\u06CC\u0633\u062A\u06CC",403);let r=n.muted?0:1;return await E(e.env.DB,"UPDATE members SET muted = ? WHERE conversation_id = ? AND user_id = ?",r,e.req.param("id"),t.id),e.json({muted:!!r})});f.post("/conversations/:id/pin",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await D(e.env.DB,e.req.param("id"),t.id);if(!n)return d(e,"\u0639\u0636\u0648 \u0646\u06CC\u0633\u062A\u06CC",403);let r=n.pinned?0:1;return await E(e.env.DB,"UPDATE members SET pinned = ? WHERE conversation_id = ? AND user_id = ?",r,e.req.param("id"),t.id),e.json({pinned:!!r})});f.patch("/conversations/:id",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await l(e.env.DB,"SELECT * FROM conversations WHERE id = ?",e.req.param("id"));if(!n||n.type==="dm")return d(e,"\u0646\u0627\u0645\u0639\u062A\u0628\u0631",400);let r=await D(e.env.DB,n.id,t.id);if(!r||r.role!=="owner"&&r.role!=="admin")return d(e,"\u0627\u062C\u0627\u0632\u0647 \u0646\u062F\u0627\u0631\u06CC",403);let s=await e.req.json().catch(()=>({})),i=s.title!==void 0?V(s.title,1,40):n.title;if(s.title!==void 0&&!i)return d(e,"\u0627\u0633\u0645 \u0646\u0627\u0645\u0639\u062A\u0628\u0631");let a=s.description!==void 0?String(s.description).slice(0,240):n.description,o=n.public_id||null;if(s.publicId!==void 0){if(r.role!=="owner")return d(e,"\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u0622\u06CC\u062F\u06CC \u0631\u0627 \u0639\u0648\u0636 \u06A9\u0646\u062F",403);if(n.public_id_locked)return d(e,"\u0622\u06CC\u062F\u06CC \u0627\u06CC\u0646 \u0641\u0636\u0627 \u0642\u0641\u0644 \u0627\u0633\u062A",403);let c=jt(s.publicId,await Bn(e.env.DB));if(!c)return d(e,"\u0622\u06CC\u062F\u06CC \u0628\u0627\u06CC\u062F \u0628\u0627 \u062D\u0631\u0641 \u0634\u0631\u0648\u0639 \u0634\u0648\u062F \u0648 \u06F3 \u062A\u0627 \u06F2\u06F4 \u06A9\u0627\u0631\u0627\u06A9\u062A\u0631 \u0644\u0627\u062A\u06CC\u0646 \u0628\u0627\u0634\u062F");if(await l(e.env.DB,"SELECT id FROM conversations WHERE lower(public_id) = ? AND id != ?",c.toLowerCase(),n.id))return d(e,"\u0627\u06CC\u0646 \u0622\u06CC\u062F\u06CC \u06AF\u0631\u0641\u062A\u0647 \u0634\u062F\u0647",409);o=c}await E(e.env.DB,"UPDATE conversations SET title = ?, description = ?, public_id = ? WHERE id = ?",i,a,o,n.id),await y(e.env.DB,"conversation",n.id,t.id,{});let u=await l(e.env.DB,"SELECT * FROM conversations WHERE id = ?",n.id);return e.json({conversation:await H(e.env.DB,u,t)})});f.get("/conversations/:id/messages",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=e.req.param("id");if(!await D(e.env.DB,n,t.id))return d(e,"\u0639\u0636\u0648 \u0646\u06CC\u0633\u062A\u06CC",403);let r=Number(e.req.query("before")||Date.now()+1e6),s=Math.min(80,Math.max(1,Number(e.req.query("limit")||50))),i=await h(e.env.DB,"SELECT * FROM messages WHERE conversation_id = ? AND created_at < ? ORDER BY created_at DESC LIMIT ?",n,r,s);return i.reverse(),e.json({messages:await Ke(e.env.DB,i,t.id)})});f.post("/conversations/:id/messages",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await l(e.env.DB,"SELECT * FROM conversations WHERE id = ?",e.req.param("id"));if(!n)return d(e,"\u06AF\u0641\u062A\u06AF\u0648 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F",404);let r=await D(e.env.DB,n.id,t.id);if(!r)return d(e,"\u0639\u0636\u0648 \u0646\u06CC\u0633\u062A\u06CC",403);let s=Xt(e,t);if(s)return s;if(!await Pt(r,n))return d(e,"\u062F\u0631 \u06A9\u0627\u0646\u0627\u0644 \u0641\u0642\u0637 \u0627\u062F\u0645\u06CC\u0646 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u0628\u0646\u0648\u06CC\u0633\u062F",403);if(n.type==="dm"){let R=await l(e.env.DB,"SELECT * FROM members WHERE conversation_id = ? AND user_id != ?",n.id,t.id);if(R&&await be(e.env.DB,t.id,R.user_id))return d(e,"\u0645\u0633\u062F\u0648\u062F \u0627\u0633\u062A",403)}let i=await e.req.json().catch(()=>({})),a=i.type==="photo"||i.type==="video"||i.type==="voice"?i.type:"text",o=typeof i.body=="string"?i.body.trim():"";if(a==="text"){if(!o||o.length>4e3)return d(e,"\u067E\u06CC\u0627\u0645 \u062E\u0627\u0644\u06CC \u06CC\u0627 \u062E\u06CC\u0644\u06CC \u0628\u0644\u0646\u062F \u0627\u0633\u062A");if(o.startsWith("\u2726T\u2726")&&Number(t.premium||0)!==1)return d(e,"\u0627\u06CC\u0645\u0648\u062C\u06CC \u0645\u062A\u062D\u0631\u06A9 \u0641\u0642\u0637 \u0628\u0631\u0627\u06CC \u067E\u0631\u0645\u06CC\u0648\u0645 \u0627\u0633\u062A",403)}else if(o.length>400)return d(e,"\u06A9\u067E\u0634\u0646 \u062E\u06CC\u0644\u06CC \u0628\u0644\u0646\u062F \u0627\u0633\u062A");let u=null,c=null;if(a!=="text"){let R=Nn(i.media,a);if(!R)return d(e,"\u0641\u0627\u06CC\u0644 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u06CC\u0627 \u062E\u06CC\u0644\u06CC \u0628\u0632\u0631\u06AF \u0627\u0633\u062A");u=I(),c=R.durationMs||null,await E(e.env.DB,`INSERT INTO media (id, conversation_id, kind, mime, data, bytes, duration_ms, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,u,n.id,a,R.mime,R.data,R.bytes,c,Date.now())}let m=i.replyToId||null;m&&(await l(e.env.DB,"SELECT * FROM messages WHERE id = ? AND conversation_id = ?",m,n.id)||(m=null));let p=I(),g=Date.now();await E(e.env.DB,`INSERT INTO messages (id, conversation_id, author_id, type, body, reply_to_id, created_at, media_id, duration_ms)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,p,n.id,t.id,a,o,m,g,u,c),await Je(e.env.DB,n.id,kt(a,o),g),await E(e.env.DB,"UPDATE members SET last_read_at = ? WHERE conversation_id = ? AND user_id = ?",g,n.id,t.id),await y(e.env.DB,"message",n.id,t.id,{id:p});let _=await l(e.env.DB,"SELECT * FROM messages WHERE id = ?",p),[T]=await Ke(e.env.DB,[_],t.id);return e.json({message:T})});f.patch("/messages/:id",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await l(e.env.DB,"SELECT * FROM messages WHERE id = ?",e.req.param("id"));if(!n||n.author_id!==t.id||n.type!=="text"||n.deleted_at)return d(e,"\u0646\u0645\u06CC\u200C\u0634\u0648\u062F \u0648\u06CC\u0631\u0627\u06CC\u0634 \u06A9\u0631\u062F",403);let r=await e.req.json().catch(()=>({})),s=typeof r.body=="string"?r.body.trim():"";if(!s||s.length>4e3)return d(e,"\u0645\u062A\u0646 \u0646\u0627\u0645\u0639\u062A\u0628\u0631");let i=Date.now();await E(e.env.DB,"UPDATE messages SET body = ?, edited_at = ? WHERE id = ?",s,i,n.id),await y(e.env.DB,"message",n.conversation_id,t.id,{id:n.id,edited:!0});let a=await l(e.env.DB,"SELECT * FROM messages WHERE id = ?",n.id),[o]=await Ke(e.env.DB,[a],t.id);return e.json({message:o})});f.delete("/messages/:id",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await l(e.env.DB,"SELECT * FROM messages WHERE id = ?",e.req.param("id"));if(!n)return d(e,"\u067E\u06CC\u0627\u0645 \u0646\u06CC\u0633\u062A",404);let r=await D(e.env.DB,n.conversation_id,t.id),s=await l(e.env.DB,"SELECT * FROM conversations WHERE id = ?",n.conversation_id),i=r&&s&&(r.role==="owner"||r.role==="admin");return n.author_id!==t.id&&!i?d(e,"\u0627\u062C\u0627\u0632\u0647 \u0646\u062F\u0627\u0631\u06CC",403):(await E(e.env.DB,"UPDATE messages SET deleted_at = ?, body = '' WHERE id = ?",Date.now(),n.id),await y(e.env.DB,"message",n.conversation_id,t.id,{id:n.id,deleted:!0}),e.json({ok:!0}))});f.post("/messages/:id/pin",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await l(e.env.DB,"SELECT * FROM messages WHERE id = ?",e.req.param("id"));if(!n)return d(e,"\u067E\u06CC\u0627\u0645 \u0646\u06CC\u0633\u062A",404);if(!await D(e.env.DB,n.conversation_id,t.id))return d(e,"\u0639\u0636\u0648 \u0646\u06CC\u0633\u062A\u06CC",403);let s=n.pinned?0:1;return await E(e.env.DB,"UPDATE messages SET pinned = ? WHERE id = ?",s,n.id),await y(e.env.DB,"message",n.conversation_id,t.id,{id:n.id,pinned:!!s}),e.json({pinned:!!s})});f.post("/messages/:id/react",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await l(e.env.DB,"SELECT * FROM messages WHERE id = ?",e.req.param("id"));if(!n||!await D(e.env.DB,n.conversation_id,t.id))return d(e,"\u0646\u0627\u0645\u0639\u062A\u0628\u0631",403);let r=await e.req.json().catch(()=>({})),s=String(r.emoji||""),i=Wt(t).react;if(s===hn){if(!i)return d(e,"\u0631\u06CC\u200C\u0627\u06A9\u0634\u0646 T \u0641\u0642\u0637 \u0628\u0631\u0627\u06CC \u067E\u0631\u0645\u06CC\u0648\u0645 \u0627\u0633\u062A",403)}else if(!Rn.includes(s))return d(e,"\u0627\u06CC\u0645\u0648\u062C\u06CC \u0645\u062C\u0627\u0632 \u0646\u06CC\u0633\u062A");return(await l(e.env.DB,"SELECT emoji FROM reactions WHERE message_id = ? AND user_id = ?",n.id,t.id))?.emoji===s?await E(e.env.DB,"DELETE FROM reactions WHERE message_id = ? AND user_id = ?",n.id,t.id):await E(e.env.DB,`INSERT INTO reactions (message_id, user_id, emoji, created_at) VALUES (?, ?, ?, ?)
-       ON CONFLICT(message_id, user_id) DO UPDATE SET emoji = excluded.emoji`,n.id,t.id,s,Date.now()),await y(e.env.DB,"message",n.conversation_id,t.id,{id:n.id,react:!0}),e.json({ok:!0})});f.post("/messages/:id/forward",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await l(e.env.DB,"SELECT * FROM messages WHERE id = ?",e.req.param("id"));if(!n||n.deleted_at)return d(e,"\u067E\u06CC\u0627\u0645 \u0646\u06CC\u0633\u062A",404);if(!await D(e.env.DB,n.conversation_id,t.id))return d(e,"\u0627\u062C\u0627\u0632\u0647 \u0646\u062F\u0627\u0631\u06CC",403);let r=await e.req.json().catch(()=>({})),s=String(r.conversationId||""),i=await l(e.env.DB,"SELECT * FROM conversations WHERE id = ?",s),a=i?await D(e.env.DB,i.id,t.id):null;if(!i||!a)return d(e,"\u0645\u0642\u0635\u062F \u0646\u0627\u0645\u0639\u062A\u0628\u0631",403);if(!await Pt(a,i))return d(e,"\u0627\u062C\u0627\u0632\u0647 \u0627\u0631\u0633\u0627\u0644 \u0646\u062F\u0627\u0631\u06CC",403);let o=n.author_id?await l(e.env.DB,"SELECT * FROM users WHERE id = ?",n.author_id):null,u=I(),c=Date.now();return await E(e.env.DB,`INSERT INTO messages (id, conversation_id, author_id, type, body, forwarded_from, created_at)
-     VALUES (?, ?, ?, 'text', ?, ?, ?)`,u,i.id,t.id,n.body,o?.display_name||"\u0646\u0627\u0634\u0646\u0627\u0633",c),await Je(e.env.DB,i.id,Le(n.body),c),await y(e.env.DB,"message",i.id,t.id,{id:u}),e.json({ok:!0,id:u,conversationId:i.id})});f.get("/media/:id",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await l(e.env.DB,"SELECT id, conversation_id, mime, data FROM media WHERE id = ?",e.req.param("id"));if(!n)return d(e,"\u0641\u0627\u06CC\u0644 \u0646\u06CC\u0633\u062A",404);if(!await D(e.env.DB,n.conversation_id,t.id))return d(e,"\u0627\u062C\u0627\u0632\u0647 \u0646\u062F\u0627\u0631\u06CC",403);let r=bn(n.data);if(!r)return d(e,"\u0641\u0627\u06CC\u0644 \u062E\u0631\u0627\u0628 \u0627\u0633\u062A",500);let s=new Uint8Array(r.bytes.byteLength);return s.set(r.bytes),new Response(new Blob([s],{type:r.mime||n.mime||"application/octet-stream"}),{status:200,headers:{"Content-Type":r.mime||n.mime||"application/octet-stream","Cache-Control":"private, max-age=604800, immutable","Content-Disposition":"inline"}})});f.post("/conversations/:id/read",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=Date.now();return await E(e.env.DB,"UPDATE members SET last_read_at = ? WHERE conversation_id = ? AND user_id = ?",n,e.req.param("id"),t.id),await y(e.env.DB,"read",e.req.param("id"),t.id,{at:n}),e.json({ok:!0})});f.post("/presence",async e=>{let t=await w(e);return t instanceof Response?t:(await E(e.env.DB,"UPDATE users SET last_seen = ? WHERE id = ?",Date.now(),t.id),e.json({ok:!0}))});f.post("/typing",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await e.req.json().catch(()=>({})),r=String(n.conversationId||"");return await D(e.env.DB,r,t.id)?(await E(e.env.DB,`INSERT INTO typing (conversation_id, user_id, until_ts) VALUES (?, ?, ?)
-     ON CONFLICT(conversation_id, user_id) DO UPDATE SET until_ts = excluded.until_ts`,r,t.id,Date.now()+3e3),e.json({ok:!0})):d(e,"\u0639\u0636\u0648 \u0646\u06CC\u0633\u062A\u06CC",403)});f.get("/sync",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=e.req.query("lite")==="1",r=Number(e.req.query("after")||0);n||await E(e.env.DB,"UPDATE users SET last_seen = ? WHERE id = ?",Date.now(),t.id);let s=await h(e.env.DB,`SELECT e.* FROM events e
+       LIMIT 40`,
+      type,
+      q.toLowerCase(),
+      `${q.toLowerCase()}%`,
+      `%${q.toLowerCase()}%`,
+      q.toLowerCase()
+    );
+  }
+  const items = [];
+  for (const row of rows) {
+    const pid = await ensurePublicId(c.env.DB, row);
+    const count = await one(c.env.DB, `SELECT COUNT(*) as n FROM members WHERE conversation_id = ?`, row.id);
+    const joined = await memberOf(c.env.DB, row.id, user.id);
+    items.push({
+      id: row.id,
+      type: row.type,
+      title: row.title,
+      description: row.description,
+      publicId: pid,
+      lastMessageAt: row.last_message_at,
+      members: count?.n ?? 0,
+      joined: !!joined
+    });
+  }
+  return c.json({ spaces: items });
+});
+app.post("/spaces/:pid/join", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const raw2 = String(c.req.param("pid") || "").trim().replace(/^@+/, "");
+  if (!raw2) return jsonError(c, "\u0622\u06CC\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A");
+  const conv = await one(
+    c.env.DB,
+    `SELECT * FROM conversations WHERE lower(public_id) = ? AND type IN ('group', 'channel')`,
+    raw2.toLowerCase()
+  );
+  if (!conv) return jsonError(c, "\u06AF\u0631\u0648\u0647 \u06CC\u0627 \u06A9\u0627\u0646\u0627\u0644 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F", 404);
+  const existing = await memberOf(c.env.DB, conv.id, user.id);
+  if (!existing && conv.join_locked) return jsonError(c, "\u0639\u0636\u0648\u06CC\u062A \u0627\u06CC\u0646 \u0641\u0636\u0627 \u0628\u0633\u062A\u0647 \u0627\u0633\u062A", 403);
+  if (!existing) {
+    const now = Date.now();
+    const role = conv.type === "channel" ? "subscriber" : "member";
+    await run(
+      c.env.DB,
+      `INSERT OR IGNORE INTO members (conversation_id, user_id, role, joined_at, last_read_at) VALUES (?, ?, ?, ?, ?)`,
+      conv.id,
+      user.id,
+      role,
+      now,
+      now
+    );
+    await addSystem(c.env.DB, conv.id, `${user.display_name} \u0648\u0627\u0631\u062F \u0634\u062F`);
+    await emit(c.env.DB, "members", conv.id, user.id, { join: true });
+  }
+  const fresh = await one(c.env.DB, `SELECT * FROM conversations WHERE id = ?`, conv.id);
+  return c.json({ conversation: await conversationPayload(c.env.DB, fresh, user) });
+});
+app.get("/explore/channels", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  if (!await featureOn(c.env.DB, "feature_explore")) return c.json({ channels: [] });
+  const q = (c.req.query("q") || "").trim();
+  const rows = await many(
+    c.env.DB,
+    `SELECT * FROM conversations WHERE type = 'channel' AND (? = '' OR title LIKE ?)
+     ORDER BY last_message_at DESC LIMIT 40`,
+    q,
+    `%${q}%`
+  );
+  const items = [];
+  for (const row of rows) {
+    const count = await one(
+      c.env.DB,
+      `SELECT COUNT(*) as n FROM members WHERE conversation_id = ?`,
+      row.id
+    );
+    const joined = await memberOf(c.env.DB, row.id, user.id);
+    items.push({
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      lastMessageAt: row.last_message_at,
+      members: count?.n ?? 0,
+      joined: !!joined
+    });
+  }
+  return c.json({ channels: items });
+});
+app.post("/conversations/:id/subscribe", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const conv = await one(c.env.DB, `SELECT * FROM conversations WHERE id = ?`, c.req.param("id"));
+  if (!conv || conv.type !== "channel") return jsonError(c, "\u06A9\u0627\u0646\u0627\u0644 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F", 404);
+  if (conv.join_locked && !await memberOf(c.env.DB, conv.id, user.id)) {
+    return jsonError(c, "\u0639\u0636\u0648\u06CC\u062A \u0627\u06CC\u0646 \u0641\u0636\u0627 \u0628\u0633\u062A\u0647 \u0627\u0633\u062A", 403);
+  }
+  const now = Date.now();
+  await run(
+    c.env.DB,
+    `INSERT OR IGNORE INTO members (conversation_id, user_id, role, joined_at, last_read_at) VALUES (?, ?, 'subscriber', ?, ?)`,
+    conv.id,
+    user.id,
+    now,
+    now
+  );
+  await emit(c.env.DB, "conversation", conv.id, user.id, { join: true });
+  return c.json({ conversation: await conversationPayload(c.env.DB, conv, user) });
+});
+app.post("/conversations/:id/members", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const conv = await one(c.env.DB, `SELECT * FROM conversations WHERE id = ?`, c.req.param("id"));
+  if (!conv) return jsonError(c, "\u06AF\u0641\u062A\u06AF\u0648 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F", 404);
+  if (conv.type === "dm") return jsonError(c, "\u0628\u0647 \u067E\u06CC\u0648\u06CC \u0646\u0645\u06CC\u200C\u0634\u0648\u062F \u06A9\u0633\u06CC \u0627\u0636\u0627\u0641\u0647 \u06A9\u0631\u062F");
+  const mem = await memberOf(c.env.DB, conv.id, user.id);
+  if (!mem || mem.role !== "owner" && mem.role !== "admin") return jsonError(c, "\u0627\u062C\u0627\u0632\u0647 \u0646\u062F\u0627\u0631\u06CC", 403);
+  const body = await c.req.json().catch(() => ({}));
+  const uname = String(body.username || "").toLowerCase();
+  const other = await one(c.env.DB, `SELECT * FROM users WHERE username_lc = ?`, uname);
+  if (!other || isGone(other)) return jsonError(c, "\u06A9\u0627\u0631\u0628\u0631 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F", 404);
+  const now = Date.now();
+  const role = conv.type === "channel" ? "subscriber" : "member";
+  await run(
+    c.env.DB,
+    `INSERT OR IGNORE INTO members (conversation_id, user_id, role, joined_at, last_read_at) VALUES (?, ?, ?, ?, 0)`,
+    conv.id,
+    other.id,
+    role,
+    now
+  );
+  await addSystem(c.env.DB, conv.id, `${user.display_name} ${other.display_name} \u0631\u0627 \u0627\u0636\u0627\u0641\u0647 \u06A9\u0631\u062F`);
+  await emit(c.env.DB, "members", conv.id, user.id, {});
+  return c.json({ ok: true });
+});
+app.patch("/conversations/:id/members/:userId", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const conv = await one(c.env.DB, `SELECT * FROM conversations WHERE id = ?`, c.req.param("id"));
+  if (!conv || conv.type === "dm") return jsonError(c, "\u0646\u0627\u0645\u0639\u062A\u0628\u0631", 400);
+  const mem = await memberOf(c.env.DB, conv.id, user.id);
+  if (!mem || mem.role !== "owner") return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u0646\u0642\u0634 \u0628\u062F\u0647\u062F", 403);
+  const role = c.req.query("role") || (await c.req.json().catch(() => ({}))).role;
+  if (!["admin", "member", "subscriber"].includes(role)) return jsonError(c, "\u0646\u0642\u0634 \u0646\u0627\u0645\u0639\u062A\u0628\u0631");
+  if (c.req.param("userId") === conv.owner_id) return jsonError(c, "\u0646\u0642\u0634 \u0645\u0627\u0644\u06A9 \u0639\u0648\u0636 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F");
+  await run(
+    c.env.DB,
+    `UPDATE members SET role = ? WHERE conversation_id = ? AND user_id = ?`,
+    role,
+    conv.id,
+    c.req.param("userId")
+  );
+  await emit(c.env.DB, "members", conv.id, user.id, {});
+  return c.json({ ok: true });
+});
+app.delete("/conversations/:id/members/:userId", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const conv = await one(c.env.DB, `SELECT * FROM conversations WHERE id = ?`, c.req.param("id"));
+  if (!conv || conv.type === "dm") return jsonError(c, "\u0646\u0627\u0645\u0639\u062A\u0628\u0631", 400);
+  const mem = await memberOf(c.env.DB, conv.id, user.id);
+  const targetId = c.req.param("userId");
+  const self = targetId === user.id;
+  if (!mem) return jsonError(c, "\u0639\u0636\u0648 \u0646\u06CC\u0633\u062A\u06CC", 403);
+  if (!self && mem.role !== "owner" && mem.role !== "admin") return jsonError(c, "\u0627\u062C\u0627\u0632\u0647 \u0646\u062F\u0627\u0631\u06CC", 403);
+  if (targetId === conv.owner_id && !self) return jsonError(c, "\u0645\u0627\u0644\u06A9 \u0631\u0627 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F \u062D\u0630\u0641 \u06A9\u0631\u062F");
+  await run(c.env.DB, `DELETE FROM members WHERE conversation_id = ? AND user_id = ?`, conv.id, targetId);
+  const target = await one(c.env.DB, `SELECT * FROM users WHERE id = ?`, targetId);
+  await addSystem(
+    c.env.DB,
+    conv.id,
+    self ? `${user.display_name} \u0631\u0641\u062A` : `${user.display_name} ${target?.display_name ?? "\u06A9\u0633\u06CC"} \u0631\u0627 \u062D\u0630\u0641 \u06A9\u0631\u062F`
+  );
+  await emit(c.env.DB, "members", conv.id, user.id, {});
+  return c.json({ ok: true });
+});
+app.post("/conversations/:id/mute", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const mem = await memberOf(c.env.DB, c.req.param("id"), user.id);
+  if (!mem) return jsonError(c, "\u0639\u0636\u0648 \u0646\u06CC\u0633\u062A\u06CC", 403);
+  const next = mem.muted ? 0 : 1;
+  await run(
+    c.env.DB,
+    `UPDATE members SET muted = ? WHERE conversation_id = ? AND user_id = ?`,
+    next,
+    c.req.param("id"),
+    user.id
+  );
+  return c.json({ muted: !!next });
+});
+app.post("/conversations/:id/pin", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const mem = await memberOf(c.env.DB, c.req.param("id"), user.id);
+  if (!mem) return jsonError(c, "\u0639\u0636\u0648 \u0646\u06CC\u0633\u062A\u06CC", 403);
+  const next = mem.pinned ? 0 : 1;
+  await run(
+    c.env.DB,
+    `UPDATE members SET pinned = ? WHERE conversation_id = ? AND user_id = ?`,
+    next,
+    c.req.param("id"),
+    user.id
+  );
+  return c.json({ pinned: !!next });
+});
+app.patch("/conversations/:id", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const conv = await one(c.env.DB, `SELECT * FROM conversations WHERE id = ?`, c.req.param("id"));
+  if (!conv || conv.type === "dm") return jsonError(c, "\u0646\u0627\u0645\u0639\u062A\u0628\u0631", 400);
+  const mem = await memberOf(c.env.DB, conv.id, user.id);
+  if (!mem || mem.role !== "owner" && mem.role !== "admin") return jsonError(c, "\u0627\u062C\u0627\u0632\u0647 \u0646\u062F\u0627\u0631\u06CC", 403);
+  const body = await c.req.json().catch(() => ({}));
+  const title = body.title !== void 0 ? cleanText(body.title, 1, 40) : conv.title;
+  if (body.title !== void 0 && !title) return jsonError(c, "\u0627\u0633\u0645 \u0646\u0627\u0645\u0639\u062A\u0628\u0631");
+  const description = body.description !== void 0 ? String(body.description).slice(0, 240) : conv.description;
+  let publicId = conv.public_id || null;
+  if (body.publicId !== void 0) {
+    if (mem.role !== "owner") return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u0622\u06CC\u062F\u06CC \u0631\u0627 \u0639\u0648\u0636 \u06A9\u0646\u062F", 403);
+    if (conv.public_id_locked) return jsonError(c, "\u0622\u06CC\u062F\u06CC \u0627\u06CC\u0646 \u0641\u0636\u0627 \u0642\u0641\u0644 \u0627\u0633\u062A", 403);
+    const next = cleanPublicId(body.publicId, await reservedList(c.env.DB));
+    if (!next) return jsonError(c, "\u0622\u06CC\u062F\u06CC \u0628\u0627\u06CC\u062F \u0628\u0627 \u062D\u0631\u0641 \u0634\u0631\u0648\u0639 \u0634\u0648\u062F \u0648 \u06F3 \u062A\u0627 \u06F2\u06F4 \u06A9\u0627\u0631\u0627\u06A9\u062A\u0631 \u0644\u0627\u062A\u06CC\u0646 \u0628\u0627\u0634\u062F");
+    const taken = await one(
+      c.env.DB,
+      `SELECT id FROM conversations WHERE lower(public_id) = ? AND id != ?`,
+      next.toLowerCase(),
+      conv.id
+    );
+    if (taken) return jsonError(c, "\u0627\u06CC\u0646 \u0622\u06CC\u062F\u06CC \u06AF\u0631\u0641\u062A\u0647 \u0634\u062F\u0647", 409);
+    publicId = next;
+  }
+  await run(
+    c.env.DB,
+    `UPDATE conversations SET title = ?, description = ?, public_id = ? WHERE id = ?`,
+    title,
+    description,
+    publicId,
+    conv.id
+  );
+  await emit(c.env.DB, "conversation", conv.id, user.id, {});
+  const fresh = await one(c.env.DB, `SELECT * FROM conversations WHERE id = ?`, conv.id);
+  return c.json({ conversation: await conversationPayload(c.env.DB, fresh, user) });
+});
+app.get("/conversations/:id/messages", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const convId = c.req.param("id");
+  if (!await memberOf(c.env.DB, convId, user.id)) return jsonError(c, "\u0639\u0636\u0648 \u0646\u06CC\u0633\u062A\u06CC", 403);
+  const before = Number(c.req.query("before") || Date.now() + 1e6);
+  const limit = Math.min(80, Math.max(1, Number(c.req.query("limit") || 50)));
+  const rows = await many(
+    c.env.DB,
+    `SELECT m.* FROM messages m
+     LEFT JOIN users au ON au.id = m.author_id
+     WHERE m.conversation_id = ? AND m.created_at < ?
+       AND (m.author_id IS NULL OR m.author_id = ? OR IFNULL(au.shadowban, 0) = 0)
+     ORDER BY m.created_at DESC LIMIT ?`,
+    convId,
+    before,
+    user.id,
+    limit
+  );
+  rows.reverse();
+  return c.json({ messages: await messagesWithExtras(c.env.DB, rows, user.id) });
+});
+app.post("/conversations/:id/messages", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const conv = await one(c.env.DB, `SELECT * FROM conversations WHERE id = ?`, c.req.param("id"));
+  if (!conv) return jsonError(c, "\u06AF\u0641\u062A\u06AF\u0648 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F", 404);
+  const mem = await memberOf(c.env.DB, conv.id, user.id);
+  if (!mem) return jsonError(c, "\u0639\u0636\u0648 \u0646\u06CC\u0633\u062A\u06CC", 403);
+  const blockedWrite = await denyWrite(c, user);
+  if (blockedWrite) return blockedWrite;
+  if (conv.frozen && user.badge !== "owner") return jsonError(c, "\u0627\u06CC\u0646 \u06AF\u0641\u062A\u06AF\u0648 \u0645\u0646\u062C\u0645\u062F \u0627\u0633\u062A", 403);
+  if (!await canPost(mem, conv)) return jsonError(c, "\u062F\u0631 \u06A9\u0627\u0646\u0627\u0644 \u0641\u0642\u0637 \u0627\u062F\u0645\u06CC\u0646 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u0628\u0646\u0648\u06CC\u0633\u062F", 403);
+  if (conv.type === "dm") {
+    const other = await one(
+      c.env.DB,
+      `SELECT * FROM members WHERE conversation_id = ? AND user_id != ?`,
+      conv.id,
+      user.id
+    );
+    if (other && await blocked(c.env.DB, user.id, other.user_id)) return jsonError(c, "\u0645\u0633\u062F\u0648\u062F \u0627\u0633\u062A", 403);
+  }
+  const body = await c.req.json().catch(() => ({}));
+  const kindRaw = body.type === "photo" || body.type === "video" || body.type === "voice" ? body.type : "text";
+  const text = typeof body.body === "string" ? body.body.trim() : "";
+  if (kindRaw === "text") {
+    if (!text || text.length > 4e3) return jsonError(c, "\u067E\u06CC\u0627\u0645 \u062E\u0627\u0644\u06CC \u06CC\u0627 \u062E\u06CC\u0644\u06CC \u0628\u0644\u0646\u062F \u0627\u0633\u062A");
+    if (text.startsWith("\u2726T\u2726") && !packOfUser(user).anim) {
+      return jsonError(c, "\u0627\u06CC\u0645\u0648\u062C\u06CC \u0645\u062A\u062D\u0631\u06A9 \u0641\u0642\u0637 \u0628\u0631\u0627\u06CC \u067E\u0631\u0645\u06CC\u0648\u0645 \u0627\u0633\u062A", 403);
+    }
+  } else if (text.length > 400) {
+    return jsonError(c, "\u06A9\u067E\u0634\u0646 \u062E\u06CC\u0644\u06CC \u0628\u0644\u0646\u062F \u0627\u0633\u062A");
+  }
+  if (kindRaw === "voice" && user.badge !== "owner" && !await featureOn(c.env.DB, "feature_voice")) {
+    return jsonError(c, "\u0648\u06CC\u0633 \u0641\u0639\u0644\u0627\u064B \u062E\u0627\u0645\u0648\u0634 \u0627\u0633\u062A", 403);
+  }
+  const bannedWord = hitsFilter(text, filterWords(await setting(c.env.DB, "word_filter", "")));
+  if (bannedWord && user.badge !== "owner") {
+    return jsonError(c, "\u0627\u06CC\u0646 \u067E\u06CC\u0627\u0645 \u0628\u0647 \u062E\u0627\u0637\u0631 \u0648\u0627\u0698\u0647\u200C\u0647\u0627\u06CC \u0645\u0645\u0646\u0648\u0639 \u0631\u062F \u0634\u062F", 403);
+  }
+  const rpm = Number(await setting(c.env.DB, "rate_per_min", "0")) || 0;
+  if (rpm > 0 && user.badge !== "owner") {
+    const n = await one(
+      c.env.DB,
+      `SELECT COUNT(*) as n FROM messages WHERE author_id = ? AND created_at > ?`,
+      user.id,
+      Date.now() - 6e4
+    );
+    if ((n?.n ?? 0) >= rpm) return jsonError(c, "\u062E\u06CC\u0644\u06CC \u0633\u0631\u06CC\u0639 \u0645\u06CC\u200C\u0641\u0631\u0633\u062A\u06CC\u061B \u06A9\u0645\u06CC \u0635\u0628\u0631 \u06A9\u0646", 429);
+  }
+  let mediaId = null;
+  let durationMs = null;
+  if (kindRaw !== "text") {
+    const maxKb = Number(await setting(c.env.DB, "media_max_kb", "0")) || 0;
+    const maxSec = Number(await setting(c.env.DB, "voice_max_sec", "0")) || 0;
+    const dataMax = maxKb > 0 ? Math.max(32e3, maxKb * 1400) : MEDIA_MAX;
+    const durMax = maxSec > 0 ? maxSec * 1e3 : 12e4;
+    const parsed = parseMedia(body.media, kindRaw, dataMax, durMax);
+    if (!parsed) return jsonError(c, "\u0641\u0627\u06CC\u0644 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u06CC\u0627 \u062E\u06CC\u0644\u06CC \u0628\u0632\u0631\u06AF \u0627\u0633\u062A");
+    mediaId = randomId();
+    durationMs = parsed.durationMs || null;
+    await run(
+      c.env.DB,
+      `INSERT INTO media (id, conversation_id, kind, mime, data, bytes, duration_ms, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      mediaId,
+      conv.id,
+      kindRaw,
+      parsed.mime,
+      parsed.data,
+      parsed.bytes,
+      durationMs,
+      Date.now()
+    );
+  }
+  let replyTo = body.replyToId || null;
+  if (replyTo) {
+    const r = await one(c.env.DB, `SELECT * FROM messages WHERE id = ? AND conversation_id = ?`, replyTo, conv.id);
+    if (!r) replyTo = null;
+  }
+  const id = randomId();
+  const now = Date.now();
+  const needN = Number(await setting(c.env.DB, "new_user_pending", "0")) || 0;
+  if (needN > 0 && user.badge !== "owner") {
+    const sent = await one(c.env.DB, `SELECT COUNT(*) as n FROM messages WHERE author_id = ?`, user.id);
+    const pend = await one(c.env.DB, `SELECT COUNT(*) as n FROM pending_messages WHERE author_id = ?`, user.id);
+    if ((sent?.n ?? 0) + (pend?.n ?? 0) < needN) {
+      await run(
+        c.env.DB,
+        `INSERT INTO pending_messages (id, conversation_id, author_id, type, body, media_id, duration_ms, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        id,
+        conv.id,
+        user.id,
+        kindRaw,
+        text,
+        mediaId,
+        durationMs,
+        now
+      );
+      return c.json({
+        message: {
+          id,
+          conversationId: conv.id,
+          authorId: user.id,
+          mine: true,
+          type: kindRaw,
+          body: text,
+          replyToId: replyTo,
+          forwardedFrom: null,
+          editedAt: null,
+          deleted: false,
+          pinned: false,
+          createdAt: now,
+          reactions: [],
+          replyTo: null,
+          pending: true,
+          mediaId,
+          durationMs
+        }
+      });
+    }
+  }
+  await run(
+    c.env.DB,
+    `INSERT INTO messages (id, conversation_id, author_id, type, body, reply_to_id, created_at, media_id, duration_ms)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    id,
+    conv.id,
+    user.id,
+    kindRaw,
+    text,
+    replyTo,
+    now,
+    mediaId,
+    durationMs
+  );
+  await touchConv(c.env.DB, conv.id, previewFor(kindRaw, text), now);
+  await run(
+    c.env.DB,
+    `UPDATE members SET last_read_at = ? WHERE conversation_id = ? AND user_id = ?`,
+    now,
+    conv.id,
+    user.id
+  );
+  await emit(c.env.DB, "message", conv.id, user.id, { id });
+  const msg = await one(c.env.DB, `SELECT * FROM messages WHERE id = ?`, id);
+  const [full] = await messagesWithExtras(c.env.DB, [msg], user.id);
+  return c.json({ message: full });
+});
+app.patch("/messages/:id", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const blockedWrite = await denyWrite(c, user);
+  if (blockedWrite) return blockedWrite;
+  const msg = await one(c.env.DB, `SELECT * FROM messages WHERE id = ?`, c.req.param("id"));
+  if (!msg || msg.author_id !== user.id || msg.type !== "text" || msg.deleted_at) {
+    return jsonError(c, "\u0646\u0645\u06CC\u200C\u0634\u0648\u062F \u0648\u06CC\u0631\u0627\u06CC\u0634 \u06A9\u0631\u062F", 403);
+  }
+  const conv = await one(c.env.DB, `SELECT * FROM conversations WHERE id = ?`, msg.conversation_id);
+  if (conv?.frozen && user.badge !== "owner") return jsonError(c, "\u0627\u06CC\u0646 \u06AF\u0641\u062A\u06AF\u0648 \u0645\u0646\u062C\u0645\u062F \u0627\u0633\u062A", 403);
+  const body = await c.req.json().catch(() => ({}));
+  const text = typeof body.body === "string" ? body.body.trim() : "";
+  if (!text || text.length > 4e3) return jsonError(c, "\u0645\u062A\u0646 \u0646\u0627\u0645\u0639\u062A\u0628\u0631");
+  const bannedWord = hitsFilter(text, filterWords(await setting(c.env.DB, "word_filter", "")));
+  if (bannedWord && user.badge !== "owner") return jsonError(c, "\u0627\u06CC\u0646 \u067E\u06CC\u0627\u0645 \u0628\u0647 \u062E\u0627\u0637\u0631 \u0648\u0627\u0698\u0647\u200C\u0647\u0627\u06CC \u0645\u0645\u0646\u0648\u0639 \u0631\u062F \u0634\u062F", 403);
+  const now = Date.now();
+  await run(c.env.DB, `UPDATE messages SET body = ?, edited_at = ? WHERE id = ?`, text, now, msg.id);
+  await emit(c.env.DB, "message", msg.conversation_id, user.id, { id: msg.id, edited: true });
+  const fresh = await one(c.env.DB, `SELECT * FROM messages WHERE id = ?`, msg.id);
+  const [full] = await messagesWithExtras(c.env.DB, [fresh], user.id);
+  return c.json({ message: full });
+});
+app.delete("/messages/:id", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const msg = await one(c.env.DB, `SELECT * FROM messages WHERE id = ?`, c.req.param("id"));
+  if (!msg) return jsonError(c, "\u067E\u06CC\u0627\u0645 \u0646\u06CC\u0633\u062A", 404);
+  const mem = await memberOf(c.env.DB, msg.conversation_id, user.id);
+  const conv = await one(c.env.DB, `SELECT * FROM conversations WHERE id = ?`, msg.conversation_id);
+  const asMod = mem && conv && (mem.role === "owner" || mem.role === "admin");
+  if (msg.author_id !== user.id && !asMod) return jsonError(c, "\u0627\u062C\u0627\u0632\u0647 \u0646\u062F\u0627\u0631\u06CC", 403);
+  await run(c.env.DB, `UPDATE messages SET deleted_at = ?, body = '' WHERE id = ?`, Date.now(), msg.id);
+  await emit(c.env.DB, "message", msg.conversation_id, user.id, { id: msg.id, deleted: true });
+  return c.json({ ok: true });
+});
+app.post("/messages/:id/pin", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const msg = await one(c.env.DB, `SELECT * FROM messages WHERE id = ?`, c.req.param("id"));
+  if (!msg) return jsonError(c, "\u067E\u06CC\u0627\u0645 \u0646\u06CC\u0633\u062A", 404);
+  const mem = await memberOf(c.env.DB, msg.conversation_id, user.id);
+  if (!mem) return jsonError(c, "\u0639\u0636\u0648 \u0646\u06CC\u0633\u062A\u06CC", 403);
+  const next = msg.pinned ? 0 : 1;
+  await run(c.env.DB, `UPDATE messages SET pinned = ? WHERE id = ?`, next, msg.id);
+  await emit(c.env.DB, "message", msg.conversation_id, user.id, { id: msg.id, pinned: !!next });
+  return c.json({ pinned: !!next });
+});
+app.post("/messages/:id/react", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const msg = await one(c.env.DB, `SELECT * FROM messages WHERE id = ?`, c.req.param("id"));
+  if (!msg || !await memberOf(c.env.DB, msg.conversation_id, user.id)) return jsonError(c, "\u0646\u0627\u0645\u0639\u062A\u0628\u0631", 403);
+  const body = await c.req.json().catch(() => ({}));
+  const emoji = String(body.emoji || "");
+  const prem = packOfUser(user).react;
+  if (emoji === PREMIUM_REACT) {
+    if (!prem) return jsonError(c, "\u0631\u06CC\u200C\u0627\u06A9\u0634\u0646 T \u0641\u0642\u0637 \u0628\u0631\u0627\u06CC \u067E\u0631\u0645\u06CC\u0648\u0645 \u0627\u0633\u062A", 403);
+  } else if (!EMOJIS.includes(emoji)) {
+    return jsonError(c, "\u0627\u06CC\u0645\u0648\u062C\u06CC \u0645\u062C\u0627\u0632 \u0646\u06CC\u0633\u062A");
+  }
+  const existing = await one(
+    c.env.DB,
+    `SELECT emoji FROM reactions WHERE message_id = ? AND user_id = ?`,
+    msg.id,
+    user.id
+  );
+  if (existing?.emoji === emoji) {
+    await run(c.env.DB, `DELETE FROM reactions WHERE message_id = ? AND user_id = ?`, msg.id, user.id);
+  } else {
+    await run(
+      c.env.DB,
+      `INSERT INTO reactions (message_id, user_id, emoji, created_at) VALUES (?, ?, ?, ?)
+       ON CONFLICT(message_id, user_id) DO UPDATE SET emoji = excluded.emoji`,
+      msg.id,
+      user.id,
+      emoji,
+      Date.now()
+    );
+  }
+  await emit(c.env.DB, "message", msg.conversation_id, user.id, { id: msg.id, react: true });
+  return c.json({ ok: true });
+});
+app.post("/messages/:id/forward", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const msg = await one(c.env.DB, `SELECT * FROM messages WHERE id = ?`, c.req.param("id"));
+  if (!msg || msg.deleted_at) return jsonError(c, "\u067E\u06CC\u0627\u0645 \u0646\u06CC\u0633\u062A", 404);
+  if (!await memberOf(c.env.DB, msg.conversation_id, user.id)) return jsonError(c, "\u0627\u062C\u0627\u0632\u0647 \u0646\u062F\u0627\u0631\u06CC", 403);
+  const body = await c.req.json().catch(() => ({}));
+  const destId = String(body.conversationId || "");
+  const dest = await one(c.env.DB, `SELECT * FROM conversations WHERE id = ?`, destId);
+  const mem = dest ? await memberOf(c.env.DB, dest.id, user.id) : null;
+  if (!dest || !mem) return jsonError(c, "\u0645\u0642\u0635\u062F \u0646\u0627\u0645\u0639\u062A\u0628\u0631", 403);
+  if (!await canPost(mem, dest)) return jsonError(c, "\u0627\u062C\u0627\u0632\u0647 \u0627\u0631\u0633\u0627\u0644 \u0646\u062F\u0627\u0631\u06CC", 403);
+  const author = msg.author_id ? await one(c.env.DB, `SELECT * FROM users WHERE id = ?`, msg.author_id) : null;
+  const id = randomId();
+  const now = Date.now();
+  await run(
+    c.env.DB,
+    `INSERT INTO messages (id, conversation_id, author_id, type, body, forwarded_from, created_at)
+     VALUES (?, ?, ?, 'text', ?, ?, ?)`,
+    id,
+    dest.id,
+    user.id,
+    msg.body,
+    author?.display_name || "\u0646\u0627\u0634\u0646\u0627\u0633",
+    now
+  );
+  await touchConv(c.env.DB, dest.id, previewOf(msg.body), now);
+  await emit(c.env.DB, "message", dest.id, user.id, { id });
+  return c.json({ ok: true, id, conversationId: dest.id });
+});
+app.get("/media/:id", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const row = await one(c.env.DB, `SELECT id, conversation_id, mime, data FROM media WHERE id = ?`, c.req.param("id"));
+  if (!row) return jsonError(c, "\u0641\u0627\u06CC\u0644 \u0646\u06CC\u0633\u062A", 404);
+  if (!await memberOf(c.env.DB, row.conversation_id, user.id)) return jsonError(c, "\u0627\u062C\u0627\u0632\u0647 \u0646\u062F\u0627\u0631\u06CC", 403);
+  const decoded = decodeDataUrl(row.data);
+  if (!decoded) return jsonError(c, "\u0641\u0627\u06CC\u0644 \u062E\u0631\u0627\u0628 \u0627\u0633\u062A", 500);
+  const copy = new Uint8Array(decoded.bytes.byteLength);
+  copy.set(decoded.bytes);
+  return new Response(new Blob([copy], { type: decoded.mime || row.mime || "application/octet-stream" }), {
+    status: 200,
+    headers: {
+      "Content-Type": decoded.mime || row.mime || "application/octet-stream",
+      "Cache-Control": "private, max-age=604800, immutable",
+      "Content-Disposition": "inline"
+    }
+  });
+});
+app.post("/conversations/:id/read", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const now = Date.now();
+  await run(
+    c.env.DB,
+    `UPDATE members SET last_read_at = ? WHERE conversation_id = ? AND user_id = ?`,
+    now,
+    c.req.param("id"),
+    user.id
+  );
+  await emit(c.env.DB, "read", c.req.param("id"), user.id, { at: now });
+  return c.json({ ok: true });
+});
+app.post("/presence", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  await run(c.env.DB, `UPDATE users SET last_seen = ? WHERE id = ?`, Date.now(), user.id);
+  return c.json({ ok: true });
+});
+app.post("/typing", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const body = await c.req.json().catch(() => ({}));
+  const convId = String(body.conversationId || "");
+  if (!await memberOf(c.env.DB, convId, user.id)) return jsonError(c, "\u0639\u0636\u0648 \u0646\u06CC\u0633\u062A\u06CC", 403);
+  await run(
+    c.env.DB,
+    `INSERT INTO typing (conversation_id, user_id, until_ts) VALUES (?, ?, ?)
+     ON CONFLICT(conversation_id, user_id) DO UPDATE SET until_ts = excluded.until_ts`,
+    convId,
+    user.id,
+    Date.now() + 3e3
+  );
+  return c.json({ ok: true });
+});
+app.get("/sync", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const lite = c.req.query("lite") === "1";
+  const after = Number(c.req.query("after") || 0);
+  if (!lite) {
+    await run(c.env.DB, `UPDATE users SET last_seen = ? WHERE id = ?`, Date.now(), user.id);
+  }
+  const events = await many(
+    c.env.DB,
+    `SELECT e.* FROM events e
      WHERE e.id > ?
        AND (
          e.conversation_id IS NULL
          OR e.conversation_id IN (SELECT conversation_id FROM members WHERE user_id = ?)
          OR e.kind IN ('story', 'badge')
        )
-     ORDER BY e.id ASC LIMIT 80`,r,t.id),i=s.filter(g=>g.kind==="message").map(g=>{try{return JSON.parse(g.payload).id}catch{return null}}).filter(Boolean),a=[];if(i.length){let g=i.map(()=>"?").join(",");a=(await h(e.env.DB,`SELECT * FROM messages WHERE id IN (${g})`,...i)).map(T=>({...oe(T,t.id),reactions:[],replyTo:null}))}let o=[];if(!n){let g=[...new Set(s.filter(_=>_.kind==="conversation"||_.kind==="members").map(_=>_.conversation_id).filter(Boolean))];if(g.length){let _=g.map(()=>"?").join(","),T=await h(e.env.DB,`SELECT * FROM conversations WHERE id IN (${_})`,...g);for(let R of T)await D(e.env.DB,R.id,t.id)&&o.push(await H(e.env.DB,R,t))}}let u=Date.now(),c=await h(e.env.DB,`SELECT t.conversation_id, t.user_id, u.display_name
+     ORDER BY e.id ASC LIMIT 80`,
+    after,
+    user.id
+  );
+  const messageIds = events.filter((e) => e.kind === "message").map((e) => {
+    try {
+      return JSON.parse(e.payload).id;
+    } catch {
+      return null;
+    }
+  }).filter(Boolean);
+  let messages = [];
+  if (messageIds.length) {
+    const ph = messageIds.map(() => "?").join(",");
+    const rows = await many(
+      c.env.DB,
+      `SELECT m.* FROM messages m
+       LEFT JOIN users au ON au.id = m.author_id
+       WHERE m.id IN (${ph})
+         AND (m.author_id IS NULL OR m.author_id = ? OR IFNULL(au.shadowban, 0) = 0)`,
+      ...messageIds,
+      user.id
+    );
+    messages = rows.map((m) => ({
+      ...serializeMessage(m, user.id),
+      reactions: [],
+      replyTo: null
+    }));
+  }
+  let conversations = [];
+  if (!lite) {
+    const heavyIds = [
+      ...new Set(
+        events.filter((e) => e.kind === "conversation" || e.kind === "members").map((e) => e.conversation_id).filter(Boolean)
+      )
+    ];
+    if (heavyIds.length) {
+      const ph = heavyIds.map(() => "?").join(",");
+      const rows = await many(c.env.DB, `SELECT * FROM conversations WHERE id IN (${ph})`, ...heavyIds);
+      for (const row of rows) {
+        const mem = await memberOf(c.env.DB, row.id, user.id);
+        if (mem) conversations.push(await conversationPayload(c.env.DB, row, user));
+      }
+    }
+  }
+  const now = Date.now();
+  const typing = await many(
+    c.env.DB,
+    `SELECT t.conversation_id, t.user_id, u.display_name
      FROM typing t JOIN users u ON u.id = t.user_id
      WHERE t.until_ts > ? AND t.user_id != ?
-       AND t.conversation_id IN (SELECT conversation_id FROM members WHERE user_id = ?)`,u,t.id,t.id),m=[];if(!n){let g=await h(e.env.DB,`SELECT DISTINCT m2.user_id FROM members m1
+       AND t.conversation_id IN (SELECT conversation_id FROM members WHERE user_id = ?)`,
+    now,
+    user.id,
+    user.id
+  );
+  let presence = [];
+  if (!lite) {
+    const peerIds = await many(
+      c.env.DB,
+      `SELECT DISTINCT m2.user_id FROM members m1
        JOIN members m2 ON m1.conversation_id = m2.conversation_id
-       WHERE m1.user_id = ? AND m2.user_id != ?`,t.id,t.id);if(g.length){let _=g.map(()=>"?").join(","),T=await h(e.env.DB,`SELECT id, last_seen, last_seen_vis, badge, premium FROM users WHERE id IN (${_})`,...g.map(R=>R.user_id));for(let R of T){let A=u-R.last_seen<se,L=R.last_seen_vis==="nobody"?null:R.last_seen;m.push({id:R.id,online:L!==null&&A,lastSeen:L,badge:R.badge,premium:Number(R.premium||0)===1})}}}m.push({id:t.id,online:!0,lastSeen:u,badge:t.badge,premium:Number(t.premium||0)===1});let p=s.length?s[s.length-1].id:r;return e.json({cursor:p,events:s.map(g=>({id:g.id,ts:g.ts,kind:g.kind,conversationId:g.conversation_id,actorId:g.actor_id})),messages:a,conversations:o,typing:c,presence:m,serverTime:u})});f.get("/stories",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=Date.now();await E(e.env.DB,"DELETE FROM stories WHERE expires_at < ?",n);let r=await h(e.env.DB,`SELECT u.*, s.id as story_id, s.body as story_body, s.created_at as story_created, s.expires_at as story_expires
+       WHERE m1.user_id = ? AND m2.user_id != ?`,
+      user.id,
+      user.id
+    );
+    if (peerIds.length) {
+      const ph = peerIds.map(() => "?").join(",");
+      const users = await many(
+        c.env.DB,
+        `SELECT id, last_seen, last_seen_vis, badge, premium FROM users WHERE id IN (${ph})`,
+        ...peerIds.map((p) => p.user_id)
+      );
+      for (const u of users) {
+        const online = now - u.last_seen < ONLINE_MS;
+        const lastSeen = u.last_seen_vis === "nobody" ? null : u.last_seen;
+        presence.push({
+          id: u.id,
+          online: lastSeen !== null && online,
+          lastSeen,
+          badge: u.badge,
+          premium: Number(u.premium || 0) === 1
+        });
+      }
+    }
+  }
+  presence.push({
+    id: user.id,
+    online: true,
+    lastSeen: now,
+    badge: user.badge,
+    premium: Number(user.premium || 0) === 1
+  });
+  const cursor = events.length ? events[events.length - 1].id : after;
+  return c.json({
+    cursor,
+    events: events.map((e) => ({
+      id: e.id,
+      ts: e.ts,
+      kind: e.kind,
+      conversationId: e.conversation_id,
+      actorId: e.actor_id
+    })),
+    messages,
+    conversations,
+    typing,
+    presence,
+    serverTime: now
+  });
+});
+app.get("/stories", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const now = Date.now();
+  await run(c.env.DB, `DELETE FROM stories WHERE expires_at < ?`, now);
+  const rows = await many(
+    c.env.DB,
+    `SELECT u.*, s.id as story_id, s.body as story_body, s.created_at as story_created, s.expires_at as story_expires
      FROM stories s JOIN users u ON u.id = s.user_id
      WHERE s.expires_at > ?
        AND (
@@ -231,37 +4525,1355 @@ CREATE TABLE IF NOT EXISTS delete_challenges (
            WHERE m1.user_id = ?
          )
        )
-     ORDER BY (s.user_id = ?) DESC, s.created_at DESC`,n,t.id,t.id,t.id),s={};for(let i of r){let a=await ae(e.env.DB,t.id,i.id);s[i.id]||(s[i.id]={user:B(i,t.id,a),stories:[]});let o=await l(e.env.DB,"SELECT viewer_id FROM story_views WHERE story_id = ? AND viewer_id = ?",i.story_id,t.id);s[i.id].stories.push({id:i.story_id,body:i.story_body,createdAt:i.story_created,expiresAt:i.story_expires,viewed:!!o})}return e.json({rings:Object.values(s)})});f.post("/stories",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=Xt(e,t);if(n)return n;let r=await e.req.json().catch(()=>({})),s=typeof r.body=="string"?r.body.trim():"";if(!s||s.length>280)return d(e,"\u0627\u0633\u062A\u0648\u0631\u06CC \u0645\u062A\u0646\u06CC \u062A\u0627 \u06F2\u06F8\u06F0 \u062D\u0631\u0641");let i=Date.now(),a=I();return await E(e.env.DB,"INSERT INTO stories (id, user_id, body, created_at, expires_at) VALUES (?, ?, ?, ?, ?)",a,t.id,s,i,i+1440*60*1e3),await y(e.env.DB,"story",null,t.id,{id:a}),e.json({id:a})});f.delete("/stories/:id",async e=>{let t=await w(e);return t instanceof Response?t:(await E(e.env.DB,"DELETE FROM stories WHERE id = ? AND user_id = ?",e.req.param("id"),t.id),await y(e.env.DB,"story",null,t.id,{deleted:e.req.param("id")}),e.json({ok:!0}))});f.post("/stories/:id/view",async e=>{let t=await w(e);return t instanceof Response?t:(await E(e.env.DB,"INSERT OR IGNORE INTO story_views (story_id, viewer_id, viewed_at) VALUES (?, ?, ?)",e.req.param("id"),t.id,Date.now()),e.json({ok:!0}))});f.get("/stories/:id/views",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await l(e.env.DB,"SELECT user_id FROM stories WHERE id = ?",e.req.param("id"));if(!n||n.user_id!==t.id)return d(e,"\u0627\u062C\u0627\u0632\u0647 \u0646\u062F\u0627\u0631\u06CC",403);let r=await h(e.env.DB,"SELECT u.* FROM story_views v JOIN users u ON u.id = v.viewer_id WHERE v.story_id = ? ORDER BY v.viewed_at DESC",e.req.param("id"));return e.json({users:await Ve(e.env.DB,r,t)})});f.get("/search",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=(e.req.query("q")||"").trim(),r=e.req.query("conversationId");if(n.length<2)return e.json({messages:[]});let s=`SELECT msg.* FROM messages msg
+     ORDER BY (s.user_id = ?) DESC, s.created_at DESC`,
+    now,
+    user.id,
+    user.id,
+    user.id
+  );
+  const grouped = {};
+  for (const r of rows) {
+    const contact = await areContacts(c.env.DB, user.id, r.id);
+    if (!grouped[r.id]) grouped[r.id] = { user: pub(r, user.id, contact), stories: [] };
+    const viewed = await one(
+      c.env.DB,
+      `SELECT viewer_id FROM story_views WHERE story_id = ? AND viewer_id = ?`,
+      r.story_id,
+      user.id
+    );
+    grouped[r.id].stories.push({
+      id: r.story_id,
+      body: r.story_body,
+      createdAt: r.story_created,
+      expiresAt: r.story_expires,
+      viewed: !!viewed
+    });
+  }
+  return c.json({ rings: Object.values(grouped) });
+});
+app.post("/stories", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const blockedWrite = await denyWrite(c, user);
+  if (blockedWrite) return blockedWrite;
+  if (user.badge !== "owner" && !await featureOn(c.env.DB, "feature_stories")) {
+    return jsonError(c, "\u0627\u0633\u062A\u0648\u0631\u06CC \u0641\u0639\u0644\u0627\u064B \u062E\u0627\u0645\u0648\u0634 \u0627\u0633\u062A", 403);
+  }
+  const body = await c.req.json().catch(() => ({}));
+  const text = typeof body.body === "string" ? body.body.trim() : "";
+  if (!text || text.length > 280) return jsonError(c, "\u0627\u0633\u062A\u0648\u0631\u06CC \u0645\u062A\u0646\u06CC \u062A\u0627 \u06F2\u06F8\u06F0 \u062D\u0631\u0641");
+  const now = Date.now();
+  const id = randomId();
+  await run(
+    c.env.DB,
+    `INSERT INTO stories (id, user_id, body, created_at, expires_at) VALUES (?, ?, ?, ?, ?)`,
+    id,
+    user.id,
+    text,
+    now,
+    now + 24 * 60 * 60 * 1e3
+  );
+  await emit(c.env.DB, "story", null, user.id, { id });
+  return c.json({ id });
+});
+app.delete("/stories/:id", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  await run(c.env.DB, `DELETE FROM stories WHERE id = ? AND user_id = ?`, c.req.param("id"), user.id);
+  await emit(c.env.DB, "story", null, user.id, { deleted: c.req.param("id") });
+  return c.json({ ok: true });
+});
+app.post("/stories/:id/view", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  await run(
+    c.env.DB,
+    `INSERT OR IGNORE INTO story_views (story_id, viewer_id, viewed_at) VALUES (?, ?, ?)`,
+    c.req.param("id"),
+    user.id,
+    Date.now()
+  );
+  return c.json({ ok: true });
+});
+app.get("/stories/:id/views", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const story = await one(c.env.DB, `SELECT user_id FROM stories WHERE id = ?`, c.req.param("id"));
+  if (!story || story.user_id !== user.id) return jsonError(c, "\u0627\u062C\u0627\u0632\u0647 \u0646\u062F\u0627\u0631\u06CC", 403);
+  const rows = await many(
+    c.env.DB,
+    `SELECT u.* FROM story_views v JOIN users u ON u.id = v.viewer_id WHERE v.story_id = ? ORDER BY v.viewed_at DESC`,
+    c.req.param("id")
+  );
+  return c.json({ users: await hydrateUsers(c.env.DB, rows, user) });
+});
+app.get("/search", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const q = (c.req.query("q") || "").trim();
+  const convId = c.req.query("conversationId");
+  if (q.length < 2) return c.json({ messages: [] });
+  let sql = `SELECT msg.* FROM messages msg
     JOIN members m ON m.conversation_id = msg.conversation_id AND m.user_id = ?
-    WHERE msg.deleted_at IS NULL AND msg.type = 'text' AND msg.body LIKE ?`,i=[t.id,`%${n}%`];r&&(s+=" AND msg.conversation_id = ?",i.push(r)),s+=" ORDER BY msg.created_at DESC LIMIT 40";let a=await h(e.env.DB,s,...i);return e.json({messages:a.map(o=>oe(o,t.id))})});f.get("/blocks",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await h(e.env.DB,"SELECT u.* FROM blocks b JOIN users u ON u.id = b.blocked_id WHERE b.blocker_id = ?",t.id);return e.json({users:await Ve(e.env.DB,n,t)})});f.post("/blocks",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await e.req.json().catch(()=>({})),r=await l(e.env.DB,"SELECT * FROM users WHERE id = ?",String(n.userId||""));return!r||r.id===t.id?d(e,"\u0646\u0627\u0645\u0639\u062A\u0628\u0631"):(await E(e.env.DB,"INSERT OR IGNORE INTO blocks (blocker_id, blocked_id, created_at) VALUES (?, ?, ?)",t.id,r.id,Date.now()),e.json({ok:!0}))});f.delete("/blocks/:userId",async e=>{let t=await w(e);return t instanceof Response?t:(await E(e.env.DB,"DELETE FROM blocks WHERE blocker_id = ? AND blocked_id = ?",t.id,e.req.param("userId")),e.json({ok:!0}))});var $t=10080*60*1e3,It=0;function Hn(e){let t="\u06F0\u06F1\u06F2\u06F3\u06F4\u06F5\u06F6\u06F7\u06F8\u06F9",n="\u0660\u0661\u0662\u0663\u0664\u0665\u0666\u0667\u0668\u0669";return e.replace(/[۰-۹٠-٩]/g,r=>{let s=t.indexOf(r);if(s>=0)return String(s);let i=n.indexOf(r);return i>=0?String(i):r})}async function v(e,t,...n){try{await E(e,t,...n)}catch{}}async function Gt(e,t){let n=await l(e,"SELECT * FROM messages WHERE conversation_id = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1",t);n?await v(e,"UPDATE conversations SET last_message_preview = ? WHERE id = ?",kt(n.type,n.body||""),t):await v(e,"UPDATE conversations SET last_message_preview = '' WHERE id = ?",t)}async function Fn(e,t,n){let r=await h(e,"SELECT id, conversation_id, media_id FROM messages WHERE author_id = ? LIMIT ?",t,n),s=new Set;for(let i of r)s.add(i.conversation_id),i.media_id&&await v(e,"DELETE FROM media WHERE id = ?",i.media_id),await v(e,"DELETE FROM reactions WHERE message_id = ?",i.id),await v(e,"DELETE FROM messages WHERE id = ?",i.id);for(let i of s)await Gt(e,i);return r.length}async function jn(e,t){await Fn(e,t,200)>=200||(await v(e,"DELETE FROM sessions WHERE user_id = ?",t),await v(e,"DELETE FROM stories WHERE user_id = ?",t),await v(e,"DELETE FROM story_views WHERE viewer_id = ?",t),await v(e,"DELETE FROM blocks WHERE blocker_id = ? OR blocked_id = ?",t,t),await v(e,"DELETE FROM typing WHERE user_id = ?",t),await v(e,"DELETE FROM reactions WHERE user_id = ?",t),await v(e,"DELETE FROM delete_challenges WHERE user_id = ?",t),await v(e,"DELETE FROM members WHERE user_id = ?",t),await v(e,"DELETE FROM users WHERE id = ?",t))}async function Pn(e){let t=Date.now();if(t-It<3e4)return;It=t;let n=await h(e,"SELECT id, conversation_id, media_id FROM messages WHERE purge_at IS NOT NULL AND purge_at <= ? LIMIT 80",t),r=new Set;for(let i of n)r.add(i.conversation_id),i.media_id&&await v(e,"DELETE FROM media WHERE id = ?",i.media_id),await v(e,"DELETE FROM reactions WHERE message_id = ?",i.id),await v(e,"DELETE FROM messages WHERE id = ?",i.id);for(let i of r)await Gt(e,i);let s=await h(e,"SELECT id FROM users WHERE IFNULL(deleted_at, 0) > 0 AND deleted_at <= ? LIMIT 10",t-$t);for(let i of s)await jn(e,i.id)}async function Vt(e,t){let n=await h(e,"SELECT * FROM conversations WHERE owner_id = ?",t);for(let a of n){if(a.type==="dm")continue;let o=await l(e,"SELECT user_id FROM members WHERE conversation_id = ? AND user_id != ? ORDER BY joined_at ASC LIMIT 1",a.id,t);o&&(await v(e,"UPDATE conversations SET owner_id = ? WHERE id = ?",o.user_id,a.id),await v(e,"UPDATE members SET role = 'owner' WHERE conversation_id = ? AND user_id = ?",a.id,o.user_id))}let r=Date.now();await v(e,"DELETE FROM sessions WHERE user_id = ?",t),await v(e,"DELETE FROM stories WHERE user_id = ?",t),await v(e,"DELETE FROM story_views WHERE viewer_id = ?",t),await v(e,"DELETE FROM blocks WHERE blocker_id = ? OR blocked_id = ?",t,t),await v(e,"DELETE FROM typing WHERE user_id = ?",t),await v(e,"DELETE FROM reactions WHERE user_id = ?",t),await v(e,"UPDATE messages SET purge_at = ? WHERE author_id = ? AND (purge_at IS NULL OR purge_at = 0)",r+$t,t),await v(e,"DELETE FROM delete_challenges WHERE user_id = ?",t);let s=`gone_${t.replace(/-/g,"").slice(0,12)}`;await E(e,`UPDATE users SET
+    WHERE msg.deleted_at IS NULL AND msg.type = 'text' AND msg.body LIKE ?`;
+  const params = [user.id, `%${q}%`];
+  if (convId) {
+    sql += ` AND msg.conversation_id = ?`;
+    params.push(convId);
+  }
+  sql += ` ORDER BY msg.created_at DESC LIMIT 40`;
+  const rows = await many(c.env.DB, sql, ...params);
+  return c.json({ messages: rows.map((m) => serializeMessage(m, user.id)) });
+});
+app.get("/blocks", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const rows = await many(
+    c.env.DB,
+    `SELECT u.* FROM blocks b JOIN users u ON u.id = b.blocked_id WHERE b.blocker_id = ?`,
+    user.id
+  );
+  return c.json({ users: await hydrateUsers(c.env.DB, rows, user) });
+});
+app.post("/blocks", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const body = await c.req.json().catch(() => ({}));
+  const target = await one(c.env.DB, `SELECT * FROM users WHERE id = ?`, String(body.userId || ""));
+  if (!target || target.id === user.id) return jsonError(c, "\u0646\u0627\u0645\u0639\u062A\u0628\u0631");
+  await run(
+    c.env.DB,
+    `INSERT OR IGNORE INTO blocks (blocker_id, blocked_id, created_at) VALUES (?, ?, ?)`,
+    user.id,
+    target.id,
+    Date.now()
+  );
+  return c.json({ ok: true });
+});
+app.delete("/blocks/:userId", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  await run(c.env.DB, `DELETE FROM blocks WHERE blocker_id = ? AND blocked_id = ?`, user.id, c.req.param("userId"));
+  return c.json({ ok: true });
+});
+var WEEK_MS = 7 * 24 * 60 * 60 * 1e3;
+var lastPurge = 0;
+function toEnDigits(raw2) {
+  const fa = "\u06F0\u06F1\u06F2\u06F3\u06F4\u06F5\u06F6\u06F7\u06F8\u06F9";
+  const ar = "\u0660\u0661\u0662\u0663\u0664\u0665\u0666\u0667\u0668\u0669";
+  return raw2.replace(/[۰-۹٠-٩]/g, (ch) => {
+    const i = fa.indexOf(ch);
+    if (i >= 0) return String(i);
+    const j = ar.indexOf(ch);
+    return j >= 0 ? String(j) : ch;
+  });
+}
+async function soft(db, sql, ...params) {
+  try {
+    await run(db, sql, ...params);
+  } catch {
+  }
+}
+async function refreshPreview(db, cid) {
+  const last = await one(
+    db,
+    `SELECT * FROM messages WHERE conversation_id = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1`,
+    cid
+  );
+  if (last) {
+    await soft(db, `UPDATE conversations SET last_message_preview = ? WHERE id = ?`, previewFor(last.type, last.body || ""), cid);
+  } else {
+    await soft(db, `UPDATE conversations SET last_message_preview = '' WHERE id = ?`, cid);
+  }
+}
+async function eraseAuthorContent(db, userId, limit) {
+  const rows = await many(
+    db,
+    `SELECT id, conversation_id, media_id FROM messages WHERE author_id = ? LIMIT ?`,
+    userId,
+    limit
+  );
+  const convs = /* @__PURE__ */ new Set();
+  for (const row of rows) {
+    convs.add(row.conversation_id);
+    if (row.media_id) await soft(db, `DELETE FROM media WHERE id = ?`, row.media_id);
+    await soft(db, `DELETE FROM reactions WHERE message_id = ?`, row.id);
+    await soft(db, `DELETE FROM messages WHERE id = ?`, row.id);
+  }
+  for (const cid of convs) await refreshPreview(db, cid);
+  return rows.length;
+}
+async function finishGoneUser(db, userId) {
+  const hold = await one(db, `SELECT legal_hold FROM users WHERE id = ?`, userId);
+  if (Number(hold?.legal_hold || 0) === 1) return;
+  const wiped = await eraseAuthorContent(db, userId, 200);
+  if (wiped >= 200) return;
+  await soft(db, `DELETE FROM sessions WHERE user_id = ?`, userId);
+  await soft(db, `DELETE FROM stories WHERE user_id = ?`, userId);
+  await soft(db, `DELETE FROM story_views WHERE viewer_id = ?`, userId);
+  await soft(db, `DELETE FROM blocks WHERE blocker_id = ? OR blocked_id = ?`, userId, userId);
+  await soft(db, `DELETE FROM typing WHERE user_id = ?`, userId);
+  await soft(db, `DELETE FROM reactions WHERE user_id = ?`, userId);
+  await soft(db, `DELETE FROM delete_challenges WHERE user_id = ?`, userId);
+  await soft(db, `DELETE FROM members WHERE user_id = ?`, userId);
+  await soft(db, `DELETE FROM users WHERE id = ?`, userId);
+}
+async function purgeExpired(db) {
+  const now = Date.now();
+  if (now - lastPurge < 3e4) return;
+  lastPurge = now;
+  const due = await many(
+    db,
+    `SELECT m.id, m.conversation_id, m.media_id FROM messages m
+     LEFT JOIN users u ON u.id = m.author_id
+     WHERE m.purge_at IS NOT NULL AND m.purge_at <= ? AND IFNULL(u.legal_hold, 0) = 0
+     LIMIT 80`,
+    now
+  );
+  const convs = /* @__PURE__ */ new Set();
+  for (const row of due) {
+    convs.add(row.conversation_id);
+    if (row.media_id) await soft(db, `DELETE FROM media WHERE id = ?`, row.media_id);
+    await soft(db, `DELETE FROM reactions WHERE message_id = ?`, row.id);
+    await soft(db, `DELETE FROM messages WHERE id = ?`, row.id);
+  }
+  for (const cid of convs) await refreshPreview(db, cid);
+  const ghosts = await many(
+    db,
+    `SELECT id FROM users WHERE IFNULL(deleted_at, 0) > 0 AND deleted_at <= ? LIMIT 10`,
+    now - WEEK_MS
+  );
+  for (const g of ghosts) await finishGoneUser(db, g.id);
+}
+async function wipeUser(db, userId) {
+  const owned = await many(db, `SELECT * FROM conversations WHERE owner_id = ?`, userId);
+  for (const conv of owned) {
+    if (conv.type === "dm") continue;
+    const next = await one(
+      db,
+      `SELECT user_id FROM members WHERE conversation_id = ? AND user_id != ? ORDER BY joined_at ASC LIMIT 1`,
+      conv.id,
+      userId
+    );
+    if (next) {
+      await soft(db, `UPDATE conversations SET owner_id = ? WHERE id = ?`, next.user_id, conv.id);
+      await soft(db, `UPDATE members SET role = 'owner' WHERE conversation_id = ? AND user_id = ?`, conv.id, next.user_id);
+    }
+  }
+  const now = Date.now();
+  await soft(db, `DELETE FROM sessions WHERE user_id = ?`, userId);
+  await soft(db, `DELETE FROM stories WHERE user_id = ?`, userId);
+  await soft(db, `DELETE FROM story_views WHERE viewer_id = ?`, userId);
+  await soft(db, `DELETE FROM blocks WHERE blocker_id = ? OR blocked_id = ?`, userId, userId);
+  await soft(db, `DELETE FROM typing WHERE user_id = ?`, userId);
+  await soft(db, `DELETE FROM reactions WHERE user_id = ?`, userId);
+  await soft(db, `UPDATE messages SET purge_at = ? WHERE author_id = ? AND (purge_at IS NULL OR purge_at = 0)`, now + WEEK_MS, userId);
+  await soft(db, `DELETE FROM delete_challenges WHERE user_id = ?`, userId);
+  const ghost = `gone_${userId.replace(/-/g, "").slice(0, 12)}`;
+  await run(
+    db,
+    `UPDATE users SET
         username = ?, username_lc = ?, password_hash = ?, display_name = ?,
         bio = '', avatar = NULL, badge = NULL, premium = 0, signature = '',
         deleted_at = ?
-     WHERE id = ?`,s,s.toLowerCase(),await ie(ye()),X,r,t);let i=await h(e,"SELECT conversation_id FROM members WHERE user_id = ?",t);for(let a of i)await v(e,"INSERT INTO events (ts, kind, conversation_id, actor_id, payload) VALUES (?, ?, ?, ?, ?)",r,"conversation",a.conversation_id,t,JSON.stringify({deleted:!0}))}f.get("/site",async e=>{let t=await N(e.env.DB,"register_mode","open")||"open",r=await N(e.env.DB,"announce_on","0")==="1"?(await N(e.env.DB,"announce_body","")).trim():"";return e.json({site:{maintenance:await N(e.env.DB,"maintenance","0")==="1",registerMode:t==="invite"||t==="closed"?t:"open",inviteRequired:t==="invite",iranOnly:await N(e.env.DB,"iran_only","0")==="1",announce:r||null}})});f.post("/reports",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await e.req.json().catch(()=>({})),r=n.kind==="message"||n.kind==="story"?n.kind:"user",s=V(n.reason??"\u06AF\u0632\u0627\u0631\u0634",1,240)||"\u06AF\u0632\u0627\u0631\u0634",i=typeof n.targetUserId=="string"?n.targetUserId:null,a=typeof n.messageId=="string"?n.messageId:null,o=typeof n.conversationId=="string"?n.conversationId:null,u=typeof n.storyId=="string"?n.storyId:null;return r==="user"&&!i?d(e,"\u0647\u062F\u0641 \u0644\u0627\u0632\u0645 \u0627\u0633\u062A"):r==="message"&&!a?d(e,"\u067E\u06CC\u0627\u0645 \u0644\u0627\u0632\u0645 \u0627\u0633\u062A"):(await E(e.env.DB,`INSERT INTO reports (id, reporter_id, target_user_id, message_id, conversation_id, story_id, kind, reason, status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', ?)`,I(),t.id,i,a,o,u,r,s,Date.now()),e.json({ok:!0}))});f.get("/admin/users",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await S(t,e.env.DB);if(!n)return d(e,"\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A",403);let r=(e.req.query("q")||"").trim().toLowerCase(),s=await h(e.env.DB,`SELECT * FROM users
+     WHERE id = ?`,
+    ghost,
+    ghost.toLowerCase(),
+    await hashPassword(randomToken()),
+    GONE_NAME,
+    now,
+    userId
+  );
+  const rooms = await many(
+    db,
+    `SELECT conversation_id FROM members WHERE user_id = ?`,
+    userId
+  );
+  for (const r of rooms) {
+    await soft(
+      db,
+      `INSERT INTO events (ts, kind, conversation_id, actor_id, payload) VALUES (?, ?, ?, ?, ?)`,
+      now,
+      "conversation",
+      r.conversation_id,
+      userId,
+      JSON.stringify({ deleted: true })
+    );
+  }
+}
+app.get("/site", async (c) => {
+  const mode = await setting(c.env.DB, "register_mode", "open") || "open";
+  const announce = await liveAnnounce(c.env.DB);
+  const maintText = (await setting(c.env.DB, "maintenance_text", "")).trim();
+  return c.json({
+    site: {
+      maintenance: await setting(c.env.DB, "maintenance", "0") === "1",
+      registerMode: mode === "invite" || mode === "closed" ? mode : "open",
+      inviteRequired: mode === "invite",
+      iranOnly: await setting(c.env.DB, "iran_only", "0") === "1",
+      announce: announce || null,
+      maintenanceText: maintText || null,
+      panic: await setting(c.env.DB, "panic", "0") === "1",
+      features: {
+        voice: await featureOn(c.env.DB, "feature_voice"),
+        stories: await featureOn(c.env.DB, "feature_stories"),
+        explore: await featureOn(c.env.DB, "feature_explore"),
+        createSpace: await featureOn(c.env.DB, "feature_create_space")
+      }
+    }
+  });
+});
+app.post("/reports", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const body = await c.req.json().catch(() => ({}));
+  const kind = body.kind === "message" || body.kind === "story" ? body.kind : "user";
+  const reason = cleanText(body.reason ?? "\u06AF\u0632\u0627\u0631\u0634", 1, 240) || "\u06AF\u0632\u0627\u0631\u0634";
+  const targetUserId = typeof body.targetUserId === "string" ? body.targetUserId : null;
+  const messageId = typeof body.messageId === "string" ? body.messageId : null;
+  const conversationId = typeof body.conversationId === "string" ? body.conversationId : null;
+  const storyId = typeof body.storyId === "string" ? body.storyId : null;
+  if (kind === "user" && !targetUserId) return jsonError(c, "\u0647\u062F\u0641 \u0644\u0627\u0632\u0645 \u0627\u0633\u062A");
+  if (kind === "message" && !messageId) return jsonError(c, "\u067E\u06CC\u0627\u0645 \u0644\u0627\u0632\u0645 \u0627\u0633\u062A");
+  await run(
+    c.env.DB,
+    `INSERT INTO reports (id, reporter_id, target_user_id, message_id, conversation_id, story_id, kind, reason, status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', ?)`,
+    randomId(),
+    user.id,
+    targetUserId,
+    messageId,
+    conversationId,
+    storyId,
+    kind,
+    reason,
+    Date.now()
+  );
+  return c.json({ ok: true });
+});
+app.get("/admin/users", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  const q = (c.req.query("q") || "").trim().toLowerCase();
+  const rows = await many(
+    c.env.DB,
+    `SELECT * FROM users
      WHERE ? = '' OR username_lc LIKE ? OR lower(display_name) LIKE ? OR id = ?
-     ORDER BY created_at DESC LIMIT 200`,r,`%${r}%`,`%${r}%`,r);return e.json({me:B(t,t.id,!0),gate:n,users:s.map(i=>({...B(i,t.id,!0),lastSeen:i.last_seen,online:Date.now()-i.last_seen<se}))})});f.patch("/admin/users/:id",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await S(t,e.env.DB);if(!n)return d(e,"\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A",403);let r=await e.req.json().catch(()=>({})),s=await l(e.env.DB,"SELECT * FROM users WHERE id = ?",e.req.param("id"));if(!s)return d(e,"\u06A9\u0627\u0631\u0628\u0631 \u0646\u06CC\u0633\u062A",404);if(n!=="bootstrap"&&s.badge==="owner"&&t.badge!=="owner")return d(e,"\u062A\u06CC\u06A9 \u0645\u0627\u0644\u06A9 \u062F\u0633\u062A\u200C\u0646\u062E\u0648\u0631\u062F\u0646\u06CC \u0627\u0633\u062A",403);if(r.premium!==void 0||r.premiumDays!==void 0||r.pack||r.premiumNote!==void 0){if(!C(n))return d(e,"\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u067E\u0631\u0645\u06CC\u0648\u0645 \u0631\u0627 \u0639\u0648\u0636 \u0645\u06CC\u200C\u06A9\u0646\u062F",403);let a=Number(s.premium||0)===1,o=Number(s.premium_until||0);if(r.premiumDays!==void 0){let m=Number(r.premiumDays);m<=0?(a=!1,o=0):(a=!0,o=Date.now()+m*24*60*60*1e3)}else r.premium!==void 0&&(a=r.premium===!0||r.premium===1||r.premium==="1",o=0);let u=r.pack?St(r.pack):a?s.premium_flags||"all":null,c=r.premiumNote!==void 0?String(r.premiumNote).slice(0,80):s.premium_note||"";await E(e.env.DB,"UPDATE users SET premium = ?, premium_until = ?, premium_flags = ?, premium_note = ? WHERE id = ?",a?1:0,a?o:0,a?u:null,c,s.id),await y(e.env.DB,"badge",null,t.id,{userId:s.id,premium:a}),await b(e.env.DB,t.id,"premium",s.id,a?`until=${o} note=${c}`:"off")}if("badge"in r){let a=r.badge===null||r.badge===""?null:String(r.badge);if(a!==null&&!["owner","admin","verified"].includes(a))return d(e,"\u062A\u06CC\u06A9 \u0646\u0627\u0645\u0639\u062A\u0628\u0631");if(n==="admin"&&a!=="verified"&&a!==null)return d(e,"\u0627\u062F\u0645\u06CC\u0646 \u0641\u0642\u0637 \u062A\u06CC\u06A9 \u062A\u0627\u06CC\u06CC\u062F \u0631\u0627 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u0628\u062F\u0647\u062F",403);await E(e.env.DB,"UPDATE users SET badge = ? WHERE id = ?",a,s.id),await y(e.env.DB,"badge",null,t.id,{userId:s.id,badge:a}),await b(e.env.DB,t.id,"badge",s.id,String(a||"none"))}if(r.displayName!==void 0){if(!C(n))return d(e,"\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0627\u0633\u0645 \u0631\u0627 \u0639\u0648\u0636 \u0645\u06CC\u200C\u06A9\u0646\u062F",403);let a=V(r.displayName,1,40);if(!a)return d(e,"\u0627\u0633\u0645 \u0646\u0627\u0645\u0639\u062A\u0628\u0631");await E(e.env.DB,"UPDATE users SET display_name = ? WHERE id = ?",a,s.id),await b(e.env.DB,t.id,"rename",s.id,a)}if(r.username!==void 0){if(!C(n))return d(e,"\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u06CC\u0648\u0632\u0631\u0646\u06CC\u0645 \u0631\u0627 \u0639\u0648\u0636 \u0645\u06CC\u200C\u06A9\u0646\u062F",403);let a=Mt(r.username);if(!a)return d(e,"\u06CC\u0648\u0632\u0631\u0646\u06CC\u0645 \u0646\u0627\u0645\u0639\u062A\u0628\u0631");if(await l(e.env.DB,"SELECT id FROM users WHERE username_lc = ? AND id != ?",a.toLowerCase(),s.id))return d(e,"\u0627\u06CC\u0646 \u06CC\u0648\u0632\u0631\u0646\u06CC\u0645 \u06AF\u0631\u0641\u062A\u0647 \u0634\u062F\u0647",409);await E(e.env.DB,"UPDATE users SET username = ?, username_lc = ? WHERE id = ?",a,a.toLowerCase(),s.id),await b(e.env.DB,t.id,"username",s.id,a)}if(r.canCreateSpace!==void 0){if(!C(n))return d(e,"\u0627\u062C\u0627\u0632\u0647 \u0646\u062F\u0627\u0631\u06CC",403);await E(e.env.DB,"UPDATE users SET can_create_space = ? WHERE id = ?",r.canCreateSpace?1:0,s.id),await b(e.env.DB,t.id,"create_space",s.id,r.canCreateSpace?"on":"off")}r.stripAvatar&&(await E(e.env.DB,"UPDATE users SET avatar = NULL WHERE id = ?",s.id),await b(e.env.DB,t.id,"strip_avatar",s.id,"")),r.stripSignature&&(await E(e.env.DB,"UPDATE users SET signature = '' WHERE id = ?",s.id),await b(e.env.DB,t.id,"strip_signature",s.id,""));let i=await l(e.env.DB,"SELECT * FROM users WHERE id = ?",s.id);return e.json({user:B(i,t.id,!0)})});f.post("/admin/users/:id/ban",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await S(t,e.env.DB);if(!C(n))return d(e,"\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u0645\u0633\u062F\u0648\u062F \u06A9\u0646\u062F",403);let r=await l(e.env.DB,"SELECT * FROM users WHERE id = ?",e.req.param("id"));if(!r)return d(e,"\u06A9\u0627\u0631\u0628\u0631 \u0646\u06CC\u0633\u062A",404);if(r.badge==="owner")return d(e,"\u0645\u0627\u0644\u06A9 \u0645\u0633\u062F\u0648\u062F \u0646\u0645\u06CC\u200C\u0634\u0648\u062F",403);let s=await e.req.json().catch(()=>({})),i=s.on!==!1,a=typeof s.reason=="string"?s.reason.slice(0,140):"";await E(e.env.DB,"UPDATE users SET banned_at = ?, ban_reason = ? WHERE id = ?",i?Date.now():null,i?a:null,r.id),i&&await E(e.env.DB,"DELETE FROM sessions WHERE user_id = ?",r.id),await b(e.env.DB,t.id,i?"ban":"unban",r.id,a);let o=await l(e.env.DB,"SELECT * FROM users WHERE id = ?",r.id);return e.json({user:B(o,t.id,!0)})});f.post("/admin/users/:id/mute",async e=>{let t=await w(e);if(t instanceof Response)return t;if(!await S(t,e.env.DB))return d(e,"\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A",403);let r=await l(e.env.DB,"SELECT * FROM users WHERE id = ?",e.req.param("id"));if(!r)return d(e,"\u06A9\u0627\u0631\u0628\u0631 \u0646\u06CC\u0633\u062A",404);if(r.badge==="owner"&&t.badge!=="owner")return d(e,"\u0645\u0627\u0644\u06A9 \u0633\u0627\u06A9\u062A \u0646\u0645\u06CC\u200C\u0634\u0648\u062F",403);let s=await e.req.json().catch(()=>({})),i=Math.max(0,Number(s.hours||0)),a=i>0?Date.now()+i*36e5:0;await E(e.env.DB,"UPDATE users SET muted_until = ? WHERE id = ?",a||null,r.id),await b(e.env.DB,t.id,i?"mute":"unmute",r.id,`${i}h`);let o=await l(e.env.DB,"SELECT * FROM users WHERE id = ?",r.id);return e.json({user:B(o,t.id,!0)})});f.post("/admin/users/:id/wipe",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await S(t,e.env.DB);if(!C(n))return d(e,"\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u062D\u0633\u0627\u0628 \u0631\u0627 \u067E\u0627\u06A9 \u06A9\u0646\u062F",403);let r=await l(e.env.DB,"SELECT * FROM users WHERE id = ?",e.req.param("id"));if(!r)return d(e,"\u06A9\u0627\u0631\u0628\u0631 \u0646\u06CC\u0633\u062A",404);if(r.badge==="owner")return d(e,"\u0645\u0627\u0644\u06A9 \u067E\u0627\u06A9 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F",403);if(M(r))return d(e,"\u0627\u0632 \u0642\u0628\u0644 \u067E\u0627\u06A9 \u0634\u062F\u0647");try{await Vt(e.env.DB,r.id)}catch(s){return d(e,`\u062D\u0630\u0641 \u06A9\u0627\u0645\u0644 \u0646\u0634\u062F: ${s instanceof Error?s.message:String(s)}`,500)}return await b(e.env.DB,t.id,"wipe",r.id,r.username),e.json({ok:!0})});f.post("/admin/users/:id/password",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await S(t,e.env.DB);if(!C(n))return d(e,"\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0631\u0645\u0632 \u0631\u0627 \u0639\u0648\u0636 \u0645\u06CC\u200C\u06A9\u0646\u062F",403);let r=await l(e.env.DB,"SELECT * FROM users WHERE id = ?",e.req.param("id"));if(!r)return d(e,"\u06A9\u0627\u0631\u0628\u0631 \u0646\u06CC\u0633\u062A",404);let s=await e.req.json().catch(()=>({})),i=String(s.password||"");return i.length<6||i.length>72?d(e,"\u0631\u0645\u0632 \u062D\u062F\u0627\u0642\u0644 \u06F6 \u06A9\u0627\u0631\u0627\u06A9\u062A\u0631"):(await E(e.env.DB,"UPDATE users SET password_hash = ? WHERE id = ?",await ie(i),r.id),await E(e.env.DB,"DELETE FROM sessions WHERE user_id = ?",r.id),await b(e.env.DB,t.id,"password",r.id,""),e.json({ok:!0}))});f.get("/admin/users/:id/sessions",async e=>{let t=await w(e);if(t instanceof Response)return t;if(!await S(t,e.env.DB))return d(e,"\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A",403);let r=await h(e.env.DB,"SELECT id, created_at, expires_at FROM sessions WHERE user_id = ? ORDER BY created_at DESC LIMIT 40",e.req.param("id"));return e.json({sessions:r.map(s=>({id:s.id,createdAt:s.created_at,expiresAt:s.expires_at}))})});f.post("/admin/users/:id/kick-sessions",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await S(t,e.env.DB);return C(n)?(await E(e.env.DB,"DELETE FROM sessions WHERE user_id = ?",e.req.param("id")),await b(e.env.DB,t.id,"kick_sessions",e.req.param("id"),""),e.json({ok:!0})):d(e,"\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0646\u0634\u0633\u062A\u200C\u0647\u0627 \u0631\u0627 \u0645\u06CC\u200C\u0628\u0646\u062F\u062F",403)});f.delete("/admin/sessions/:sid",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await S(t,e.env.DB);return C(n)?(await E(e.env.DB,"DELETE FROM sessions WHERE id = ?",e.req.param("sid")),await b(e.env.DB,t.id,"kick_session",e.req.param("sid"),""),e.json({ok:!0})):d(e,"\u0627\u062C\u0627\u0632\u0647 \u0646\u062F\u0627\u0631\u06CC",403)});f.get("/admin/users/:id/stories",async e=>{let t=await w(e);if(t instanceof Response)return t;if(!await S(t,e.env.DB))return d(e,"\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A",403);let r=await h(e.env.DB,"SELECT id, body, created_at, expires_at FROM stories WHERE user_id = ? ORDER BY created_at DESC LIMIT 40",e.req.param("id"));return e.json({stories:r.map(s=>({id:s.id,body:s.body,createdAt:s.created_at,expiresAt:s.expires_at}))})});f.delete("/admin/stories/:id",async e=>{let t=await w(e);return t instanceof Response?t:await S(t,e.env.DB)?(await E(e.env.DB,"DELETE FROM stories WHERE id = ?",e.req.param("id")),await y(e.env.DB,"story",null,t.id,{deleted:e.req.param("id")}),await b(e.env.DB,t.id,"del_story",e.req.param("id"),""),e.json({ok:!0})):d(e,"\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A",403)});f.delete("/admin/messages/:id",async e=>{let t=await w(e);if(t instanceof Response)return t;if(!await S(t,e.env.DB))return d(e,"\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A",403);let r=await l(e.env.DB,"SELECT * FROM messages WHERE id = ?",e.req.param("id"));return r?(await E(e.env.DB,"UPDATE messages SET deleted_at = ?, body = '' WHERE id = ?",Date.now(),r.id),r.media_id&&await E(e.env.DB,"DELETE FROM media WHERE id = ?",r.media_id),await y(e.env.DB,"message",r.conversation_id,t.id,{id:r.id,deleted:!0}),await b(e.env.DB,t.id,"del_message",r.id,r.conversation_id),e.json({ok:!0})):d(e,"\u067E\u06CC\u0627\u0645 \u0646\u06CC\u0633\u062A",404)});f.get("/admin/reports",async e=>{let t=await w(e);if(t instanceof Response)return t;if(!await S(t,e.env.DB))return d(e,"\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A",403);let r=await h(e.env.DB,`SELECT r.*, ru.display_name as reporter_name, ru.username as reporter_user,
+     ORDER BY created_at DESC LIMIT 200`,
+    q,
+    `%${q}%`,
+    `%${q}%`,
+    q
+  );
+  return c.json({
+    me: pub(user, user.id, true),
+    gate,
+    users: rows.map((u) => ({
+      ...pub(u, user.id, true),
+      lastSeen: u.last_seen,
+      online: Date.now() - u.last_seen < ONLINE_MS
+    }))
+  });
+});
+app.patch("/admin/users/:id", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  const body = await c.req.json().catch(() => ({}));
+  const target = await one(c.env.DB, `SELECT * FROM users WHERE id = ?`, c.req.param("id"));
+  if (!target) return jsonError(c, "\u06A9\u0627\u0631\u0628\u0631 \u0646\u06CC\u0633\u062A", 404);
+  if (gate !== "bootstrap" && target.badge === "owner" && user.badge !== "owner") {
+    return jsonError(c, "\u062A\u06CC\u06A9 \u0645\u0627\u0644\u06A9 \u062F\u0633\u062A\u200C\u0646\u062E\u0648\u0631\u062F\u0646\u06CC \u0627\u0633\u062A", 403);
+  }
+  if (body.premium !== void 0 || body.premiumDays !== void 0 || body.pack || body.premiumNote !== void 0) {
+    if (!isOwnerGate(gate)) return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u067E\u0631\u0645\u06CC\u0648\u0645 \u0631\u0627 \u0639\u0648\u0636 \u0645\u06CC\u200C\u06A9\u0646\u062F", 403);
+    let on = Number(target.premium || 0) === 1;
+    let until = Number(target.premium_until || 0);
+    if (body.premiumDays !== void 0) {
+      const days = Number(body.premiumDays);
+      if (days <= 0) {
+        on = false;
+        until = 0;
+      } else {
+        on = true;
+        until = Date.now() + days * 24 * 60 * 60 * 1e3;
+      }
+    } else if (body.premium !== void 0) {
+      on = body.premium === true || body.premium === 1 || body.premium === "1";
+      until = on ? 0 : 0;
+    }
+    const flags = body.pack ? encodePack(body.pack) : on ? target.premium_flags || "all" : null;
+    const note = body.premiumNote !== void 0 ? String(body.premiumNote).slice(0, 400) : target.premium_note || "";
+    await run(
+      c.env.DB,
+      `UPDATE users SET premium = ?, premium_until = ?, premium_flags = ?, premium_note = ? WHERE id = ?`,
+      on ? 1 : 0,
+      on ? until : 0,
+      on ? flags : null,
+      note,
+      target.id
+    );
+    await emit(c.env.DB, "badge", null, user.id, { userId: target.id, premium: on });
+    await logAdmin(c.env.DB, user.id, "premium", target.id, on ? `until=${until} note=${note}` : "off");
+  }
+  if ("badge" in body) {
+    const badge = body.badge === null || body.badge === "" ? null : String(body.badge);
+    if (badge !== null && !["owner", "admin", "verified"].includes(badge)) return jsonError(c, "\u062A\u06CC\u06A9 \u0646\u0627\u0645\u0639\u062A\u0628\u0631");
+    if (gate === "admin" && badge !== "verified" && badge !== null) {
+      return jsonError(c, "\u0627\u062F\u0645\u06CC\u0646 \u0641\u0642\u0637 \u062A\u06CC\u06A9 \u062A\u0627\u06CC\u06CC\u062F \u0631\u0627 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u0628\u062F\u0647\u062F", 403);
+    }
+    await run(c.env.DB, `UPDATE users SET badge = ? WHERE id = ?`, badge, target.id);
+    await emit(c.env.DB, "badge", null, user.id, { userId: target.id, badge });
+    await logAdmin(c.env.DB, user.id, "badge", target.id, String(badge || "none"));
+  }
+  if (body.displayName !== void 0) {
+    if (!isOwnerGate(gate)) return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0627\u0633\u0645 \u0631\u0627 \u0639\u0648\u0636 \u0645\u06CC\u200C\u06A9\u0646\u062F", 403);
+    const d = cleanText(body.displayName, 1, 40);
+    if (!d) return jsonError(c, "\u0627\u0633\u0645 \u0646\u0627\u0645\u0639\u062A\u0628\u0631");
+    await run(c.env.DB, `UPDATE users SET display_name = ? WHERE id = ?`, d, target.id);
+    await logAdmin(c.env.DB, user.id, "rename", target.id, d);
+  }
+  if (body.username !== void 0) {
+    if (!isOwnerGate(gate)) return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u06CC\u0648\u0632\u0631\u0646\u06CC\u0645 \u0631\u0627 \u0639\u0648\u0636 \u0645\u06CC\u200C\u06A9\u0646\u062F", 403);
+    const u = cleanUsername(body.username);
+    if (!u) return jsonError(c, "\u06CC\u0648\u0632\u0631\u0646\u06CC\u0645 \u0646\u0627\u0645\u0639\u062A\u0628\u0631");
+    const taken = await one(c.env.DB, `SELECT id FROM users WHERE username_lc = ? AND id != ?`, u.toLowerCase(), target.id);
+    if (taken) return jsonError(c, "\u0627\u06CC\u0646 \u06CC\u0648\u0632\u0631\u0646\u06CC\u0645 \u06AF\u0631\u0641\u062A\u0647 \u0634\u062F\u0647", 409);
+    await run(c.env.DB, `UPDATE users SET username = ?, username_lc = ? WHERE id = ?`, u, u.toLowerCase(), target.id);
+    await logAdmin(c.env.DB, user.id, "username", target.id, u);
+  }
+  if (body.canCreateSpace !== void 0) {
+    if (!isOwnerGate(gate)) return jsonError(c, "\u0627\u062C\u0627\u0632\u0647 \u0646\u062F\u0627\u0631\u06CC", 403);
+    await run(c.env.DB, `UPDATE users SET can_create_space = ? WHERE id = ?`, body.canCreateSpace ? 1 : 0, target.id);
+    await logAdmin(c.env.DB, user.id, "create_space", target.id, body.canCreateSpace ? "on" : "off");
+  }
+  if (body.stripAvatar) {
+    await run(c.env.DB, `UPDATE users SET avatar = NULL WHERE id = ?`, target.id);
+    await logAdmin(c.env.DB, user.id, "strip_avatar", target.id, "");
+  }
+  if (body.stripSignature) {
+    await run(c.env.DB, `UPDATE users SET signature = '' WHERE id = ?`, target.id);
+    await logAdmin(c.env.DB, user.id, "strip_signature", target.id, "");
+  }
+  if (body.shadowban !== void 0) {
+    if (!isOwnerGate(gate)) return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0633\u0627\u06CC\u0647\u200C\u0628\u0646 \u0645\u06CC\u200C\u06A9\u0646\u062F", 403);
+    await run(c.env.DB, `UPDATE users SET shadowban = ? WHERE id = ?`, body.shadowban ? 1 : 0, target.id);
+    await logAdmin(c.env.DB, user.id, "shadowban", target.id, body.shadowban ? "on" : "off");
+  }
+  if (body.legalHold !== void 0) {
+    if (!isOwnerGate(gate)) return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0642\u0641\u0644 \u0642\u0627\u0646\u0648\u0646\u06CC \u0645\u06CC\u200C\u06AF\u0630\u0627\u0631\u062F", 403);
+    await run(c.env.DB, `UPDATE users SET legal_hold = ? WHERE id = ?`, body.legalHold ? 1 : 0, target.id);
+    await logAdmin(c.env.DB, user.id, "legal_hold", target.id, body.legalHold ? "on" : "off");
+  }
+  if (body.watchlisted !== void 0) {
+    if (denyReportsOnly(c, user, gate)) return denyReportsOnly(c, user, gate);
+    await run(c.env.DB, `UPDATE users SET watchlisted = ? WHERE id = ?`, body.watchlisted ? 1 : 0, target.id);
+    await logAdmin(c.env.DB, user.id, "watch", target.id, body.watchlisted ? "on" : "off");
+  }
+  if (body.staffScope !== void 0) {
+    if (!isOwnerGate(gate)) return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0633\u0637\u062D \u0627\u062F\u0645\u06CC\u0646 \u0631\u0627 \u0639\u0648\u0636 \u0645\u06CC\u200C\u06A9\u0646\u062F", 403);
+    const scope = body.staffScope === "reports" ? "reports" : "full";
+    await run(c.env.DB, `UPDATE users SET staff_scope = ? WHERE id = ?`, scope, target.id);
+    await logAdmin(c.env.DB, user.id, "staff_scope", target.id, scope);
+  }
+  if (body.copyPackFrom) {
+    if (!isOwnerGate(gate)) return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0628\u0633\u062A\u0647 \u0631\u0627 \u06A9\u067E\u06CC \u0645\u06CC\u200C\u06A9\u0646\u062F", 403);
+    const srcName = String(body.copyPackFrom).trim().replace(/^@+/, "").toLowerCase();
+    const src = await one(
+      c.env.DB,
+      `SELECT * FROM users WHERE username_lc = ? OR id = ?`,
+      srcName,
+      String(body.copyPackFrom)
+    );
+    if (!src) return jsonError(c, "\u0645\u0646\u0628\u0639 \u0628\u0633\u062A\u0647 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F", 404);
+    const on = livePremium(src);
+    await run(
+      c.env.DB,
+      `UPDATE users SET premium = ?, premium_until = ?, premium_flags = ?, premium_note = ? WHERE id = ?`,
+      on ? 1 : 0,
+      on ? Number(src.premium_until || 0) : 0,
+      on ? src.premium_flags || "all" : null,
+      src.premium_note || "",
+      target.id
+    );
+    await logAdmin(c.env.DB, user.id, "copy_pack", target.id, src.username);
+  }
+  const fresh = await one(c.env.DB, `SELECT * FROM users WHERE id = ?`, target.id);
+  return c.json({ user: pub(fresh, user.id, true) });
+});
+app.post("/admin/users/:id/ban", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!isOwnerGate(gate)) return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u0645\u0633\u062F\u0648\u062F \u06A9\u0646\u062F", 403);
+  const target = await one(c.env.DB, `SELECT * FROM users WHERE id = ?`, c.req.param("id"));
+  if (!target) return jsonError(c, "\u06A9\u0627\u0631\u0628\u0631 \u0646\u06CC\u0633\u062A", 404);
+  if (target.badge === "owner") return jsonError(c, "\u0645\u0627\u0644\u06A9 \u0645\u0633\u062F\u0648\u062F \u0646\u0645\u06CC\u200C\u0634\u0648\u062F", 403);
+  const body = await c.req.json().catch(() => ({}));
+  const on = body.on !== false;
+  const reason = typeof body.reason === "string" ? body.reason.slice(0, 140) : "";
+  await run(c.env.DB, `UPDATE users SET banned_at = ?, ban_reason = ? WHERE id = ?`, on ? Date.now() : null, on ? reason : null, target.id);
+  if (on) await run(c.env.DB, `DELETE FROM sessions WHERE user_id = ?`, target.id);
+  await logAdmin(c.env.DB, user.id, on ? "ban" : "unban", target.id, reason);
+  const fresh = await one(c.env.DB, `SELECT * FROM users WHERE id = ?`, target.id);
+  return c.json({ user: pub(fresh, user.id, true) });
+});
+app.post("/admin/users/:id/mute", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  const limited = denyReportsOnly(c, user, gate);
+  if (limited) return limited;
+  const target = await one(c.env.DB, `SELECT * FROM users WHERE id = ?`, c.req.param("id"));
+  if (!target) return jsonError(c, "\u06A9\u0627\u0631\u0628\u0631 \u0646\u06CC\u0633\u062A", 404);
+  if (target.badge === "owner" && user.badge !== "owner") return jsonError(c, "\u0645\u0627\u0644\u06A9 \u0633\u0627\u06A9\u062A \u0646\u0645\u06CC\u200C\u0634\u0648\u062F", 403);
+  const body = await c.req.json().catch(() => ({}));
+  const hours = Math.max(0, Number(body.hours || 0));
+  const until = hours > 0 ? Date.now() + hours * 36e5 : 0;
+  await run(c.env.DB, `UPDATE users SET muted_until = ? WHERE id = ?`, until || null, target.id);
+  await logAdmin(c.env.DB, user.id, hours ? "mute" : "unmute", target.id, `${hours}h`);
+  const fresh = await one(c.env.DB, `SELECT * FROM users WHERE id = ?`, target.id);
+  return c.json({ user: pub(fresh, user.id, true) });
+});
+app.post("/admin/users/:id/wipe", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!isOwnerGate(gate)) return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u062D\u0633\u0627\u0628 \u0631\u0627 \u067E\u0627\u06A9 \u06A9\u0646\u062F", 403);
+  const target = await one(c.env.DB, `SELECT * FROM users WHERE id = ?`, c.req.param("id"));
+  if (!target) return jsonError(c, "\u06A9\u0627\u0631\u0628\u0631 \u0646\u06CC\u0633\u062A", 404);
+  if (target.badge === "owner") return jsonError(c, "\u0645\u0627\u0644\u06A9 \u067E\u0627\u06A9 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F", 403);
+  if (Number(target.legal_hold || 0) === 1) return jsonError(c, "\u0627\u06CC\u0646 \u062D\u0633\u0627\u0628 \u0642\u0641\u0644 \u0642\u0627\u0646\u0648\u0646\u06CC \u062F\u0627\u0631\u062F", 403);
+  if (isGone(target)) return jsonError(c, "\u0627\u0632 \u0642\u0628\u0644 \u067E\u0627\u06A9 \u0634\u062F\u0647");
+  try {
+    await wipeUser(c.env.DB, target.id);
+  } catch (e) {
+    return jsonError(c, `\u062D\u0630\u0641 \u06A9\u0627\u0645\u0644 \u0646\u0634\u062F: ${e instanceof Error ? e.message : String(e)}`, 500);
+  }
+  await logAdmin(c.env.DB, user.id, "wipe", target.id, target.username);
+  return c.json({ ok: true });
+});
+app.post("/admin/users/:id/password", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!isOwnerGate(gate)) return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0631\u0645\u0632 \u0631\u0627 \u0639\u0648\u0636 \u0645\u06CC\u200C\u06A9\u0646\u062F", 403);
+  const target = await one(c.env.DB, `SELECT * FROM users WHERE id = ?`, c.req.param("id"));
+  if (!target) return jsonError(c, "\u06A9\u0627\u0631\u0628\u0631 \u0646\u06CC\u0633\u062A", 404);
+  const body = await c.req.json().catch(() => ({}));
+  const next = String(body.password || "");
+  if (next.length < 6 || next.length > 72) return jsonError(c, "\u0631\u0645\u0632 \u062D\u062F\u0627\u0642\u0644 \u06F6 \u06A9\u0627\u0631\u0627\u06A9\u062A\u0631");
+  await run(c.env.DB, `UPDATE users SET password_hash = ? WHERE id = ?`, await hashPassword(next), target.id);
+  await run(c.env.DB, `DELETE FROM sessions WHERE user_id = ?`, target.id);
+  await logAdmin(c.env.DB, user.id, "password", target.id, "");
+  return c.json({ ok: true });
+});
+app.get("/admin/users/:id/sessions", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  const rows = await many(
+    c.env.DB,
+    `SELECT id, created_at, expires_at FROM sessions WHERE user_id = ? ORDER BY created_at DESC LIMIT 40`,
+    c.req.param("id")
+  );
+  return c.json({ sessions: rows.map((s) => ({ id: s.id, createdAt: s.created_at, expiresAt: s.expires_at })) });
+});
+app.post("/admin/users/:id/kick-sessions", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!isOwnerGate(gate)) return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0646\u0634\u0633\u062A\u200C\u0647\u0627 \u0631\u0627 \u0645\u06CC\u200C\u0628\u0646\u062F\u062F", 403);
+  await run(c.env.DB, `DELETE FROM sessions WHERE user_id = ?`, c.req.param("id"));
+  await logAdmin(c.env.DB, user.id, "kick_sessions", c.req.param("id"), "");
+  return c.json({ ok: true });
+});
+app.delete("/admin/sessions/:sid", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!isOwnerGate(gate)) return jsonError(c, "\u0627\u062C\u0627\u0632\u0647 \u0646\u062F\u0627\u0631\u06CC", 403);
+  await run(c.env.DB, `DELETE FROM sessions WHERE id = ?`, c.req.param("sid"));
+  await logAdmin(c.env.DB, user.id, "kick_session", c.req.param("sid"), "");
+  return c.json({ ok: true });
+});
+app.get("/admin/users/:id/stories", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  const rows = await many(
+    c.env.DB,
+    `SELECT id, body, created_at, expires_at FROM stories WHERE user_id = ? ORDER BY created_at DESC LIMIT 40`,
+    c.req.param("id")
+  );
+  return c.json({ stories: rows.map((s) => ({ id: s.id, body: s.body, createdAt: s.created_at, expiresAt: s.expires_at })) });
+});
+app.delete("/admin/stories/:id", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  const limited = denyReportsOnly(c, user, gate);
+  if (limited) return limited;
+  await run(c.env.DB, `DELETE FROM stories WHERE id = ?`, c.req.param("id"));
+  await emit(c.env.DB, "story", null, user.id, { deleted: c.req.param("id") });
+  await logAdmin(c.env.DB, user.id, "del_story", c.req.param("id"), "");
+  return c.json({ ok: true });
+});
+app.delete("/admin/messages/:id", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  const limited = denyReportsOnly(c, user, gate);
+  if (limited) return limited;
+  const msg = await one(c.env.DB, `SELECT * FROM messages WHERE id = ?`, c.req.param("id"));
+  if (!msg) return jsonError(c, "\u067E\u06CC\u0627\u0645 \u0646\u06CC\u0633\u062A", 404);
+  await run(c.env.DB, `UPDATE messages SET deleted_at = ?, body = '' WHERE id = ?`, Date.now(), msg.id);
+  if (msg.media_id) await run(c.env.DB, `DELETE FROM media WHERE id = ?`, msg.media_id);
+  await emit(c.env.DB, "message", msg.conversation_id, user.id, { id: msg.id, deleted: true });
+  await logAdmin(c.env.DB, user.id, "del_message", msg.id, msg.conversation_id);
+  return c.json({ ok: true });
+});
+app.get("/admin/reports", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  const rows = await many(
+    c.env.DB,
+    `SELECT r.*, ru.display_name as reporter_name, ru.username as reporter_user,
             tu.display_name as target_name, tu.username as target_user
      FROM reports r
      LEFT JOIN users ru ON ru.id = r.reporter_id
      LEFT JOIN users tu ON tu.id = r.target_user_id
      ORDER BY CASE r.status WHEN 'open' THEN 0 ELSE 1 END, r.created_at DESC
-     LIMIT 120`);return e.json({reports:r.map(s=>({id:s.id,kind:s.kind,reason:s.reason,status:s.status,createdAt:s.created_at,reporter:s.reporter_id?{id:s.reporter_id,username:s.reporter_user||"",displayName:s.reporter_name||""}:null,target:s.target_user_id?{id:s.target_user_id,username:s.target_user||"",displayName:s.target_name||""}:null,messageId:s.message_id,conversationId:s.conversation_id,storyId:s.story_id}))})});f.patch("/admin/reports/:id",async e=>{let t=await w(e);if(t instanceof Response)return t;if(!await S(t,e.env.DB))return d(e,"\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A",403);let r=await l(e.env.DB,"SELECT id, message_id, story_id, status FROM reports WHERE id = ?",e.req.param("id"));if(!r)return d(e,"\u06AF\u0632\u0627\u0631\u0634 \u0646\u06CC\u0633\u062A",404);let s=await e.req.json().catch(()=>({}));if(s.deleteMessage&&r.message_id){let a=await l(e.env.DB,"SELECT * FROM messages WHERE id = ?",r.message_id);a&&(await E(e.env.DB,"UPDATE messages SET deleted_at = ?, body = '' WHERE id = ?",Date.now(),a.id),a.media_id&&await E(e.env.DB,"DELETE FROM media WHERE id = ?",a.media_id),await y(e.env.DB,"message",a.conversation_id,t.id,{id:a.id,deleted:!0}))}s.deleteStory&&r.story_id&&await E(e.env.DB,"DELETE FROM stories WHERE id = ?",r.story_id);let i=s.status==="open"?"open":"closed";return await E(e.env.DB,"UPDATE reports SET status = ?, resolved_at = ?, resolver_id = ? WHERE id = ?",i,i==="closed"?Date.now():null,t.id,r.id),await b(e.env.DB,t.id,"report",r.id,i),e.json({ok:!0})});f.get("/admin/spaces",async e=>{let t=await w(e);if(t instanceof Response)return t;if(!await S(t,e.env.DB))return d(e,"\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A",403);let r=(e.req.query("q")||"").trim().toLowerCase(),s=await h(e.env.DB,`SELECT c.*, u.display_name as owner_name,
+     LIMIT 120`
+  );
+  return c.json({
+    reports: rows.map((r) => ({
+      id: r.id,
+      kind: r.kind,
+      reason: r.reason,
+      status: r.status,
+      createdAt: r.created_at,
+      reporter: r.reporter_id ? { id: r.reporter_id, username: r.reporter_user || "", displayName: r.reporter_name || "" } : null,
+      target: r.target_user_id ? { id: r.target_user_id, username: r.target_user || "", displayName: r.target_name || "" } : null,
+      messageId: r.message_id,
+      conversationId: r.conversation_id,
+      storyId: r.story_id
+    }))
+  });
+});
+app.patch("/admin/reports/:id", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  const row = await one(
+    c.env.DB,
+    `SELECT id, message_id, story_id, status FROM reports WHERE id = ?`,
+    c.req.param("id")
+  );
+  if (!row) return jsonError(c, "\u06AF\u0632\u0627\u0631\u0634 \u0646\u06CC\u0633\u062A", 404);
+  const body = await c.req.json().catch(() => ({}));
+  if (body.deleteMessage && row.message_id) {
+    const msg = await one(c.env.DB, `SELECT * FROM messages WHERE id = ?`, row.message_id);
+    if (msg) {
+      await run(c.env.DB, `UPDATE messages SET deleted_at = ?, body = '' WHERE id = ?`, Date.now(), msg.id);
+      if (msg.media_id) await run(c.env.DB, `DELETE FROM media WHERE id = ?`, msg.media_id);
+      await emit(c.env.DB, "message", msg.conversation_id, user.id, { id: msg.id, deleted: true });
+    }
+  }
+  if (body.deleteStory && row.story_id) {
+    await run(c.env.DB, `DELETE FROM stories WHERE id = ?`, row.story_id);
+  }
+  const status = body.status === "open" ? "open" : "closed";
+  await run(
+    c.env.DB,
+    `UPDATE reports SET status = ?, resolved_at = ?, resolver_id = ? WHERE id = ?`,
+    status,
+    status === "closed" ? Date.now() : null,
+    user.id,
+    row.id
+  );
+  await logAdmin(c.env.DB, user.id, "report", row.id, status);
+  return c.json({ ok: true });
+});
+app.get("/admin/spaces", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  const q = (c.req.query("q") || "").trim().toLowerCase();
+  const rows = await many(
+    c.env.DB,
+    `SELECT c.*, u.display_name as owner_name,
             (SELECT COUNT(*) FROM members m WHERE m.conversation_id = c.id) as members
      FROM conversations c
      LEFT JOIN users u ON u.id = c.owner_id
      WHERE c.type IN ('group', 'channel')
        AND (? = '' OR lower(c.title) LIKE ? OR lower(c.public_id) LIKE ?)
-     ORDER BY c.last_message_at DESC LIMIT 80`,r,`%${r}%`,`%${r}%`);return e.json({spaces:s.map(i=>({id:i.id,type:i.type,title:i.title,publicId:i.public_id||null,ownerId:i.owner_id,ownerName:i.owner_name||"",members:Number(i.members||0),joinLocked:!!i.join_locked,publicIdLocked:!!i.public_id_locked,lastMessageAt:i.last_message_at}))})});f.patch("/admin/spaces/:id",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await S(t,e.env.DB);if(!C(n))return d(e,"\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0641\u0636\u0627 \u0631\u0627 \u0639\u0648\u0636 \u0645\u06CC\u200C\u06A9\u0646\u062F",403);let r=await l(e.env.DB,"SELECT * FROM conversations WHERE id = ?",e.req.param("id"));if(!r||r.type==="dm")return d(e,"\u0646\u0627\u0645\u0639\u062A\u0628\u0631",400);let s=await e.req.json().catch(()=>({}));if(s.ownerUsername){let i=await l(e.env.DB,"SELECT * FROM users WHERE username_lc = ?",String(s.ownerUsername).toLowerCase());if(!i||M(i))return d(e,"\u06A9\u0627\u0631\u0628\u0631 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F",404);await E(e.env.DB,"UPDATE conversations SET owner_id = ? WHERE id = ?",i.id,r.id),await E(e.env.DB,"INSERT OR IGNORE INTO members (conversation_id, user_id, role, joined_at, last_read_at) VALUES (?, ?, 'owner', ?, ?)",r.id,i.id,Date.now(),Date.now()),await E(e.env.DB,"UPDATE members SET role = 'owner' WHERE conversation_id = ? AND user_id = ?",r.id,i.id),await b(e.env.DB,t.id,"transfer",r.id,i.username)}if(s.joinLocked!==void 0&&(await E(e.env.DB,"UPDATE conversations SET join_locked = ? WHERE id = ?",s.joinLocked?1:0,r.id),await b(e.env.DB,t.id,"join_lock",r.id,s.joinLocked?"on":"off")),s.publicIdLocked!==void 0&&(await E(e.env.DB,"UPDATE conversations SET public_id_locked = ? WHERE id = ?",s.publicIdLocked?1:0,r.id),await b(e.env.DB,t.id,"id_lock",r.id,s.publicIdLocked?"on":"off")),s.publicId!==void 0){let i=jt(s.publicId,[]);if(!i)return d(e,"\u0622\u06CC\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631");if(await l(e.env.DB,"SELECT id FROM conversations WHERE lower(public_id) = ? AND id != ?",i.toLowerCase(),r.id))return d(e,"\u0627\u06CC\u0646 \u0622\u06CC\u062F\u06CC \u06AF\u0631\u0641\u062A\u0647 \u0634\u062F\u0647",409);await E(e.env.DB,"UPDATE conversations SET public_id = ? WHERE id = ?",i,r.id),await b(e.env.DB,t.id,"set_public",r.id,i)}return e.json({ok:!0})});f.get("/admin/stats",async e=>{let t=await w(e);if(t instanceof Response)return t;if(!await S(t,e.env.DB))return d(e,"\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A",403);let r=Date.now(),s=qt(r),i=await l(e.env.DB,"SELECT COUNT(*) as n FROM users WHERE IFNULL(deleted_at, 0) = 0"),a=await l(e.env.DB,"SELECT COUNT(*) as n FROM users WHERE last_seen > ? AND IFNULL(deleted_at, 0) = 0",r-se),o=await l(e.env.DB,"SELECT COUNT(*) as n FROM users WHERE created_at >= ?",s),u=await l(e.env.DB,"SELECT COUNT(*) as n FROM messages WHERE created_at >= ?",s),c=await l(e.env.DB,"SELECT IFNULL(SUM(bytes), 0) as n FROM media"),m=await l(e.env.DB,"SELECT COUNT(*) as n FROM users WHERE premium = 1 AND IFNULL(deleted_at, 0) = 0"),p=await l(e.env.DB,"SELECT COUNT(*) as n FROM users WHERE IFNULL(banned_at, 0) > 0"),g=await l(e.env.DB,"SELECT COUNT(*) as n FROM users WHERE IFNULL(deleted_at, 0) > 0"),_=await l(e.env.DB,"SELECT COUNT(*) as n FROM reports WHERE status = 'open'"),T=await h(e.env.DB,`SELECT u.id, u.username, u.display_name, u.created_at, COUNT(m.id) as messages
+     ORDER BY c.last_message_at DESC LIMIT 80`,
+    q,
+    `%${q}%`,
+    `%${q}%`
+  );
+  return c.json({
+    spaces: rows.map((r) => ({
+      id: r.id,
+      type: r.type,
+      title: r.title,
+      publicId: r.public_id || null,
+      ownerId: r.owner_id,
+      ownerName: r.owner_name || "",
+      members: Number(r.members || 0),
+      joinLocked: !!r.join_locked,
+      publicIdLocked: !!r.public_id_locked,
+      frozen: !!r.frozen,
+      lastMessageAt: r.last_message_at
+    }))
+  });
+});
+app.patch("/admin/spaces/:id", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!isOwnerGate(gate)) return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0641\u0636\u0627 \u0631\u0627 \u0639\u0648\u0636 \u0645\u06CC\u200C\u06A9\u0646\u062F", 403);
+  const conv = await one(c.env.DB, `SELECT * FROM conversations WHERE id = ?`, c.req.param("id"));
+  if (!conv || conv.type === "dm") return jsonError(c, "\u0646\u0627\u0645\u0639\u062A\u0628\u0631", 400);
+  const body = await c.req.json().catch(() => ({}));
+  if (body.ownerUsername) {
+    const next = await one(c.env.DB, `SELECT * FROM users WHERE username_lc = ?`, String(body.ownerUsername).toLowerCase());
+    if (!next || isGone(next)) return jsonError(c, "\u06A9\u0627\u0631\u0628\u0631 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F", 404);
+    await run(c.env.DB, `UPDATE conversations SET owner_id = ? WHERE id = ?`, next.id, conv.id);
+    await run(c.env.DB, `INSERT OR IGNORE INTO members (conversation_id, user_id, role, joined_at, last_read_at) VALUES (?, ?, 'owner', ?, ?)`, conv.id, next.id, Date.now(), Date.now());
+    await run(c.env.DB, `UPDATE members SET role = 'owner' WHERE conversation_id = ? AND user_id = ?`, conv.id, next.id);
+    await logAdmin(c.env.DB, user.id, "transfer", conv.id, next.username);
+  }
+  if (body.joinLocked !== void 0) {
+    await run(c.env.DB, `UPDATE conversations SET join_locked = ? WHERE id = ?`, body.joinLocked ? 1 : 0, conv.id);
+    await logAdmin(c.env.DB, user.id, "join_lock", conv.id, body.joinLocked ? "on" : "off");
+  }
+  if (body.publicIdLocked !== void 0) {
+    await run(c.env.DB, `UPDATE conversations SET public_id_locked = ? WHERE id = ?`, body.publicIdLocked ? 1 : 0, conv.id);
+    await logAdmin(c.env.DB, user.id, "id_lock", conv.id, body.publicIdLocked ? "on" : "off");
+  }
+  if (body.publicId !== void 0) {
+    const next = cleanPublicId(body.publicId, []);
+    if (!next) return jsonError(c, "\u0622\u06CC\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631");
+    const taken = await one(c.env.DB, `SELECT id FROM conversations WHERE lower(public_id) = ? AND id != ?`, next.toLowerCase(), conv.id);
+    if (taken) return jsonError(c, "\u0627\u06CC\u0646 \u0622\u06CC\u062F\u06CC \u06AF\u0631\u0641\u062A\u0647 \u0634\u062F\u0647", 409);
+    await run(c.env.DB, `UPDATE conversations SET public_id = ? WHERE id = ?`, next, conv.id);
+    await logAdmin(c.env.DB, user.id, "set_public", conv.id, next);
+  }
+  if (body.frozen !== void 0) {
+    await run(c.env.DB, `UPDATE conversations SET frozen = ? WHERE id = ?`, body.frozen ? 1 : 0, conv.id);
+    await logAdmin(c.env.DB, user.id, "freeze", conv.id, body.frozen ? "on" : "off");
+  }
+  return c.json({ ok: true });
+});
+app.get("/admin/stats", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  const now = Date.now();
+  const day = tehranDayStart(now);
+  const users = await one(c.env.DB, `SELECT COUNT(*) as n FROM users WHERE IFNULL(deleted_at, 0) = 0`);
+  const online = await one(c.env.DB, `SELECT COUNT(*) as n FROM users WHERE last_seen > ? AND IFNULL(deleted_at, 0) = 0`, now - ONLINE_MS);
+  const today = await one(c.env.DB, `SELECT COUNT(*) as n FROM users WHERE created_at >= ?`, day);
+  const messagesToday = await one(c.env.DB, `SELECT COUNT(*) as n FROM messages WHERE created_at >= ?`, day);
+  const mediaBytes = await one(c.env.DB, `SELECT IFNULL(SUM(bytes), 0) as n FROM media`);
+  const premium = await one(c.env.DB, `SELECT COUNT(*) as n FROM users WHERE premium = 1 AND IFNULL(deleted_at, 0) = 0`);
+  const banned = await one(c.env.DB, `SELECT COUNT(*) as n FROM users WHERE IFNULL(banned_at, 0) > 0`);
+  const deleted = await one(c.env.DB, `SELECT COUNT(*) as n FROM users WHERE IFNULL(deleted_at, 0) > 0`);
+  const reportsOpen = await one(c.env.DB, `SELECT COUNT(*) as n FROM reports WHERE status = 'open'`);
+  const watchlisted = await one(c.env.DB, `SELECT COUNT(*) as n FROM users WHERE IFNULL(watchlisted, 0) = 1 AND IFNULL(deleted_at, 0) = 0`);
+  const pending = await one(c.env.DB, `SELECT COUNT(*) as n FROM pending_messages`);
+  const watch = await many(
+    c.env.DB,
+    `SELECT id, username, display_name FROM users WHERE IFNULL(watchlisted, 0) = 1 AND IFNULL(deleted_at, 0) = 0 ORDER BY last_seen DESC LIMIT 40`
+  );
+  const suspicious = await many(
+    c.env.DB,
+    `SELECT u.id, u.username, u.display_name, u.created_at, COUNT(m.id) as messages
      FROM users u
      LEFT JOIN messages m ON m.author_id = u.id
      WHERE u.created_at > ? AND IFNULL(u.deleted_at, 0) = 0
      GROUP BY u.id
      HAVING messages >= 20
      ORDER BY messages DESC
-     LIMIT 20`,r-48*36e5);return e.json({stats:{users:i?.n??0,online:a?.n??0,today:o?.n??0,messagesToday:u?.n??0,mediaBytes:c?.n??0,premium:m?.n??0,banned:p?.n??0,deleted:g?.n??0,reportsOpen:_?.n??0,suspicious:T.map(R=>({id:R.id,username:R.username,displayName:R.display_name,createdAt:R.created_at,messages:Number(R.messages||0)}))}})});f.get("/admin/log",async e=>{let t=await w(e);if(t instanceof Response)return t;if(!await S(t,e.env.DB))return d(e,"\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A",403);let r=await h(e.env.DB,`SELECT l.id, l.action, l.target_id, l.detail, l.created_at, u.display_name as actor_name
+     LIMIT 20`,
+    now - 48 * 36e5
+  );
+  return c.json({
+    stats: {
+      users: users?.n ?? 0,
+      online: online?.n ?? 0,
+      today: today?.n ?? 0,
+      messagesToday: messagesToday?.n ?? 0,
+      mediaBytes: mediaBytes?.n ?? 0,
+      premium: premium?.n ?? 0,
+      banned: banned?.n ?? 0,
+      deleted: deleted?.n ?? 0,
+      reportsOpen: reportsOpen?.n ?? 0,
+      watchlisted: watchlisted?.n ?? 0,
+      pending: pending?.n ?? 0,
+      panic: await setting(c.env.DB, "panic", "0") === "1",
+      watch: watch.map((w) => ({ id: w.id, username: w.username, displayName: w.display_name })),
+      suspicious: suspicious.map((s) => ({
+        id: s.id,
+        username: s.username,
+        displayName: s.display_name,
+        createdAt: s.created_at,
+        messages: Number(s.messages || 0)
+      }))
+    }
+  });
+});
+app.get("/admin/log", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  const rows = await many(
+    c.env.DB,
+    `SELECT l.id, l.action, l.target_id, l.detail, l.created_at, u.display_name as actor_name
      FROM admin_log l LEFT JOIN users u ON u.id = l.actor_id
-     ORDER BY l.created_at DESC LIMIT 120`);return e.json({log:r.map(s=>({id:s.id,action:s.action,targetId:s.target_id,detail:s.detail,createdAt:s.created_at,actorName:s.actor_name||"\u2014"}))})});f.get("/admin/site",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await S(t,e.env.DB);return C(n)?e.json({site:{maintenance:await N(e.env.DB,"maintenance","0")==="1",registerMode:await N(e.env.DB,"register_mode","open")||"open",inviteCode:await N(e.env.DB,"invite_code",""),iranOnly:await N(e.env.DB,"iran_only","0")==="1",registerDailyCap:Number(await N(e.env.DB,"register_daily_cap","0"))||0,reservedIds:await N(e.env.DB,"reserved_ids",""),announceOn:await N(e.env.DB,"announce_on","0")==="1",announceBody:await N(e.env.DB,"announce_body","")}}):d(e,"\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0633\u0627\u06CC\u062A \u0631\u0627 \u0645\u06CC\u200C\u0628\u06CC\u0646\u062F",403)});f.patch("/admin/site",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=await S(t,e.env.DB);if(!C(n))return d(e,"\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0631\u0627 \u0639\u0648\u0636 \u0645\u06CC\u200C\u06A9\u0646\u062F",403);let r=await e.req.json().catch(()=>({}));if(r.maintenance!==void 0&&await k(e.env.DB,"maintenance",r.maintenance?"1":"0"),r.registerMode!==void 0){let s=r.registerMode==="invite"||r.registerMode==="closed"?r.registerMode:"open";await k(e.env.DB,"register_mode",s)}return r.inviteCode!==void 0&&await k(e.env.DB,"invite_code",String(r.inviteCode).slice(0,40)),r.iranOnly!==void 0&&await k(e.env.DB,"iran_only",r.iranOnly?"1":"0"),r.registerDailyCap!==void 0&&await k(e.env.DB,"register_daily_cap",String(Math.max(0,Number(r.registerDailyCap)||0))),r.reservedIds!==void 0&&await k(e.env.DB,"reserved_ids",String(r.reservedIds).slice(0,400)),r.announceOn!==void 0&&await k(e.env.DB,"announce_on",r.announceOn?"1":"0"),r.announceBody!==void 0&&await k(e.env.DB,"announce_body",String(r.announceBody).slice(0,280)),await b(e.env.DB,t.id,"site",null,JSON.stringify(r).slice(0,200)),e.json({ok:!0})});f.post("/account/delete/start",async e=>{let t=await e.req.json().catch(()=>({})),n=typeof t.username=="string"?t.username.trim().toLowerCase():"",r=typeof t.id=="string"?t.id.trim():"",s=typeof t.password=="string"?t.password:"";if(!n||!r||!s)return d(e,"\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC\u060C \u0622\u06CC\u062F\u06CC \u0648 \u0631\u0645\u0632 \u0644\u0627\u0632\u0645 \u0627\u0633\u062A");let i=await l(e.env.DB,"SELECT * FROM users WHERE username_lc = ?",n),a=!!i&&(i.id===r||i.id.toLowerCase()===r.toLowerCase()||i.username_lc===r.toLowerCase());if(!i||M(i)||!a||!await De(s,i.password_hash))return d(e,"\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062D\u0633\u0627\u0628 \u062F\u0631\u0633\u062A \u0646\u06CC\u0633\u062A",401);await E(e.env.DB,"DELETE FROM delete_challenges WHERE user_id = ? OR expires_at < ?",i.id,Date.now());let o=An(),u=In(),c=Date.now();return await E(e.env.DB,"INSERT INTO delete_challenges (token, user_id, code, expires_at, created_at) VALUES (?, ?, ?, ?, ?)",o,i.id,u,c+900*1e3,c),e.json({token:o,code:u,path:`/atdelele/${o}`})});f.get("/account/delete/:token",async e=>{let t=String(e.req.param("token")||""),n=await l(e.env.DB,"SELECT token, code, expires_at FROM delete_challenges WHERE token = ?",t);return!n||n.expires_at<Date.now()?d(e,"\u0627\u06CC\u0646 \u0644\u06CC\u0646\u06A9 \u0645\u0639\u062A\u0628\u0631 \u0646\u06CC\u0633\u062A",404):e.json({ok:!0,code:n.code})});f.post("/account/delete/confirm",async e=>{let t=await e.req.json().catch(()=>({})),n=typeof t.token=="string"?t.token.trim():"",r=Hn(typeof t.code=="string"?t.code.trim():"");if(!n||!/^\d{5}$/.test(r))return d(e,"\u06A9\u062F \u067E\u0646\u062C\u200C\u0631\u0642\u0645\u06CC \u0644\u0627\u0632\u0645 \u0627\u0633\u062A");let s=await l(e.env.DB,"SELECT * FROM delete_challenges WHERE token = ?",n);if(!s||s.expires_at<Date.now())return d(e,"\u0627\u06CC\u0646 \u0644\u06CC\u0646\u06A9 \u0645\u0639\u062A\u0628\u0631 \u0646\u06CC\u0633\u062A",404);if(s.code!==r)return d(e,"\u06A9\u062F \u0627\u0634\u062A\u0628\u0627\u0647 \u0627\u0633\u062A",403);try{await Vt(e.env.DB,s.user_id)}catch(i){return d(e,`\u062D\u0630\u0641 \u06A9\u0627\u0645\u0644 \u0646\u0634\u062F: ${i instanceof Error?i.message:String(i)}`,500)}try{await E(e.env.DB,"DELETE FROM delete_challenges WHERE token = ?",n)}catch{}return We(e,G,{path:"/"}),e.json({ok:!0})});f.get("/notices",async e=>{let t=await w(e);if(t instanceof Response)return t;let n=Math.max(0,Number(e.req.query("after")||0)),r=await h(e.env.DB,`SELECT msg.id, msg.conversation_id, msg.author_id, msg.type, msg.body, msg.created_at,
+     ORDER BY l.created_at DESC LIMIT 120`
+  );
+  return c.json({
+    log: rows.map((r) => ({
+      id: r.id,
+      action: r.action,
+      targetId: r.target_id,
+      detail: r.detail,
+      createdAt: r.created_at,
+      actorName: r.actor_name || "\u2014"
+    }))
+  });
+});
+app.get("/admin/site", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!isOwnerGate(gate)) return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0633\u0627\u06CC\u062A \u0631\u0627 \u0645\u06CC\u200C\u0628\u06CC\u0646\u062F", 403);
+  return c.json({
+    site: {
+      maintenance: await setting(c.env.DB, "maintenance", "0") === "1",
+      maintenanceText: await setting(c.env.DB, "maintenance_text", ""),
+      registerMode: await setting(c.env.DB, "register_mode", "open") || "open",
+      inviteCode: await setting(c.env.DB, "invite_code", ""),
+      iranOnly: await setting(c.env.DB, "iran_only", "0") === "1",
+      registerDailyCap: Number(await setting(c.env.DB, "register_daily_cap", "0")) || 0,
+      reservedIds: await setting(c.env.DB, "reserved_ids", ""),
+      announceOn: await setting(c.env.DB, "announce_on", "0") === "1",
+      announceBody: await setting(c.env.DB, "announce_body", ""),
+      announceStart: Number(await setting(c.env.DB, "announce_start", "0")) || 0,
+      announceEnd: Number(await setting(c.env.DB, "announce_end", "0")) || 0,
+      panic: await setting(c.env.DB, "panic", "0") === "1",
+      featureVoice: await featureOn(c.env.DB, "feature_voice"),
+      featureStories: await featureOn(c.env.DB, "feature_stories"),
+      featureExplore: await featureOn(c.env.DB, "feature_explore"),
+      featureCreateSpace: await featureOn(c.env.DB, "feature_create_space"),
+      quietStart: await setting(c.env.DB, "quiet_start", ""),
+      quietEnd: await setting(c.env.DB, "quiet_end", ""),
+      wordFilter: await setting(c.env.DB, "word_filter", ""),
+      ratePerMin: Number(await setting(c.env.DB, "rate_per_min", "0")) || 0,
+      mediaMaxKb: Number(await setting(c.env.DB, "media_max_kb", "0")) || 0,
+      voiceMaxSec: Number(await setting(c.env.DB, "voice_max_sec", "0")) || 0,
+      registerCooldownHours: Number(await setting(c.env.DB, "register_cooldown_hours", "0")) || 0,
+      newUserPending: Number(await setting(c.env.DB, "new_user_pending", "0")) || 0
+    }
+  });
+});
+app.patch("/admin/site", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!isOwnerGate(gate)) return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u0631\u0627 \u0639\u0648\u0636 \u0645\u06CC\u200C\u06A9\u0646\u062F", 403);
+  const body = await c.req.json().catch(() => ({}));
+  if (body.maintenance !== void 0) await setSetting(c.env.DB, "maintenance", body.maintenance ? "1" : "0");
+  if (body.maintenanceText !== void 0) await setSetting(c.env.DB, "maintenance_text", String(body.maintenanceText).slice(0, 4e3));
+  if (body.registerMode !== void 0) {
+    const m = body.registerMode === "invite" || body.registerMode === "closed" ? body.registerMode : "open";
+    await setSetting(c.env.DB, "register_mode", m);
+  }
+  if (body.inviteCode !== void 0) await setSetting(c.env.DB, "invite_code", String(body.inviteCode).slice(0, 80));
+  if (body.iranOnly !== void 0) await setSetting(c.env.DB, "iran_only", body.iranOnly ? "1" : "0");
+  if (body.registerDailyCap !== void 0) await setSetting(c.env.DB, "register_daily_cap", String(Math.max(0, Number(body.registerDailyCap) || 0)));
+  if (body.reservedIds !== void 0) await setSetting(c.env.DB, "reserved_ids", String(body.reservedIds).slice(0, 4e3));
+  if (body.announceOn !== void 0) await setSetting(c.env.DB, "announce_on", body.announceOn ? "1" : "0");
+  if (body.announceBody !== void 0) await setSetting(c.env.DB, "announce_body", String(body.announceBody).slice(0, 4e3));
+  if (body.announceStart !== void 0) await setSetting(c.env.DB, "announce_start", String(Math.max(0, Number(body.announceStart) || 0)));
+  if (body.announceEnd !== void 0) await setSetting(c.env.DB, "announce_end", String(Math.max(0, Number(body.announceEnd) || 0)));
+  if (body.panic !== void 0) await setSetting(c.env.DB, "panic", body.panic ? "1" : "0");
+  if (body.featureVoice !== void 0) await setSetting(c.env.DB, "feature_voice", body.featureVoice ? "1" : "0");
+  if (body.featureStories !== void 0) await setSetting(c.env.DB, "feature_stories", body.featureStories ? "1" : "0");
+  if (body.featureExplore !== void 0) await setSetting(c.env.DB, "feature_explore", body.featureExplore ? "1" : "0");
+  if (body.featureCreateSpace !== void 0) await setSetting(c.env.DB, "feature_create_space", body.featureCreateSpace ? "1" : "0");
+  if (body.quietStart !== void 0) await setSetting(c.env.DB, "quiet_start", String(body.quietStart).slice(0, 8));
+  if (body.quietEnd !== void 0) await setSetting(c.env.DB, "quiet_end", String(body.quietEnd).slice(0, 8));
+  if (body.wordFilter !== void 0) await setSetting(c.env.DB, "word_filter", String(body.wordFilter).slice(0, 4e3));
+  if (body.ratePerMin !== void 0) await setSetting(c.env.DB, "rate_per_min", String(Math.max(0, Number(body.ratePerMin) || 0)));
+  if (body.mediaMaxKb !== void 0) await setSetting(c.env.DB, "media_max_kb", String(Math.max(0, Number(body.mediaMaxKb) || 0)));
+  if (body.voiceMaxSec !== void 0) await setSetting(c.env.DB, "voice_max_sec", String(Math.max(0, Number(body.voiceMaxSec) || 0)));
+  if (body.registerCooldownHours !== void 0) await setSetting(c.env.DB, "register_cooldown_hours", String(Math.max(0, Number(body.registerCooldownHours) || 0)));
+  if (body.newUserPending !== void 0) await setSetting(c.env.DB, "new_user_pending", String(Math.max(0, Number(body.newUserPending) || 0)));
+  await logAdmin(c.env.DB, user.id, "site", null, JSON.stringify(body).slice(0, 200));
+  return c.json({ ok: true });
+});
+app.post("/me/premium-code", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const body = await c.req.json().catch(() => ({}));
+  const code = String(body.code || "").trim();
+  if (!code) return jsonError(c, "\u06A9\u062F \u0644\u0627\u0632\u0645 \u0627\u0633\u062A");
+  const row = await one(
+    c.env.DB,
+    `SELECT * FROM premium_codes WHERE code = ? AND uses_left > 0`,
+    code
+  );
+  if (!row) return jsonError(c, "\u0627\u06CC\u0646 \u06A9\u062F \u0645\u0639\u062A\u0628\u0631 \u0646\u06CC\u0633\u062A", 404);
+  await run(c.env.DB, `UPDATE premium_codes SET uses_left = uses_left - 1 WHERE code = ? AND uses_left > 0`, code);
+  const days = Math.max(1, Number(row.days) || 1);
+  const until = Date.now() + days * 24 * 60 * 60 * 1e3;
+  await run(
+    c.env.DB,
+    `UPDATE users SET premium = 1, premium_until = ?, premium_flags = ?, premium_note = ? WHERE id = ?`,
+    until,
+    row.pack || "all",
+    row.note || `\u06A9\u062F ${code}`,
+    user.id
+  );
+  const fresh = await one(c.env.DB, `SELECT * FROM users WHERE id = ?`, user.id);
+  return c.json({ user: pub(fresh, user.id, true) });
+});
+app.get("/admin/codes", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!isOwnerGate(gate)) return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u06A9\u062F\u0647\u0627 \u0631\u0627 \u0645\u06CC\u200C\u0628\u06CC\u0646\u062F", 403);
+  const rows = await many(
+    c.env.DB,
+    `SELECT * FROM premium_codes ORDER BY created_at DESC LIMIT 80`
+  );
+  return c.json({
+    codes: rows.map((r) => ({
+      code: r.code,
+      days: r.days,
+      pack: r.pack,
+      note: r.note,
+      usesLeft: r.uses_left,
+      createdAt: r.created_at
+    }))
+  });
+});
+app.post("/admin/codes", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!isOwnerGate(gate)) return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u06A9\u062F \u0645\u06CC\u200C\u0633\u0627\u0632\u062F", 403);
+  const body = await c.req.json().catch(() => ({}));
+  const days = Math.max(1, Number(body.days) || 30);
+  const uses = Math.max(1, Number(body.uses) || 1);
+  const note = String(body.note || "").slice(0, 120);
+  const pack = body.pack ? encodePack(body.pack) : "all";
+  const code = String(body.code || "").trim() || makeShortCode("T");
+  await run(
+    c.env.DB,
+    `INSERT INTO premium_codes (code, days, pack, note, uses_left, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    code,
+    days,
+    pack,
+    note,
+    uses,
+    Date.now(),
+    user.id
+  );
+  await logAdmin(c.env.DB, user.id, "code", code, `${days}d x${uses}`);
+  return c.json({ ok: true, code });
+});
+app.delete("/admin/codes/:code", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!isOwnerGate(gate)) return jsonError(c, "\u0627\u062C\u0627\u0632\u0647 \u0646\u062F\u0627\u0631\u06CC", 403);
+  await run(c.env.DB, `DELETE FROM premium_codes WHERE code = ?`, c.req.param("code"));
+  await logAdmin(c.env.DB, user.id, "del_code", c.req.param("code"), "");
+  return c.json({ ok: true });
+});
+app.get("/admin/tickets", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!isOwnerGate(gate)) return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0628\u0644\u06CC\u062A\u200C\u0647\u0627 \u0631\u0627 \u0645\u06CC\u200C\u0628\u06CC\u0646\u062F", 403);
+  const rows = await many(
+    c.env.DB,
+    `SELECT * FROM invite_tickets ORDER BY created_at DESC LIMIT 80`
+  );
+  return c.json({ tickets: rows.map((r) => ({ code: r.code, usesLeft: r.uses_left, createdAt: r.created_at })) });
+});
+app.post("/admin/tickets", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!isOwnerGate(gate)) return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0628\u0644\u06CC\u062A \u0645\u06CC\u200C\u0633\u0627\u0632\u062F", 403);
+  const body = await c.req.json().catch(() => ({}));
+  const uses = Math.max(1, Number(body.uses) || 1);
+  const code = String(body.code || "").trim() || makeShortCode("J");
+  await run(
+    c.env.DB,
+    `INSERT INTO invite_tickets (code, uses_left, created_at) VALUES (?, ?, ?)`,
+    code,
+    uses,
+    Date.now()
+  );
+  await logAdmin(c.env.DB, user.id, "ticket", code, `x${uses}`);
+  return c.json({ ok: true, code });
+});
+app.delete("/admin/tickets/:code", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!isOwnerGate(gate)) return jsonError(c, "\u0627\u062C\u0627\u0632\u0647 \u0646\u062F\u0627\u0631\u06CC", 403);
+  await run(c.env.DB, `DELETE FROM invite_tickets WHERE code = ?`, c.req.param("code"));
+  return c.json({ ok: true });
+});
+app.get("/admin/pending", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  const rows = await many(
+    c.env.DB,
+    `SELECT p.*, u.display_name as author_name
+     FROM pending_messages p LEFT JOIN users u ON u.id = p.author_id
+     ORDER BY p.created_at ASC LIMIT 80`
+  );
+  return c.json({
+    pending: rows.map((r) => ({
+      id: r.id,
+      conversationId: r.conversation_id,
+      authorId: r.author_id,
+      authorName: r.author_name || "",
+      type: r.type,
+      body: r.body,
+      createdAt: r.created_at
+    }))
+  });
+});
+app.post("/admin/pending/:id/ok", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  const row = await one(c.env.DB, `SELECT * FROM pending_messages WHERE id = ?`, c.req.param("id"));
+  if (!row) return jsonError(c, "\u0635\u0641 \u062E\u0627\u0644\u06CC \u0627\u0633\u062A", 404);
+  await run(
+    c.env.DB,
+    `INSERT INTO messages (id, conversation_id, author_id, type, body, created_at, media_id, duration_ms)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    row.id,
+    row.conversation_id,
+    row.author_id,
+    row.type,
+    row.body,
+    row.created_at,
+    row.media_id,
+    row.duration_ms
+  );
+  await touchConv(c.env.DB, row.conversation_id, previewFor(row.type, row.body), row.created_at);
+  await emit(c.env.DB, "message", row.conversation_id, row.author_id, { id: row.id });
+  await run(c.env.DB, `DELETE FROM pending_messages WHERE id = ?`, row.id);
+  await logAdmin(c.env.DB, user.id, "pending_ok", row.id, row.author_id);
+  return c.json({ ok: true });
+});
+app.post("/admin/pending/:id/no", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  const row = await one(c.env.DB, `SELECT id, media_id FROM pending_messages WHERE id = ?`, c.req.param("id"));
+  if (!row) return jsonError(c, "\u0635\u0641 \u062E\u0627\u0644\u06CC \u0627\u0633\u062A", 404);
+  if (row.media_id) await run(c.env.DB, `DELETE FROM media WHERE id = ?`, row.media_id);
+  await run(c.env.DB, `DELETE FROM pending_messages WHERE id = ?`, row.id);
+  await logAdmin(c.env.DB, user.id, "pending_no", row.id, "");
+  return c.json({ ok: true });
+});
+app.get("/admin/peek/:id", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  const conv = await one(c.env.DB, `SELECT * FROM conversations WHERE id = ?`, c.req.param("id"));
+  if (!conv) return jsonError(c, "\u06AF\u0641\u062A\u06AF\u0648 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F", 404);
+  const asRaw = (c.req.query("as") || "").trim();
+  if (asRaw) {
+    const asUser = await one(c.env.DB, `SELECT * FROM users WHERE id = ? OR username_lc = ?`, asRaw, asRaw.toLowerCase());
+    if (!asUser) return jsonError(c, "\u062D\u0633\u0627\u0628 \u0686\u0634\u0645 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F", 404);
+    if (!await memberOf(c.env.DB, conv.id, asUser.id)) return jsonError(c, "\u0627\u06CC\u0646 \u062D\u0633\u0627\u0628 \u0639\u0636\u0648 \u0627\u06CC\u0646 \u06AF\u0641\u062A\u06AF\u0648 \u0646\u06CC\u0633\u062A", 403);
+  }
+  const from = Number(c.req.query("from") || 0) || 0;
+  const to = Number(c.req.query("to") || 0) || Date.now() + 1e6;
+  const rows = await many(
+    c.env.DB,
+    `SELECT * FROM messages WHERE conversation_id = ? AND created_at >= ? AND created_at <= ? ORDER BY created_at ASC LIMIT 200`,
+    conv.id,
+    from,
+    to
+  );
+  return c.json({
+    conversation: { id: conv.id, type: conv.type, title: conv.title, publicId: conv.public_id || null, frozen: !!conv.frozen },
+    messages: await messagesWithExtras(c.env.DB, rows, user.id)
+  });
+});
+app.get("/admin/compare", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  const aRaw = String(c.req.query("a") || "").trim();
+  const bRaw = String(c.req.query("b") || "").trim();
+  if (!aRaw || !bRaw) return jsonError(c, "\u062F\u0648 \u062D\u0633\u0627\u0628 \u0644\u0627\u0632\u0645 \u0627\u0633\u062A");
+  const a = await one(c.env.DB, `SELECT * FROM users WHERE id = ? OR username_lc = ?`, aRaw, aRaw.toLowerCase());
+  const b = await one(c.env.DB, `SELECT * FROM users WHERE id = ? OR username_lc = ?`, bRaw, bRaw.toLowerCase());
+  if (!a || !b) return jsonError(c, "\u062D\u0633\u0627\u0628 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F", 404);
+  const aMsg = await one(c.env.DB, `SELECT COUNT(*) as n FROM messages WHERE author_id = ?`, a.id);
+  const bMsg = await one(c.env.DB, `SELECT COUNT(*) as n FROM messages WHERE author_id = ?`, b.id);
+  const shared = await many(
+    c.env.DB,
+    `SELECT c.id, c.type, c.title FROM conversations c
+     JOIN members m1 ON m1.conversation_id = c.id AND m1.user_id = ?
+     JOIN members m2 ON m2.conversation_id = c.id AND m2.user_id = ?
+     ORDER BY c.last_message_at DESC LIMIT 40`,
+    a.id,
+    b.id
+  );
+  return c.json({
+    a: { ...pub(a, user.id, true), messages: aMsg?.n ?? 0 },
+    b: { ...pub(b, user.id, true), messages: bMsg?.n ?? 0 },
+    shared
+  });
+});
+app.post("/admin/bulk", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!isOwnerGate(gate)) return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u06A9\u0627\u0631 \u062F\u0633\u062A\u0647\u200C\u0627\u06CC \u0645\u06CC\u200C\u06A9\u0646\u062F", 403);
+  const body = await c.req.json().catch(() => ({}));
+  const ids = Array.isArray(body.ids) ? body.ids.map(String).slice(0, 40) : [];
+  const action = String(body.action || "");
+  if (!ids.length) return jsonError(c, "\u0644\u06CC\u0633\u062A \u062E\u0627\u0644\u06CC \u0627\u0633\u062A");
+  let n = 0;
+  for (const id of ids) {
+    const target = await one(c.env.DB, `SELECT * FROM users WHERE id = ?`, id);
+    if (!target || target.badge === "owner") continue;
+    if (action === "mute") {
+      const hours = Math.max(0, Number(body.hours || 24));
+      await run(c.env.DB, `UPDATE users SET muted_until = ? WHERE id = ?`, hours ? Date.now() + hours * 36e5 : null, id);
+    } else if (action === "ban") {
+      await run(c.env.DB, `UPDATE users SET banned_at = ?, ban_reason = ? WHERE id = ?`, Date.now(), String(body.reason || "\u062F\u0633\u062A\u0647\u200C\u0627\u06CC"), id);
+      await run(c.env.DB, `DELETE FROM sessions WHERE user_id = ?`, id);
+    } else if (action === "unban") {
+      await run(c.env.DB, `UPDATE users SET banned_at = NULL, ban_reason = NULL WHERE id = ?`, id);
+    } else if (action === "premium") {
+      const days = Math.max(0, Number(body.days || 0));
+      await run(
+        c.env.DB,
+        `UPDATE users SET premium = 1, premium_until = ?, premium_flags = 'all' WHERE id = ?`,
+        days ? Date.now() + days * 864e5 : 0,
+        id
+      );
+    } else if (action === "watch") {
+      await run(c.env.DB, `UPDATE users SET watchlisted = 1 WHERE id = ?`, id);
+    } else if (action === "unwatch") {
+      await run(c.env.DB, `UPDATE users SET watchlisted = 0 WHERE id = ?`, id);
+    } else {
+      return jsonError(c, "\u0639\u0645\u0644 \u0646\u0627\u0645\u0639\u062A\u0628\u0631");
+    }
+    n += 1;
+  }
+  await logAdmin(c.env.DB, user.id, "bulk", null, `${action} x${n}`);
+  return c.json({ ok: true, n });
+});
+app.post("/admin/kick-all", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!isOwnerGate(gate)) return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0647\u0645\u0647 \u0646\u0634\u0633\u062A\u200C\u0647\u0627 \u0631\u0627 \u0645\u06CC\u200C\u0628\u0646\u062F\u062F", 403);
+  const token = getCookie(c, COOKIE);
+  const hash = token ? await sha256Hex(token) : "";
+  if (hash) await run(c.env.DB, `DELETE FROM sessions WHERE token_hash != ?`, hash);
+  else await run(c.env.DB, `DELETE FROM sessions`);
+  await logAdmin(c.env.DB, user.id, "kick_all", null, "");
+  return c.json({ ok: true });
+});
+app.get("/admin/health", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!isOwnerGate(gate)) return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0633\u0644\u0627\u0645\u062A \u0631\u0627 \u0645\u06CC\u200C\u0628\u06CC\u0646\u062F", 403);
+  const users = await one(c.env.DB, `SELECT COUNT(*) as n FROM users`);
+  const messages = await one(c.env.DB, `SELECT COUNT(*) as n FROM messages`);
+  const mediaBytes = await one(c.env.DB, `SELECT IFNULL(SUM(bytes), 0) as n FROM media`);
+  const conversations = await one(c.env.DB, `SELECT COUNT(*) as n FROM conversations`);
+  const events = await one(c.env.DB, `SELECT COUNT(*) as n FROM events`);
+  const pending = await one(c.env.DB, `SELECT COUNT(*) as n FROM pending_messages`);
+  return c.json({
+    health: {
+      users: users?.n ?? 0,
+      messages: messages?.n ?? 0,
+      mediaBytes: mediaBytes?.n ?? 0,
+      conversations: conversations?.n ?? 0,
+      events: events?.n ?? 0,
+      pending: pending?.n ?? 0
+    }
+  });
+});
+app.get("/admin/export/log", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  const rows = await many(
+    c.env.DB,
+    `SELECT l.created_at, l.action, l.target_id, l.detail, u.display_name as actor_name
+     FROM admin_log l LEFT JOIN users u ON u.id = l.actor_id
+     ORDER BY l.created_at DESC LIMIT 500`
+  );
+  const lines = ["when,actor,action,target,detail"];
+  for (const r of rows) {
+    lines.push(
+      [new Date(r.created_at).toISOString(), r.actor_name || "", r.action, r.target_id || "", JSON.stringify(r.detail || "")].join(",")
+    );
+  }
+  return new Response("\uFEFF" + lines.join("\n"), {
+    status: 200,
+    headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": "attachment; filename=t-log.csv" }
+  });
+});
+app.get("/admin/export/reports", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  const rows = await many(
+    c.env.DB,
+    `SELECT created_at, kind, reason, status, reporter_id, target_user_id FROM reports ORDER BY created_at DESC LIMIT 500`
+  );
+  const lines = ["when,kind,status,reason,reporter,target"];
+  for (const r of rows) {
+    lines.push(
+      [new Date(r.created_at).toISOString(), r.kind, r.status, JSON.stringify(r.reason || ""), r.reporter_id, r.target_user_id || ""].join(",")
+    );
+  }
+  return new Response("\uFEFF" + lines.join("\n"), {
+    status: 200,
+    headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": "attachment; filename=t-reports.csv" }
+  });
+});
+app.post("/admin/users/:id/restore", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!isOwnerGate(gate)) return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u062D\u0633\u0627\u0628 \u0631\u0627 \u0628\u0631\u0645\u06CC\u200C\u06AF\u0631\u062F\u0627\u0646\u062F", 403);
+  const target = await one(c.env.DB, `SELECT * FROM users WHERE id = ?`, c.req.param("id"));
+  if (!target) return jsonError(c, "\u06A9\u0627\u0631\u0628\u0631 \u0646\u06CC\u0633\u062A", 404);
+  if (!isGone(target)) return jsonError(c, "\u0627\u06CC\u0646 \u062D\u0633\u0627\u0628 \u067E\u0627\u06A9 \u0646\u0634\u062F\u0647");
+  const body = await c.req.json().catch(() => ({}));
+  const uname = cleanUsername(body.username) || cleanUsername(String(target.username || "").replace(/^gone_/, "r"));
+  const display = cleanText(body.displayName ?? body.username, 1, 40) || "\u0628\u0627\u0632\u06AF\u0634\u062A\u0647";
+  if (!uname) return jsonError(c, "\u06CC\u0648\u0632\u0631\u0646\u06CC\u0645 \u062A\u0627\u0632\u0647 \u0644\u0627\u0632\u0645 \u0627\u0633\u062A");
+  const taken = await one(c.env.DB, `SELECT id FROM users WHERE username_lc = ? AND id != ?`, uname.toLowerCase(), target.id);
+  if (taken) return jsonError(c, "\u0627\u06CC\u0646 \u06CC\u0648\u0632\u0631\u0646\u06CC\u0645 \u06AF\u0631\u0641\u062A\u0647 \u0634\u062F\u0647", 409);
+  await run(
+    c.env.DB,
+    `UPDATE users SET username = ?, username_lc = ?, display_name = ?, deleted_at = NULL WHERE id = ?`,
+    uname,
+    uname.toLowerCase(),
+    display,
+    target.id
+  );
+  await run(c.env.DB, `UPDATE messages SET purge_at = NULL WHERE author_id = ?`, target.id);
+  await logAdmin(c.env.DB, user.id, "restore", target.id, uname);
+  const fresh = await one(c.env.DB, `SELECT * FROM users WHERE id = ?`, target.id);
+  return c.json({ user: pub(fresh, user.id, true) });
+});
+app.post("/account/delete/start", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const username = typeof body.username === "string" ? body.username.trim().toLowerCase() : "";
+  const id = typeof body.id === "string" ? body.id.trim() : "";
+  const password = typeof body.password === "string" ? body.password : "";
+  if (!username || !id || !password) return jsonError(c, "\u0646\u0627\u0645 \u06A9\u0627\u0631\u0628\u0631\u06CC\u060C \u0622\u06CC\u062F\u06CC \u0648 \u0631\u0645\u0632 \u0644\u0627\u0632\u0645 \u0627\u0633\u062A");
+  const user = await one(c.env.DB, `SELECT * FROM users WHERE username_lc = ?`, username);
+  const idOk = !!user && (user.id === id || user.id.toLowerCase() === id.toLowerCase() || user.username_lc === id.toLowerCase());
+  if (!user || isGone(user) || !idOk || !await verifyPassword(password, user.password_hash)) {
+    return jsonError(c, "\u0627\u0637\u0644\u0627\u0639\u0627\u062A \u062D\u0633\u0627\u0628 \u062F\u0631\u0633\u062A \u0646\u06CC\u0633\u062A", 401);
+  }
+  await run(c.env.DB, `DELETE FROM delete_challenges WHERE user_id = ? OR expires_at < ?`, user.id, Date.now());
+  const token = makeDeleteToken();
+  const code = makeFiveDigit();
+  const now = Date.now();
+  await run(
+    c.env.DB,
+    `INSERT INTO delete_challenges (token, user_id, code, expires_at, created_at) VALUES (?, ?, ?, ?, ?)`,
+    token,
+    user.id,
+    code,
+    now + 15 * 60 * 1e3,
+    now
+  );
+  return c.json({ token, code, path: `/atdelele/${token}` });
+});
+app.get("/account/delete/:token", async (c) => {
+  const token = String(c.req.param("token") || "");
+  const row = await one(
+    c.env.DB,
+    `SELECT token, code, expires_at FROM delete_challenges WHERE token = ?`,
+    token
+  );
+  if (!row || row.expires_at < Date.now()) return jsonError(c, "\u0627\u06CC\u0646 \u0644\u06CC\u0646\u06A9 \u0645\u0639\u062A\u0628\u0631 \u0646\u06CC\u0633\u062A", 404);
+  return c.json({ ok: true, code: row.code });
+});
+app.post("/account/delete/confirm", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const token = typeof body.token === "string" ? body.token.trim() : "";
+  const code = toEnDigits(typeof body.code === "string" ? body.code.trim() : "");
+  if (!token || !/^\d{5}$/.test(code)) return jsonError(c, "\u06A9\u062F \u067E\u0646\u062C\u200C\u0631\u0642\u0645\u06CC \u0644\u0627\u0632\u0645 \u0627\u0633\u062A");
+  const row = await one(
+    c.env.DB,
+    `SELECT * FROM delete_challenges WHERE token = ?`,
+    token
+  );
+  if (!row || row.expires_at < Date.now()) return jsonError(c, "\u0627\u06CC\u0646 \u0644\u06CC\u0646\u06A9 \u0645\u0639\u062A\u0628\u0631 \u0646\u06CC\u0633\u062A", 404);
+  if (row.code !== code) return jsonError(c, "\u06A9\u062F \u0627\u0634\u062A\u0628\u0627\u0647 \u0627\u0633\u062A", 403);
+  try {
+    await wipeUser(c.env.DB, row.user_id);
+  } catch (e) {
+    return jsonError(c, `\u062D\u0630\u0641 \u06A9\u0627\u0645\u0644 \u0646\u0634\u062F: ${e instanceof Error ? e.message : String(e)}`, 500);
+  }
+  try {
+    await run(c.env.DB, `DELETE FROM delete_challenges WHERE token = ?`, token);
+  } catch {
+  }
+  deleteCookie(c, COOKIE, { path: "/" });
+  return c.json({ ok: true });
+});
+app.get("/notices", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const after = Math.max(0, Number(c.req.query("after") || 0));
+  const rows = await many(
+    c.env.DB,
+    `SELECT msg.id, msg.conversation_id, msg.author_id, msg.type, msg.body, msg.created_at,
             c.type as conv_type, c.title,
             au.display_name as author_name,
             (SELECT u.display_name FROM members mx JOIN users u ON u.id = mx.user_id
@@ -275,4 +5887,48 @@ CREATE TABLE IF NOT EXISTS delete_challenges (
        AND msg.author_id IS NOT NULL AND msg.author_id != ?
        AND msg.created_at > ?
      ORDER BY msg.created_at ASC
-     LIMIT 30`,t.id,t.id,t.id,n);return e.json({me:t.id,now:Date.now(),notices:r.map(s=>({id:s.id,conversationId:s.conversation_id,createdAt:s.created_at,title:s.conv_type==="dm"?s.peer_name||s.author_name||"\u067E\u06CC\u0648\u06CC":s.title||s.author_name||"T",body:s.type==="photo"?s.body||"\u0639\u06A9\u0633":s.type==="video"?s.body||"\u0641\u06CC\u0644\u0645":s.type==="voice"?"\u0648\u06CC\u0633":s.body&&s.body.startsWith("\u2726T\u2726")?s.body.slice(3)||"\u2728":s.body||"\u067E\u06CC\u0627\u0645 \u062A\u0627\u0632\u0647"}))})});f.all("*",e=>d(e,"\u0645\u0633\u06CC\u0631 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F",404));var Yt=f;async function bs(e){let t=new URL(e.request.url);if(t.pathname==="/api"||t.pathname.startsWith("/api/")){if(!e.env?.DB)return Response.json({error:"\u062F\u06CC\u062A\u0627\u0628\u06CC\u0633 \u0648\u0635\u0644 \u0646\u06CC\u0633\u062A. \u062F\u0631 Cloudflare Pages \u2192 Bindings \u2192 D1 \u06CC\u06A9 \u0645\u062A\u063A\u06CC\u0631 \u0628\u0647 \u0627\u0633\u0645 DB \u0628\u0647 \u062F\u06CC\u062A\u0627\u0628\u06CC\u0633 t \u0648\u0635\u0644 \u06A9\u0646."},{status:503});try{return await Yt.fetch(e.request,e.env)}catch(n){return Response.json({error:n instanceof Error?n.message:String(n)},{status:500})}}return e.next()}export{bs as onRequest};
+     LIMIT 30`,
+    user.id,
+    user.id,
+    user.id,
+    after
+  );
+  return c.json({
+    me: user.id,
+    now: Date.now(),
+    notices: rows.map((r) => ({
+      id: r.id,
+      conversationId: r.conversation_id,
+      createdAt: r.created_at,
+      title: r.conv_type === "dm" ? r.peer_name || r.author_name || "\u067E\u06CC\u0648\u06CC" : r.title || r.author_name || "T",
+      body: r.type === "photo" ? r.body || "\u0639\u06A9\u0633" : r.type === "video" ? r.body || "\u0641\u06CC\u0644\u0645" : r.type === "voice" ? "\u0648\u06CC\u0633" : r.body && r.body.startsWith("\u2726T\u2726") ? r.body.slice(3) || "\u2728" : r.body || "\u067E\u06CC\u0627\u0645 \u062A\u0627\u0632\u0647"
+    }))
+  });
+});
+app.all("*", (c) => jsonError(c, "\u0645\u0633\u06CC\u0631 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F", 404));
+var app_default = app;
+
+// functions/_middleware.ts
+async function onRequest(context) {
+  const url = new URL(context.request.url);
+  if (url.pathname === "/api" || url.pathname.startsWith("/api/")) {
+    if (!context.env?.DB) {
+      return Response.json(
+        { error: "\u062F\u06CC\u062A\u0627\u0628\u06CC\u0633 \u0648\u0635\u0644 \u0646\u06CC\u0633\u062A. \u062F\u0631 Cloudflare Pages \u2192 Bindings \u2192 D1 \u06CC\u06A9 \u0645\u062A\u063A\u06CC\u0631 \u0628\u0647 \u0627\u0633\u0645 DB \u0628\u0647 \u062F\u06CC\u062A\u0627\u0628\u06CC\u0633 t \u0648\u0635\u0644 \u06A9\u0646." },
+        { status: 503 }
+      );
+    }
+    try {
+      return await app_default.fetch(context.request, context.env);
+    } catch (e) {
+      return Response.json(
+        { error: e instanceof Error ? e.message : String(e) },
+        { status: 500 }
+      );
+    }
+  }
+  return context.next();
+}
+export {
+  onRequest
+};
