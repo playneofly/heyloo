@@ -3667,7 +3667,6 @@ app.get("/media/:id", async (c) => {
     status: 200,
     headers: {
       "Content-Type": decoded.mime || row.mime || "application/octet-stream",
-      "Cache-Control": "private, max-age=604800, immutable",
       "Content-Disposition": "inline"
     }
   });
