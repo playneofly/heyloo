@@ -2763,7 +2763,7 @@ async function conversationPayload(db, conv, user) {
     db,
     `SELECT m.conversation_id, m.user_id, m.role, m.muted, m.pinned, m.joined_at, m.last_read_at,
             u.id, u.username, u.username_lc, u.password_hash, u.display_name, u.bio, u.hue, u.badge,
-            u.last_seen, u.last_seen_vis, u.created_at, u.avatar
+            u.premium, u.last_seen, u.last_seen_vis, u.created_at, u.avatar
      FROM members m JOIN users u ON u.id = m.user_id
      WHERE m.conversation_id = ?`,
     conv.id
