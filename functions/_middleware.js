@@ -2285,6 +2285,7 @@ CREATE TABLE IF NOT EXISTS users (
   hue INTEGER NOT NULL DEFAULT 40,
   avatar TEXT,
   badge TEXT,
+  premium INTEGER NOT NULL DEFAULT 0,
   last_seen INTEGER NOT NULL,
   last_seen_vis TEXT NOT NULL DEFAULT 'everyone',
   created_at INTEGER NOT NULL
@@ -2437,6 +2438,10 @@ async function ensureSchema(db, schema) {
     await db.prepare("ALTER TABLE conversations ADD COLUMN invite_code TEXT").bind().run();
   } catch {
   }
+  try {
+    await db.prepare("ALTER TABLE users ADD COLUMN premium INTEGER DEFAULT 0").bind().run();
+  } catch {
+  }
   booted = true;
 }
 var ONLINE_MS = 35e3;
@@ -2459,6 +2464,7 @@ function publicUser(u, viewerId, isContact) {
     hue: u.hue,
     avatar: u.avatar || null,
     badge: u.badge,
+    premium: Number(u.premium || 0) === 1,
     lastSeen,
     online: lastSeen !== null && online,
     createdAt: u.created_at
@@ -3493,6 +3499,9 @@ app.post("/conversations/:id/messages", async (c) => {
   const text = typeof body.body === "string" ? body.body.trim() : "";
   if (kindRaw === "text") {
     if (!text || text.length > 4e3) return jsonError(c, "\u067E\u06CC\u0627\u0645 \u062E\u0627\u0644\u06CC \u06CC\u0627 \u062E\u06CC\u0644\u06CC \u0628\u0644\u0646\u062F \u0627\u0633\u062A");
+    if (text.startsWith("\u2726T\u2726") && Number(user.premium || 0) !== 1) {
+      return jsonError(c, "\u0627\u06CC\u0645\u0648\u062C\u06CC \u0645\u062A\u062D\u0631\u06A9 \u0641\u0642\u0637 \u0628\u0631\u0627\u06CC \u067E\u0631\u0645\u06CC\u0648\u0645 \u0627\u0633\u062A", 403);
+    }
   } else if (text.length > 400) {
     return jsonError(c, "\u06A9\u067E\u0634\u0646 \u062E\u06CC\u0644\u06CC \u0628\u0644\u0646\u062F \u0627\u0633\u062A");
   }
@@ -3787,16 +3796,29 @@ app.get("/sync", async (c) => {
       const ph = peerIds.map(() => "?").join(",");
       const users = await many(
         c.env.DB,
-        `SELECT id, last_seen, last_seen_vis, badge FROM users WHERE id IN (${ph})`,
+        `SELECT id, last_seen, last_seen_vis, badge, premium FROM users WHERE id IN (${ph})`,
         ...peerIds.map((p) => p.user_id)
       );
       for (const u of users) {
         const online = now - u.last_seen < ONLINE_MS;
         const lastSeen = u.last_seen_vis === "nobody" ? null : u.last_seen;
-        presence.push({ id: u.id, online: lastSeen !== null && online, lastSeen, badge: u.badge });
+        presence.push({
+          id: u.id,
+          online: lastSeen !== null && online,
+          lastSeen,
+          badge: u.badge,
+          premium: Number(u.premium || 0) === 1
+        });
       }
     }
   }
+  presence.push({
+    id: user.id,
+    online: true,
+    lastSeen: now,
+    badge: user.badge,
+    premium: Number(user.premium || 0) === 1
+  });
   const cursor = events.length ? events[events.length - 1].id : after;
   return c.json({
     cursor,
@@ -3990,18 +4012,28 @@ app.patch("/admin/users/:id", async (c) => {
   const gate = await requireOwnerLike(user, c.env.DB);
   if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
   const body = await c.req.json().catch(() => ({}));
-  const badge = body.badge === null || body.badge === "" ? null : String(body.badge);
-  if (badge !== null && !["owner", "admin", "verified"].includes(badge)) return jsonError(c, "\u062A\u06CC\u06A9 \u0646\u0627\u0645\u0639\u062A\u0628\u0631");
-  if (gate === "admin" && badge !== "verified" && badge !== null) {
-    return jsonError(c, "\u0627\u062F\u0645\u06CC\u0646 \u0641\u0642\u0637 \u062A\u06CC\u06A9 \u062A\u0627\u06CC\u06CC\u062F \u0631\u0627 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u0628\u062F\u0647\u062F", 403);
-  }
   const target = await one(c.env.DB, `SELECT * FROM users WHERE id = ?`, c.req.param("id"));
   if (!target) return jsonError(c, "\u06A9\u0627\u0631\u0628\u0631 \u0646\u06CC\u0633\u062A", 404);
   if (gate !== "bootstrap" && target.badge === "owner" && user.badge !== "owner") {
     return jsonError(c, "\u062A\u06CC\u06A9 \u0645\u0627\u0644\u06A9 \u062F\u0633\u062A\u200C\u0646\u062E\u0648\u0631\u062F\u0646\u06CC \u0627\u0633\u062A", 403);
   }
-  await run(c.env.DB, `UPDATE users SET badge = ? WHERE id = ?`, badge, target.id);
-  await emit(c.env.DB, "badge", null, user.id, { userId: target.id, badge });
+  if (body.premium !== void 0) {
+    if (gate !== "owner" && gate !== "bootstrap") {
+      return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u067E\u0631\u0645\u06CC\u0648\u0645 \u0631\u0627 \u0639\u0648\u0636 \u0645\u06CC\u200C\u06A9\u0646\u062F", 403);
+    }
+    const on = body.premium === true || body.premium === 1 || body.premium === "1";
+    await run(c.env.DB, `UPDATE users SET premium = ? WHERE id = ?`, on ? 1 : 0, target.id);
+    await emit(c.env.DB, "badge", null, user.id, { userId: target.id, premium: on });
+  }
+  if ("badge" in body) {
+    const badge = body.badge === null || body.badge === "" ? null : String(body.badge);
+    if (badge !== null && !["owner", "admin", "verified"].includes(badge)) return jsonError(c, "\u062A\u06CC\u06A9 \u0646\u0627\u0645\u0639\u062A\u0628\u0631");
+    if (gate === "admin" && badge !== "verified" && badge !== null) {
+      return jsonError(c, "\u0627\u062F\u0645\u06CC\u0646 \u0641\u0642\u0637 \u062A\u06CC\u06A9 \u062A\u0627\u06CC\u06CC\u062F \u0631\u0627 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u0628\u062F\u0647\u062F", 403);
+    }
+    await run(c.env.DB, `UPDATE users SET badge = ? WHERE id = ?`, badge, target.id);
+    await emit(c.env.DB, "badge", null, user.id, { userId: target.id, badge });
+  }
   const fresh = await one(c.env.DB, `SELECT * FROM users WHERE id = ?`, target.id);
   return c.json({ user: pub(fresh, user.id, true) });
 });
