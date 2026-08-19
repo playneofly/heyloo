@@ -3531,7 +3531,7 @@ async function inboxItem(db, conv, user) {
     joinLocked: !!conv.join_locked,
     publicIdLocked: !!conv.public_id_locked,
     frozen: !!conv.frozen,
-    bot: !!(peer && peer.id === BARGH_BOT_ID)
+    bot: !!(peer && (peer.id === BARGH_BOT_ID || String(peer.id || "").startsWith("bot_")))
   };
 }
 async function conversationPayload(db, conv, user) {
