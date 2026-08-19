@@ -3499,72 +3499,6 @@ async function ensureInviteCode(db, conv) {
     return fresh?.invite_code || null;
   }
 }
-async function inboxItem(db, conv, user) {
-  const mem = await memberOf(db, conv.id, user.id);
-  let title = conv.title;
-  let peer = null;
-  let peerName = null;
-  if (conv.type === "dm") {
-    const otherRow = await one(
-      db,
-      `SELECT u.* FROM members m
-       JOIN users u ON u.id = m.user_id
-       WHERE m.conversation_id = ? AND m.user_id != ?
-       LIMIT 1`,
-      conv.id,
-      user.id
-    );
-    if (otherRow) {
-      peer = {
-        ...pub(otherRow, user.id, true),
-        role: "member",
-        muted: false,
-        pinned: false,
-        lastReadAt: 0
-      };
-      peerName = pub(otherRow, user.id, true).displayName;
-      title = peerName;
-    } else {
-      title = GONE_NAME;
-      peerName = GONE_NAME;
-    }
-  }
-  const unreadRow = await one(
-    db,
-    `SELECT COUNT(*) as n FROM messages
-     WHERE conversation_id = ? AND created_at > ? AND (author_id IS NULL OR author_id != ?) AND deleted_at IS NULL`,
-    conv.id,
-    mem?.last_read_at ?? 0,
-    user.id
-  );
-  const count = await one(db, `SELECT COUNT(*) as n FROM members WHERE conversation_id = ?`, conv.id);
-  return {
-    id: conv.id,
-    type: conv.type,
-    title,
-    description: conv.description,
-    ownerId: conv.owner_id,
-    createdAt: conv.created_at,
-    lastMessageAt: conv.last_message_at,
-    lastMessagePreview: conv.last_message_preview,
-    lastAuthorId: null,
-    peerName,
-    muted: !!mem?.muted,
-    pinned: !!mem?.pinned,
-    role: mem?.role ?? "member",
-    unread: unreadRow?.n ?? 0,
-    members: [],
-    peer,
-    pinnedMessages: [],
-    inviteCode: conv.type === "dm" ? null : conv.invite_code || null,
-    publicId: conv.type === "dm" ? null : await ensurePublicId(db, conv),
-    memberCount: count?.n ?? 0,
-    joinLocked: !!conv.join_locked,
-    publicIdLocked: !!conv.public_id_locked,
-    frozen: !!conv.frozen,
-    bot: !!(peer && (peer.id === BARGH_BOT_ID || String(peer.id || "").startsWith("bot_")))
-  };
-}
 async function conversationPayload(db, conv, user) {
   const inviteCode = await ensureInviteCode(db, conv);
   const mem = await memberOf(db, conv.id, user.id);
@@ -4073,13 +4007,106 @@ app.get("/conversations", async (c) => {
   }
   const rows = await many(
     c.env.DB,
-    `SELECT c.* FROM conversations c
+    `SELECT c.*, m.muted as mem_muted, m.pinned as mem_pinned, m.role as mem_role, m.last_read_at as mem_last_read
+     FROM conversations c
      JOIN members m ON m.conversation_id = c.id AND m.user_id = ?
      ORDER BY m.pinned DESC, c.last_message_at DESC`,
     user.id
   );
+  if (!rows.length) return c.json({ conversations: [] });
+  const ids = rows.map((r) => r.id);
+  const peerByConv = /* @__PURE__ */ new Map();
+  const dmIds = rows.filter((r) => r.type === "dm").map((r) => r.id);
+  for (let i = 0; i < dmIds.length; i += 40) {
+    const slice = dmIds.slice(i, i + 40);
+    const ph = slice.map(() => "?").join(",");
+    const peers = await many(
+      c.env.DB,
+      `SELECT m.conversation_id, u.*
+       FROM members m JOIN users u ON u.id = m.user_id
+       WHERE m.conversation_id IN (${ph}) AND m.user_id != ?`,
+      ...slice,
+      user.id
+    );
+    for (const p of peers) peerByConv.set(p.conversation_id, p);
+  }
+  const unreadBy = /* @__PURE__ */ new Map();
+  const countBy = /* @__PURE__ */ new Map();
+  for (let i = 0; i < ids.length; i += 40) {
+    const slice = ids.slice(i, i + 40);
+    const ph = slice.map(() => "?").join(",");
+    const unreads = await many(
+      c.env.DB,
+      `SELECT msg.conversation_id, COUNT(*) as n
+       FROM messages msg
+       JOIN members mem ON mem.conversation_id = msg.conversation_id AND mem.user_id = ?
+       WHERE msg.conversation_id IN (${ph})
+         AND msg.deleted_at IS NULL
+         AND (msg.author_id IS NULL OR msg.author_id != ?)
+         AND msg.created_at > IFNULL(mem.last_read_at, 0)
+       GROUP BY msg.conversation_id`,
+      user.id,
+      ...slice,
+      user.id
+    );
+    for (const u of unreads) unreadBy.set(u.conversation_id, Number(u.n) || 0);
+    const counts = await many(
+      c.env.DB,
+      `SELECT conversation_id, COUNT(*) as n FROM members WHERE conversation_id IN (${ph}) GROUP BY conversation_id`,
+      ...slice
+    );
+    for (const x of counts) countBy.set(x.conversation_id, Number(x.n) || 0);
+  }
   const items = [];
-  for (const row of rows) items.push(await inboxItem(c.env.DB, row, user));
+  for (const conv of rows) {
+    let title = conv.title;
+    let peer = null;
+    let peerName = null;
+    if (conv.type === "dm") {
+      const otherRow = peerByConv.get(conv.id);
+      if (otherRow) {
+        const pubU = pub(otherRow, user.id, true);
+        peer = {
+          ...pubU,
+          role: "member",
+          muted: false,
+          pinned: false,
+          lastReadAt: 0
+        };
+        peerName = pubU.displayName;
+        title = peerName;
+      } else {
+        title = GONE_NAME;
+        peerName = GONE_NAME;
+      }
+    }
+    items.push({
+      id: conv.id,
+      type: conv.type,
+      title,
+      description: conv.description,
+      ownerId: conv.owner_id,
+      createdAt: conv.created_at,
+      lastMessageAt: conv.last_message_at,
+      lastMessagePreview: conv.last_message_preview,
+      lastAuthorId: null,
+      peerName,
+      muted: !!conv.mem_muted,
+      pinned: !!conv.mem_pinned,
+      role: conv.mem_role ?? "member",
+      unread: unreadBy.get(conv.id) ?? 0,
+      members: [],
+      peer,
+      pinnedMessages: [],
+      inviteCode: conv.type === "dm" ? null : conv.invite_code || null,
+      publicId: conv.type === "dm" ? null : await ensurePublicId(c.env.DB, conv),
+      memberCount: countBy.get(conv.id) ?? 0,
+      joinLocked: !!conv.join_locked,
+      publicIdLocked: !!conv.public_id_locked,
+      frozen: !!conv.frozen,
+      bot: !!(peer && (peer.id === BARGH_BOT_ID || String(peer.id || "").startsWith("bot_")))
+    });
+  }
   return c.json({ conversations: items });
 });
 app.get("/conversations/:id", async (c) => {
