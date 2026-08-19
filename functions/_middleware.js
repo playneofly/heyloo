@@ -3099,6 +3099,10 @@ async function handleBarghTap(db, user, rawKey) {
       step: "home",
       last_sent_at: now
     });
+    if (city.body.trim()) {
+      const notice = await insertBotText(db, conv.id, city.body.trim());
+      if (notice) messages.push(notice);
+    }
     const m = await insertBotText(
       db,
       conv.id,
@@ -3153,10 +3157,37 @@ async function listBotCitiesAdmin(db) {
     `SELECT id, name, body, created_at FROM bot_cities ORDER BY name COLLATE NOCASE ASC`
   );
 }
+async function broadcastCityBody(db, cityId, text) {
+  const body = String(text || "").trim();
+  if (!body) return 0;
+  let subs = [];
+  try {
+    subs = await many(
+      db,
+      `SELECT user_id FROM bot_subs WHERE city_id = ? AND times BETWEEN 1 AND 10 LIMIT 200`,
+      cityId
+    );
+  } catch {
+    return 0;
+  }
+  let n = 0;
+  for (const s of subs) {
+    const user = await one(db, `SELECT * FROM users WHERE id = ?`, s.user_id);
+    if (!user || Number(user.deleted_at || 0) > 0 || Number(user.banned_at || 0) > 0) continue;
+    const conv = await ensureBarghConv(db, user);
+    await insertBotText(db, conv.id, body);
+    n += 1;
+  }
+  return n;
+}
 async function saveBotCity(db, name, body, id) {
   const now = Date.now();
   if (id) {
+    const prev = await one(db, `SELECT body FROM bot_cities WHERE id = ?`, id);
     await run(db, `UPDATE bot_cities SET name = ?, body = ? WHERE id = ?`, name, body, id);
+    if (prev && prev.body.trim() !== body.trim()) {
+      await broadcastCityBody(db, id, body);
+    }
     return id;
   }
   const nid = randomId();
