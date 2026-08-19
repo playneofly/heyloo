@@ -2561,7 +2561,8 @@ var EXTRA_SQL = [
   `ALTER TABLE bot_subs ADD COLUMN pending_times INTEGER`,
   `ALTER TABLE bot_subs ADD COLUMN step TEXT`,
   `ALTER TABLE members ADD COLUMN cleared_at INTEGER DEFAULT 0`,
-  `ALTER TABLE members ADD COLUMN hidden INTEGER DEFAULT 0`
+  `ALTER TABLE members ADD COLUMN hidden INTEGER DEFAULT 0`,
+  `ALTER TABLE messages ADD COLUMN media_ids TEXT`
 ];
 var booted = false;
 async function ensureSchema(db, schema) {
@@ -3244,14 +3245,9 @@ app.use("*", async (c, next) => {
     const maint = await setting(c.env.DB, "maintenance", "0");
     if (maint === "1") {
       const path = new URL(c.req.url).pathname;
-      const open = path.endsWith("/health") || path.endsWith("/site") || path.endsWith("/download/apk") || path.includes("/auth/login") || path.includes("/auth/logout") || path.includes("/account/delete");
+      const open = path.endsWith("/health") || path.endsWith("/site") || path.includes("/auth/login") || path.includes("/auth/logout") || path.endsWith("/me") || path.includes("/admin/");
       if (!open) {
-        const token = getCookie(c, COOKIE);
-        const who = await userByToken(c.env.DB, token);
-        if (!who || who.badge !== "owner") {
-          const custom = (await setting(c.env.DB, "maintenance_text", "")).trim();
-          return jsonError(c, custom || "\u0633\u0627\u06CC\u062A \u062F\u0631 \u062D\u0627\u0644 \u062A\u0639\u0645\u06CC\u0631 \u0627\u0633\u062A", 503);
-        }
+        return jsonError(c, "\u0641\u0639\u0644\u0627 \u0633\u0627\u06CC\u062A \u0628\u0647 \u062E\u0627\u0645\u0648\u0634\u06CC \u0631\u0641\u062A \u0635\u0628\u0648\u0631 \u0628\u0627\u0634\u06CC\u062F", 503);
       }
     }
   } catch {
@@ -3345,6 +3341,7 @@ function previewOf(body) {
 }
 function previewFor(type, body) {
   if (type === "photo") return body ? previewOf(body) : "\u{1F4F7} \u0639\u06A9\u0633";
+  if (type === "album") return body ? previewOf(body) : "\u{1F4F7} \u0622\u0644\u0628\u0648\u0645";
   if (type === "video") return body ? previewOf(body) : "\u{1F3AC} \u0641\u06CC\u0644\u0645";
   if (type === "voice") return "\u{1F3A4} \u0648\u06CC\u0633";
   if (type === "bot") {
@@ -3581,6 +3578,86 @@ async function ensureInviteCode(db, conv) {
     return fresh?.invite_code || null;
   }
 }
+async function inboxItem(db, conv, user) {
+  const mem = await memberOf(db, conv.id, user.id);
+  let title = conv.title;
+  let peer = null;
+  let peerName = null;
+  const saved = isSavedKey(conv.dm_key);
+  if (saved) {
+    title = "\u0630\u062E\u06CC\u0631\u0647\u200C\u0647\u0627";
+    peerName = "\u0630\u062E\u06CC\u0631\u0647\u200C\u0647\u0627";
+  } else if (conv.type === "dm") {
+    const otherRow = await one(
+      db,
+      `SELECT u.* FROM members m
+       JOIN users u ON u.id = m.user_id
+       WHERE m.conversation_id = ? AND m.user_id != ?
+       LIMIT 1`,
+      conv.id,
+      user.id
+    );
+    if (otherRow) {
+      peer = {
+        ...pub(otherRow, user.id, true),
+        role: "member",
+        muted: false,
+        pinned: false,
+        lastReadAt: 0
+      };
+      peerName = pub(otherRow, user.id, true).displayName;
+      title = peerName;
+    } else {
+      title = GONE_NAME;
+      peerName = GONE_NAME;
+    }
+  }
+  const cut = clearedAt(mem);
+  const unreadRow = await one(
+    db,
+    `SELECT COUNT(*) as n FROM messages
+     WHERE conversation_id = ? AND created_at > ? AND created_at > ? AND (author_id IS NULL OR author_id != ?) AND deleted_at IS NULL`,
+    conv.id,
+    mem?.last_read_at ?? 0,
+    cut,
+    user.id
+  );
+  const last = await one(
+    db,
+    `SELECT * FROM messages WHERE conversation_id = ? AND created_at > ? ORDER BY created_at DESC LIMIT 1`,
+    conv.id,
+    cut
+  );
+  const count = await one(db, `SELECT COUNT(*) as n FROM members WHERE conversation_id = ?`, conv.id);
+  return {
+    id: conv.id,
+    type: conv.type,
+    title,
+    description: conv.description,
+    ownerId: conv.owner_id,
+    createdAt: conv.created_at,
+    lastMessageAt: last?.created_at ?? (saved ? conv.created_at : conv.last_message_at),
+    lastMessagePreview: last ? previewFor(last.type, last.body || "") : saved ? "" : conv.last_message_preview,
+    lastAuthorId: last?.author_id ?? null,
+    peerName,
+    muted: !!mem?.muted,
+    pinned: !!mem?.pinned,
+    role: mem?.role ?? "member",
+    unread: unreadRow?.n ?? 0,
+    lastReadAt: mem?.last_read_at ?? 0,
+    members: [],
+    peer,
+    pinnedMessages: [],
+    inviteCode: conv.type === "dm" ? null : conv.invite_code || null,
+    publicId: conv.type === "dm" ? null : await ensurePublicId(db, conv),
+    memberCount: count?.n ?? 0,
+    joinLocked: !!conv.join_locked,
+    publicIdLocked: !!conv.public_id_locked,
+    frozen: !!conv.frozen,
+    bot: !!(peer && (peer.id === BARGH_BOT_ID || String(peer.id || "").startsWith("bot_"))),
+    saved
+  };
+}
 async function conversationPayload(db, conv, user) {
   const inviteCode = await ensureInviteCode(db, conv);
   const mem = await memberOf(db, conv.id, user.id);
@@ -3652,7 +3729,7 @@ async function conversationPayload(db, conv, user) {
   );
   const pinned = await many(
     db,
-    `SELECT * FROM messages WHERE conversation_id = ? AND pinned = 1 AND deleted_at IS NULL AND created_at > ? ORDER BY created_at DESC LIMIT 5`,
+    `SELECT * FROM messages WHERE conversation_id = ? AND pinned = 1 AND deleted_at IS NULL AND created_at > ? ORDER BY created_at DESC LIMIT 3`,
     conv.id,
     cut
   );
@@ -3677,6 +3754,7 @@ async function conversationPayload(db, conv, user) {
     pinned: !!mem?.pinned,
     role: mem?.role ?? "member",
     unread: unreadRow?.n ?? 0,
+    lastReadAt: mem?.last_read_at ?? 0,
     members: people,
     peer,
     pinnedMessages: pinned.map((m) => serializeMessage(m, user.id)),
@@ -3696,10 +3774,22 @@ function rowAuthorId(m) {
   if (raw2 == null || raw2 === "") return null;
   return String(raw2);
 }
+function parseMediaIds(m) {
+  const raw2 = m.media_ids;
+  if (raw2) {
+    try {
+      const a = JSON.parse(raw2);
+      if (Array.isArray(a)) return a.map((x) => String(x)).filter(Boolean);
+    } catch {
+    }
+  }
+  return m.media_id ? [m.media_id] : [];
+}
 function serializeMessage(m, viewerId) {
   const authorId = rowAuthorId(m);
   const vid = viewerId == null ? "" : String(viewerId);
   const bot = m.type === "bot" && !m.deleted_at ? parseBotBody(m.body) : null;
+  const mediaIds = m.deleted_at ? [] : parseMediaIds(m);
   return {
     id: m.id,
     conversationId: m.conversation_id,
@@ -3714,7 +3804,8 @@ function serializeMessage(m, viewerId) {
     deleted: !!m.deleted_at,
     pinned: !!m.pinned,
     createdAt: m.created_at,
-    mediaId: m.deleted_at ? null : m.media_id ?? null,
+    mediaId: m.deleted_at ? null : mediaIds[0] ?? m.media_id ?? null,
+    mediaIds,
     durationMs: m.duration_ms ?? null
   };
 }
@@ -3852,7 +3943,7 @@ function tehranDayStart(now = Date.now()) {
 }
 async function registerGate(c, invite = "") {
   if (await setting(c.env.DB, "maintenance", "0") === "1") {
-    return jsonError(c, "\u0633\u0627\u06CC\u062A \u062F\u0631 \u062D\u0627\u0644 \u062A\u0639\u0645\u06CC\u0631 \u0627\u0633\u062A", 503);
+    return jsonError(c, "\u0641\u0639\u0644\u0627 \u0633\u0627\u06CC\u062A \u0628\u0647 \u062E\u0627\u0645\u0648\u0634\u06CC \u0631\u0641\u062A \u0635\u0628\u0648\u0631 \u0628\u0627\u0634\u06CC\u062F", 503);
   }
   const mode = await setting(c.env.DB, "register_mode", "open") || "open";
   if (mode === "closed") return jsonError(c, "\u062B\u0628\u062A\u200C\u0646\u0627\u0645 \u0641\u0639\u0644\u0627\u064B \u0628\u0633\u062A\u0647 \u0627\u0633\u062A", 403);
@@ -3963,9 +4054,8 @@ app.post("/auth/login", async (c) => {
     return jsonError(c, "\u06CC\u0648\u0632\u0631\u0646\u06CC\u0645 \u06CC\u0627 \u0631\u0645\u0632 \u0627\u0634\u062A\u0628\u0627\u0647\u0647", 401);
   }
   if (isBanned(user)) return jsonError(c, user.ban_reason ? `\u062D\u0633\u0627\u0628 \u0645\u0633\u062F\u0648\u062F \u0627\u0633\u062A: ${user.ban_reason}` : "\u0627\u06CC\u0646 \u062D\u0633\u0627\u0628 \u0645\u0633\u062F\u0648\u062F \u0627\u0633\u062A", 403);
-  if (await setting(c.env.DB, "maintenance", "0") === "1" && user.badge !== "owner") {
-    const custom = (await setting(c.env.DB, "maintenance_text", "")).trim();
-    return jsonError(c, custom || "\u0633\u0627\u06CC\u062A \u062F\u0631 \u062D\u0627\u0644 \u062A\u0639\u0645\u06CC\u0631 \u0627\u0633\u062A", 503);
+  if (await setting(c.env.DB, "maintenance", "0") === "1" && user.badge !== "owner" && user.badge !== "admin") {
+    return jsonError(c, "\u0641\u0639\u0644\u0627 \u0633\u0627\u06CC\u062A \u0628\u0647 \u062E\u0627\u0645\u0648\u0634\u06CC \u0631\u0641\u062A \u0635\u0628\u0648\u0631 \u0628\u0627\u0634\u06CC\u062F", 503);
   }
   const now = Date.now();
   const token = randomToken();
@@ -4194,6 +4284,7 @@ app.get("/conversations", async (c) => {
       pinned: !!conv.mem_pinned || saved,
       role: conv.mem_role ?? "member",
       unread: unreadBy.get(conv.id) ?? 0,
+      lastReadAt: conv.mem_last_read ?? 0,
       members: [],
       peer,
       pinnedMessages: [],
@@ -4809,7 +4900,9 @@ app.post("/conversations/:id/messages", async (c) => {
     if (other && await blocked(c.env.DB, user.id, other.user_id)) return jsonError(c, "\u0645\u0633\u062F\u0648\u062F \u0627\u0633\u062A", 403);
   }
   const body = await c.req.json().catch(() => ({}));
-  const kindRaw = body.type === "photo" || body.type === "video" || body.type === "voice" ? body.type : "text";
+  const listRaw = Array.isArray(body.mediaList) ? body.mediaList : body.media ? [body.media] : [];
+  let kindRaw = body.type === "photo" || body.type === "video" || body.type === "voice" || body.type === "album" ? body.type : "text";
+  if (listRaw.length > 1) kindRaw = "album";
   const text = typeof body.body === "string" ? body.body.trim() : "";
   if (kindRaw === "text") {
     if (!text || text.length > 4e3) return jsonError(c, "\u067E\u06CC\u0627\u0645 \u062E\u0627\u0644\u06CC \u06CC\u0627 \u062E\u06CC\u0644\u06CC \u0628\u0644\u0646\u062F \u0627\u0633\u062A");
@@ -4837,29 +4930,38 @@ app.post("/conversations/:id/messages", async (c) => {
     if ((n?.n ?? 0) >= rpm) return jsonError(c, "\u062E\u06CC\u0644\u06CC \u0633\u0631\u06CC\u0639 \u0645\u06CC\u200C\u0641\u0631\u0633\u062A\u06CC\u061B \u06A9\u0645\u06CC \u0635\u0628\u0631 \u06A9\u0646", 429);
   }
   let mediaId = null;
+  let mediaIds = [];
   let durationMs = null;
   if (kindRaw !== "text") {
     const maxKb = Number(await setting(c.env.DB, "media_max_kb", "0")) || 0;
     const maxSec = Number(await setting(c.env.DB, "voice_max_sec", "0")) || 0;
     const dataMax = maxKb > 0 ? Math.max(32e3, maxKb * 1400) : MEDIA_MAX;
     const durMax = maxSec > 0 ? maxSec * 1e3 : 12e4;
-    const parsed = parseMedia(body.media, kindRaw, dataMax, durMax);
-    if (!parsed) return jsonError(c, "\u0641\u0627\u06CC\u0644 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u06CC\u0627 \u062E\u06CC\u0644\u06CC \u0628\u0632\u0631\u06AF \u0627\u0633\u062A");
-    mediaId = randomId();
-    durationMs = parsed.durationMs || null;
-    await run(
-      c.env.DB,
-      `INSERT INTO media (id, conversation_id, kind, mime, data, bytes, duration_ms, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      mediaId,
-      conv.id,
-      kindRaw,
-      parsed.mime,
-      parsed.data,
-      parsed.bytes,
-      durationMs,
-      Date.now()
-    );
+    const items = kindRaw === "album" ? listRaw.slice(0, 6) : listRaw.slice(0, 1);
+    if (kindRaw === "album" && items.length < 2) return jsonError(c, "\u0622\u0644\u0628\u0648\u0645 \u062D\u062F\u0627\u0642\u0644 \u062F\u0648 \u0639\u06A9\u0633 \u0645\u06CC\u200C\u062E\u0648\u0627\u0647\u062F");
+    for (const item of items) {
+      const parsed = parseMedia(item, kindRaw === "album" ? "photo" : kindRaw, dataMax, durMax);
+      if (!parsed) return jsonError(c, "\u0641\u0627\u06CC\u0644 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u06CC\u0627 \u062E\u06CC\u0644\u06CC \u0628\u0632\u0631\u06AF \u0627\u0633\u062A");
+      const mid = randomId();
+      mediaIds.push(mid);
+      if (!mediaId) {
+        mediaId = mid;
+        durationMs = parsed.durationMs || null;
+      }
+      await run(
+        c.env.DB,
+        `INSERT INTO media (id, conversation_id, kind, mime, data, bytes, duration_ms, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        mid,
+        conv.id,
+        kindRaw === "album" ? "photo" : kindRaw,
+        parsed.mime,
+        parsed.data,
+        parsed.bytes,
+        parsed.durationMs || null,
+        Date.now()
+      );
+    }
   }
   let replyTo = body.replyToId || null;
   if (replyTo) {
@@ -4911,8 +5013,8 @@ app.post("/conversations/:id/messages", async (c) => {
   }
   await run(
     c.env.DB,
-    `INSERT INTO messages (id, conversation_id, author_id, type, body, reply_to_id, created_at, media_id, duration_ms)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO messages (id, conversation_id, author_id, type, body, reply_to_id, created_at, media_id, duration_ms, media_ids)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     conv.id,
     user.id,
@@ -4921,7 +5023,8 @@ app.post("/conversations/:id/messages", async (c) => {
     replyTo,
     now,
     mediaId,
-    durationMs
+    durationMs,
+    mediaIds.length ? JSON.stringify(mediaIds) : null
   );
   await touchConv2(c.env.DB, conv.id, previewFor(kindRaw, text), now);
   await run(
@@ -4984,6 +5087,26 @@ app.post("/messages/:id/pin", async (c) => {
   const mem = await memberOf(c.env.DB, msg.conversation_id, user.id);
   if (!mem) return jsonError(c, "\u0639\u0636\u0648 \u0646\u06CC\u0633\u062A\u06CC", 403);
   const next = msg.pinned ? 0 : 1;
+  if (next === 1) {
+    const n = await one(
+      c.env.DB,
+      `SELECT COUNT(*) as n FROM messages WHERE conversation_id = ? AND pinned = 1 AND deleted_at IS NULL AND id != ?`,
+      msg.conversation_id,
+      msg.id
+    );
+    if ((n?.n ?? 0) >= 3) {
+      const old = await one(
+        c.env.DB,
+        `SELECT id FROM messages WHERE conversation_id = ? AND pinned = 1 AND deleted_at IS NULL AND id != ? ORDER BY created_at ASC LIMIT 1`,
+        msg.conversation_id,
+        msg.id
+      );
+      if (old) {
+        await run(c.env.DB, `UPDATE messages SET pinned = 0 WHERE id = ?`, old.id);
+        await emit2(c.env.DB, "message", msg.conversation_id, user.id, { id: old.id, pinned: false });
+      }
+    }
+  }
   await run(c.env.DB, `UPDATE messages SET pinned = ? WHERE id = ?`, next, msg.id);
   await emit2(c.env.DB, "message", msg.conversation_id, user.id, { id: msg.id, pinned: !!next });
   return c.json({ pinned: !!next });
@@ -5367,10 +5490,10 @@ app.get("/search", async (c) => {
   if (user instanceof Response) return user;
   const q = (c.req.query("q") || "").trim();
   const convId = c.req.query("conversationId");
-  if (q.length < 2) return c.json({ messages: [] });
+  if (q.length < 2) return c.json({ messages: [], conversations: [], spaces: [] });
   let sql = `SELECT msg.* FROM messages msg
     JOIN members m ON m.conversation_id = msg.conversation_id AND m.user_id = ?
-    WHERE msg.deleted_at IS NULL AND msg.type IN ('text', 'photo', 'video', 'bot') AND msg.body LIKE ?
+    WHERE msg.deleted_at IS NULL AND msg.type IN ('text', 'photo', 'video', 'bot', 'album') AND msg.body LIKE ?
       AND msg.created_at > IFNULL(m.cleared_at, 0)`;
   const params = [user.id, `%${q}%`];
   if (convId) {
@@ -5379,7 +5502,60 @@ app.get("/search", async (c) => {
   }
   sql += ` ORDER BY msg.created_at DESC LIMIT 40`;
   const rows = await many(c.env.DB, sql, ...params);
-  return c.json({ messages: rows.map((m) => serializeMessage(m, user.id)) });
+  const messages = rows.map((m) => serializeMessage(m, user.id));
+  if (convId) return c.json({ messages, conversations: [], spaces: [] });
+  const needle = q.replace(/^@+/, "").toLowerCase();
+  const mine = await many(
+    c.env.DB,
+    `SELECT c.* FROM conversations c
+     JOIN members m ON m.conversation_id = c.id AND m.user_id = ?
+     WHERE IFNULL(m.hidden, 0) = 0
+     ORDER BY c.last_message_at DESC LIMIT 80`,
+    user.id
+  );
+  const conversations = [];
+  for (const conv of mine) {
+    const item = await inboxItem(c.env.DB, conv, user);
+    const title = String(item.title || "").toLowerCase();
+    const pid = String(item.publicId || "").toLowerCase();
+    const peer = String(item.peerName || "").toLowerCase();
+    if (title.includes(needle) || pid.includes(needle) || peer.includes(needle) || pid === needle) {
+      conversations.push({
+        id: item.id,
+        title: item.title || item.peerName || "\u06AF\u0641\u062A\u06AF\u0648",
+        type: item.type,
+        publicId: item.publicId || null,
+        preview: item.lastMessagePreview || ""
+      });
+    }
+    if (conversations.length >= 12) break;
+  }
+  const spacesRows = await many(
+    c.env.DB,
+    `SELECT * FROM conversations
+     WHERE type IN ('group', 'channel')
+       AND (lower(public_id) LIKE ? OR lower(title) LIKE ?)
+     ORDER BY CASE WHEN lower(public_id) = ? THEN 0 ELSE 1 END, last_message_at DESC
+     LIMIT 12`,
+    `${needle}%`,
+    `%${needle}%`,
+    needle
+  );
+  const spaces = [];
+  for (const row of spacesRows) {
+    const pid = await ensurePublicId(c.env.DB, row);
+    const count = await one(c.env.DB, `SELECT COUNT(*) as n FROM members WHERE conversation_id = ?`, row.id);
+    const joined = await memberOf(c.env.DB, row.id, user.id);
+    spaces.push({
+      id: row.id,
+      type: row.type,
+      title: row.title,
+      publicId: pid,
+      members: count?.n ?? 0,
+      joined: !!joined
+    });
+  }
+  return c.json({ messages, conversations, spaces });
 });
 app.get("/blocks", async (c) => {
   const user = await auth(c);
