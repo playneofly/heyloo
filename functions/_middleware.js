@@ -2541,6 +2541,20 @@ var EXTRA_SQL = [
     bytes INTEGER NOT NULL,
     data TEXT NOT NULL,
     created_at INTEGER NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS bot_cities (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    body TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS bot_subs (
+    user_id TEXT PRIMARY KEY,
+    city_id TEXT,
+    times INTEGER NOT NULL DEFAULT 0,
+    pending_city TEXT,
+    last_sent_at INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL
   )`
 ];
 var booted = false;
@@ -2735,6 +2749,370 @@ function hueFrom(input) {
   return h % 360;
 }
 
+// src/lib/bot.ts
+var BARGH_BOT_ID = "bot_bargh";
+var BARGH_BOT_USERNAME = "bargh";
+var BARGH_BOT_NAME = "\u0628\u0631\u0642";
+var TEHRAN_OFFSET = 3.5 * 3600 * 1e3;
+var WINDOW_START = 6 * 3600 * 1e3;
+var WINDOW_MS = 18 * 3600 * 1e3;
+function tehranDayStartMs(now = Date.now()) {
+  const shifted = new Date(now + TEHRAN_OFFSET);
+  shifted.setUTCHours(0, 0, 0, 0);
+  return shifted.getTime() - TEHRAN_OFFSET;
+}
+function barghSlots(now, times) {
+  const n = Math.max(1, Math.min(10, Math.floor(times) || 1));
+  const day = tehranDayStartMs(now);
+  const interval = WINDOW_MS / n;
+  const out = [];
+  for (let i = 0; i < n; i++) out.push(Math.round(day + WINDOW_START + i * interval));
+  return out;
+}
+function parseBotBody(raw2) {
+  if (!raw2) return null;
+  try {
+    const o = JSON.parse(raw2);
+    if (typeof o.t !== "string") return null;
+    const buttons = [];
+    if (Array.isArray(o.btns)) {
+      for (const b of o.btns) {
+        if (!b || typeof b !== "object") continue;
+        const rec = b;
+        if (typeof rec.k === "string" && typeof rec.l === "string") buttons.push({ k: rec.k, l: rec.l });
+      }
+    }
+    return { text: o.t, buttons };
+  } catch {
+    return null;
+  }
+}
+function encodeBotBody(text, buttons) {
+  return JSON.stringify({ t: text, btns: buttons });
+}
+
+// src/api/bot.ts
+function dmKey(userId) {
+  return `bot:bargh:${userId}`;
+}
+async function isBarghConv(db, conv, userId) {
+  if (conv.dm_key && String(conv.dm_key).startsWith("bot:bargh:")) return true;
+  const other = await one(
+    db,
+    `SELECT user_id FROM members WHERE conversation_id = ? AND user_id != ? LIMIT 1`,
+    conv.id,
+    userId
+  );
+  return other?.user_id === BARGH_BOT_ID;
+}
+async function emit(db, kind, conversationId, actorId, payload = {}) {
+  await run(
+    db,
+    `INSERT INTO events (ts, kind, conversation_id, actor_id, payload) VALUES (?, ?, ?, ?, ?)`,
+    Date.now(),
+    kind,
+    conversationId,
+    actorId,
+    JSON.stringify(payload)
+  );
+}
+async function touchConv(db, id, preview, at) {
+  await run(
+    db,
+    `UPDATE conversations SET last_message_at = ?, last_message_preview = ? WHERE id = ?`,
+    at,
+    preview,
+    id
+  );
+}
+async function ensureBarghUser(db) {
+  const existing = await one(db, `SELECT * FROM users WHERE id = ?`, BARGH_BOT_ID);
+  if (existing) return existing;
+  const now = Date.now();
+  await run(
+    db,
+    `INSERT OR IGNORE INTO users (id, username, username_lc, password_hash, display_name, bio, hue, avatar, badge, last_seen, last_seen_vis, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, 42, NULL, 'verified', ?, 'everyone', ?)`,
+    BARGH_BOT_ID,
+    BARGH_BOT_USERNAME,
+    BARGH_BOT_USERNAME,
+    await hashPassword(randomToken()),
+    BARGH_BOT_NAME,
+    "\u0628\u0627\u062A \u0631\u0633\u0645\u06CC \u0642\u0637\u0639 \u0628\u0631\u0642",
+    now,
+    now
+  );
+  const row = await one(db, `SELECT * FROM users WHERE id = ?`, BARGH_BOT_ID);
+  if (!row) throw new Error("\u0628\u0627\u062A \u0633\u0627\u062E\u062A\u0647 \u0646\u0634\u062F");
+  return row;
+}
+async function ensureBarghConv(db, user) {
+  await ensureBarghUser(db);
+  const key = dmKey(user.id);
+  let conv = await one(db, `SELECT * FROM conversations WHERE dm_key = ?`, key);
+  const now = Date.now();
+  if (!conv) {
+    const id = randomId();
+    await run(
+      db,
+      `INSERT INTO conversations (id, type, title, description, owner_id, dm_key, created_at, last_message_at, last_message_preview)
+       VALUES (?, 'dm', ?, '\u0628\u0627\u062A \u0631\u0633\u0645\u06CC \u0642\u0637\u0639 \u0628\u0631\u0642', ?, ?, ?, ?, ?)`,
+      id,
+      BARGH_BOT_NAME,
+      BARGH_BOT_ID,
+      key,
+      now,
+      now,
+      "\u0634\u0631\u0648\u0639"
+    );
+    await run(
+      db,
+      `INSERT OR IGNORE INTO members (conversation_id, user_id, role, joined_at, last_read_at) VALUES (?, ?, 'member', ?, ?)`,
+      id,
+      user.id,
+      now,
+      0
+    );
+    await run(
+      db,
+      `INSERT OR IGNORE INTO members (conversation_id, user_id, role, joined_at, last_read_at) VALUES (?, ?, 'member', ?, ?)`,
+      id,
+      BARGH_BOT_ID,
+      now,
+      now
+    );
+    conv = await one(db, `SELECT * FROM conversations WHERE id = ?`, id);
+    await emit(db, "conversation", id, BARGH_BOT_ID, { type: "dm", bot: true });
+  }
+  if (!conv) throw new Error("\u06AF\u0641\u062A\u06AF\u0648\u06CC \u0628\u0627\u062A \u0633\u0627\u062E\u062A\u0647 \u0646\u0634\u062F");
+  const count = await one(db, `SELECT COUNT(*) as n FROM messages WHERE conversation_id = ?`, conv.id);
+  if (!(count?.n ?? 0)) await sendStart(db, conv.id);
+  return conv;
+}
+async function insertBotMenu(db, convId, text, buttons) {
+  const id = randomId();
+  const now = Date.now();
+  const body = encodeBotBody(text, buttons);
+  await run(
+    db,
+    `INSERT INTO messages (id, conversation_id, author_id, type, body, created_at) VALUES (?, ?, ?, 'bot', ?, ?)`,
+    id,
+    convId,
+    BARGH_BOT_ID,
+    body,
+    now
+  );
+  await touchConv(db, convId, text.slice(0, 80), now);
+  await emit(db, "message", convId, BARGH_BOT_ID, { id });
+  return one(db, `SELECT * FROM messages WHERE id = ?`, id);
+}
+async function insertBotText(db, convId, text) {
+  const id = randomId();
+  const now = Date.now();
+  await run(
+    db,
+    `INSERT INTO messages (id, conversation_id, author_id, type, body, created_at) VALUES (?, ?, ?, 'text', ?, ?)`,
+    id,
+    convId,
+    BARGH_BOT_ID,
+    text,
+    now
+  );
+  await touchConv(db, convId, text.slice(0, 80), now);
+  await emit(db, "message", convId, BARGH_BOT_ID, { id });
+  return one(db, `SELECT * FROM messages WHERE id = ?`, id);
+}
+async function listCities(db) {
+  return many(
+    db,
+    `SELECT id, name, body FROM bot_cities ORDER BY name COLLATE NOCASE ASC`
+  );
+}
+function cityButtons(cities) {
+  return cities.map((c) => ({ k: `city:${c.id}`, l: c.name }));
+}
+async function sendStart(db, convId) {
+  const cities = await listCities(db);
+  if (!cities.length) {
+    return insertBotMenu(db, convId, "\u0647\u0646\u0648\u0632 \u0634\u0647\u0631\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647. \u0635\u0628\u0631 \u06A9\u0646 \u062A\u0627 \u0627\u0632 \u067E\u0646\u0644 \u0627\u0636\u0627\u0641\u0647 \u0634\u0648\u062F.", []);
+  }
+  return insertBotMenu(db, convId, "\u0634\u0647\u0631\u062A \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646.", cityButtons(cities));
+}
+async function sendTimes(db, convId, cityName) {
+  const buttons = [];
+  for (let i = 1; i <= 10; i++) buttons.push({ k: `times:${i}`, l: String(i) });
+  return insertBotMenu(db, convId, `\u0634\u0647\u0631: ${cityName}
+\u0686\u0646\u062F \u0628\u0627\u0631 \u062F\u0631 \u0631\u0648\u0632 \u067E\u06CC\u0627\u0645 \u0628\u06CC\u0627\u06CC\u062F\u061F`, buttons);
+}
+async function sendHome(db, convId, cityName, times) {
+  return insertBotMenu(db, convId, `\u062B\u0628\u062A \u0634\u062F.
+\u0634\u0647\u0631: ${cityName}
+\u062A\u0639\u062F\u0627\u062F \u062F\u0631 \u0631\u0648\u0632: ${times}
+\u0627\u0632 \u06F6 \u0635\u0628\u062D \u062A\u0627 \u06F1\u06F2 \u0634\u0628 \u062A\u0647\u0631\u0627\u0646\u060C \u0645\u0633\u0627\u0648\u06CC \u062A\u0642\u0633\u06CC\u0645 \u0645\u06CC\u200C\u0634\u0648\u062F.`, [
+    { k: "menu:city", l: "\u062A\u063A\u06CC\u06CC\u0631 \u0634\u0647\u0631" },
+    { k: "menu:times", l: "\u062A\u063A\u06CC\u06CC\u0631 \u062A\u0639\u062F\u0627\u062F" }
+  ]);
+}
+async function handleBarghTap(db, user, rawKey) {
+  const conv = await ensureBarghConv(db, user);
+  const key = String(rawKey || "").trim();
+  if (!key) return { messages: [], error: "\u062F\u06A9\u0645\u0647 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A" };
+  const cities = await listCities(db);
+  const sub = await one(
+    db,
+    `SELECT user_id, city_id, times, pending_city FROM bot_subs WHERE user_id = ?`,
+    user.id
+  );
+  if (key === "menu:start" || key === "start") {
+    const m = await sendStart(db, conv.id);
+    return { messages: m ? [m] : [] };
+  }
+  if (key === "menu:city") {
+    const m = await sendStart(db, conv.id);
+    return { messages: m ? [m] : [] };
+  }
+  if (key === "menu:times") {
+    const city = cities.find((c) => c.id === (sub?.pending_city || sub?.city_id));
+    if (!city) {
+      const m2 = await sendStart(db, conv.id);
+      return { messages: m2 ? [m2] : [] };
+    }
+    const m = await sendTimes(db, conv.id, city.name);
+    return { messages: m ? [m] : [] };
+  }
+  if (key.startsWith("city:")) {
+    const id = key.slice(5);
+    const city = cities.find((c) => c.id === id);
+    if (!city) return { messages: [], error: "\u0627\u06CC\u0646 \u0634\u0647\u0631 \u062F\u06CC\u06AF\u0631 \u0646\u06CC\u0633\u062A" };
+    const now = Date.now();
+    if (sub) {
+      await run(db, `UPDATE bot_subs SET pending_city = ? WHERE user_id = ?`, city.id, user.id);
+    } else {
+      await run(
+        db,
+        `INSERT INTO bot_subs (user_id, city_id, times, pending_city, last_sent_at, created_at) VALUES (?, NULL, 0, ?, 0, ?)`,
+        user.id,
+        city.id,
+        now
+      );
+    }
+    if (sub && Number(sub.times) >= 1 && sub.city_id) {
+      await run(
+        db,
+        `UPDATE bot_subs SET city_id = ?, pending_city = NULL, last_sent_at = ? WHERE user_id = ?`,
+        city.id,
+        now,
+        user.id
+      );
+      const m2 = await sendHome(db, conv.id, city.name, Number(sub.times));
+      return { messages: m2 ? [m2] : [] };
+    }
+    const m = await sendTimes(db, conv.id, city.name);
+    return { messages: m ? [m] : [] };
+  }
+  if (key.startsWith("times:")) {
+    const n = Number(key.slice(6));
+    if (!Number.isInteger(n) || n < 1 || n > 10) return { messages: [], error: "\u062A\u0639\u062F\u0627\u062F \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A" };
+    const cityId = sub?.pending_city || sub?.city_id || "";
+    const city = cities.find((c) => c.id === cityId);
+    if (!city) {
+      const m2 = await sendStart(db, conv.id);
+      return { messages: m2 ? [m2] : [] };
+    }
+    const now = Date.now();
+    if (sub) {
+      await run(
+        db,
+        `UPDATE bot_subs SET city_id = ?, times = ?, pending_city = NULL, last_sent_at = ? WHERE user_id = ?`,
+        city.id,
+        n,
+        now,
+        user.id
+      );
+    } else {
+      await run(
+        db,
+        `INSERT INTO bot_subs (user_id, city_id, times, pending_city, last_sent_at, created_at) VALUES (?, ?, ?, NULL, ?, ?)`,
+        user.id,
+        city.id,
+        n,
+        now,
+        now
+      );
+    }
+    const m = await sendHome(db, conv.id, city.name, n);
+    return { messages: m ? [m] : [] };
+  }
+  return { messages: [], error: "\u0641\u0642\u0637 \u0627\u0632 \u062F\u06A9\u0645\u0647\u200C\u0647\u0627 \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u06A9\u0646" };
+}
+var lastFlush = 0;
+async function flushBarghBot(db, force = false) {
+  const now = Date.now();
+  if (!force && now - lastFlush < 2e4) return;
+  lastFlush = now;
+  let subs = [];
+  try {
+    subs = await many(
+      db,
+      `SELECT user_id, city_id, times, last_sent_at FROM bot_subs
+       WHERE times BETWEEN 1 AND 10 AND city_id IS NOT NULL AND city_id != ''
+       LIMIT 80`
+    );
+  } catch {
+    return;
+  }
+  let sent = 0;
+  for (const sub of subs) {
+    if (sent >= 24) break;
+    const slots = barghSlots(now, Number(sub.times) || 1).filter((s) => s <= now && s > Number(sub.last_sent_at || 0));
+    if (!slots.length) continue;
+    const slot = slots[slots.length - 1];
+    const city = await one(db, `SELECT name, body FROM bot_cities WHERE id = ?`, sub.city_id);
+    if (!city || !city.body.trim()) {
+      await run(db, `UPDATE bot_subs SET last_sent_at = ? WHERE user_id = ?`, slot, sub.user_id);
+      continue;
+    }
+    const user = await one(db, `SELECT * FROM users WHERE id = ?`, sub.user_id);
+    if (!user || Number(user.deleted_at || 0) > 0 || Number(user.banned_at || 0) > 0) continue;
+    const conv = await ensureBarghConv(db, user);
+    await insertBotText(db, conv.id, city.body.trim());
+    await run(db, `UPDATE bot_subs SET last_sent_at = ? WHERE user_id = ?`, slot, sub.user_id);
+    sent += 1;
+  }
+}
+async function listBotCitiesAdmin(db) {
+  return many(
+    db,
+    `SELECT id, name, body, created_at FROM bot_cities ORDER BY name COLLATE NOCASE ASC`
+  );
+}
+async function saveBotCity(db, name, body, id) {
+  const now = Date.now();
+  if (id) {
+    await run(db, `UPDATE bot_cities SET name = ?, body = ? WHERE id = ?`, name, body, id);
+    return id;
+  }
+  const nid = randomId();
+  await run(
+    db,
+    `INSERT INTO bot_cities (id, name, body, created_at) VALUES (?, ?, ?, ?)`,
+    nid,
+    name,
+    body,
+    now
+  );
+  return nid;
+}
+async function deleteBotCity(db, id) {
+  await run(db, `DELETE FROM bot_cities WHERE id = ?`, id);
+  await run(db, `UPDATE bot_subs SET city_id = NULL, pending_city = NULL, times = 0 WHERE city_id = ? OR pending_city = ?`, id, id);
+}
+async function botStats(db) {
+  const cities = await one(db, `SELECT COUNT(*) as n FROM bot_cities`);
+  const subs = await one(db, `SELECT COUNT(*) as n FROM bot_subs WHERE times BETWEEN 1 AND 10 AND city_id IS NOT NULL`);
+  return { cities: cities?.n ?? 0, subs: subs?.n ?? 0 };
+}
+
 // src/api/app.ts
 var USERNAME_RE = /^[a-zA-Z][a-zA-Z0-9_]{2,19}$/;
 var EMOJIS = ["\u2764", "\u{1F525}", "\u2728", "\u{1F602}", "\u{1F44D}", "\u26A1", "\u{1F5A4}"];
@@ -2796,7 +3174,7 @@ function cookieOpts(c, maxAge) {
     secure: isHttps(c)
   };
 }
-async function emit(db, kind, conversationId, actorId, payload = {}) {
+async function emit2(db, kind, conversationId, actorId, payload = {}) {
   await run(
     db,
     `INSERT INTO events (ts, kind, conversation_id, actor_id, payload) VALUES (?, ?, ?, ?, ?)`,
@@ -2862,6 +3240,10 @@ function previewFor(type, body) {
   if (type === "photo") return body ? previewOf(body) : "\u{1F4F7} \u0639\u06A9\u0633";
   if (type === "video") return body ? previewOf(body) : "\u{1F3AC} \u0641\u06CC\u0644\u0645";
   if (type === "voice") return "\u{1F3A4} \u0648\u06CC\u0633";
+  if (type === "bot") {
+    const p = parseBotBody(body);
+    return previewOf(p?.text || "\u0628\u0627\u062A");
+  }
   return previewOf(body);
 }
 var MEDIA_MAX = 12e5;
@@ -2952,7 +3334,8 @@ var RESERVED_PUBLIC = /* @__PURE__ */ new Set([
   "c",
   "j",
   "u",
-  "t"
+  "t",
+  "bargh"
 ]);
 function makePublicId() {
   const bytes = crypto.getRandomValues(new Uint8Array(5));
@@ -3075,7 +3458,8 @@ async function inboxItem(db, conv, user) {
     memberCount: count?.n ?? 0,
     joinLocked: !!conv.join_locked,
     publicIdLocked: !!conv.public_id_locked,
-    frozen: !!conv.frozen
+    frozen: !!conv.frozen,
+    bot: !!(peer && peer.id === BARGH_BOT_ID)
   };
 }
 async function conversationPayload(db, conv, user) {
@@ -3174,7 +3558,8 @@ async function conversationPayload(db, conv, user) {
     memberCount: people.length,
     joinLocked: !!conv.join_locked,
     publicIdLocked: !!conv.public_id_locked,
-    frozen: !!conv.frozen
+    frozen: !!conv.frozen,
+    bot: !!(peer && peer.id === BARGH_BOT_ID)
   };
 }
 function rowAuthorId(m) {
@@ -3185,13 +3570,15 @@ function rowAuthorId(m) {
 function serializeMessage(m, viewerId) {
   const authorId = rowAuthorId(m);
   const vid = viewerId == null ? "" : String(viewerId);
+  const bot = m.type === "bot" && !m.deleted_at ? parseBotBody(m.body) : null;
   return {
     id: m.id,
     conversationId: m.conversation_id,
     authorId,
     mine: !!(vid && authorId && authorId === vid),
     type: m.type,
-    body: m.deleted_at ? "" : m.body,
+    body: m.deleted_at ? "" : bot ? bot.text : m.body,
+    buttons: bot?.buttons || void 0,
     replyToId: m.reply_to_id,
     forwardedFrom: m.forwarded_from,
     editedAt: m.edited_at,
@@ -3228,7 +3615,7 @@ async function messagesWithExtras(db, rows, viewerId) {
     replyTo: m.reply_to_id && replies[m.reply_to_id] ? serializeMessage(replies[m.reply_to_id], viewerId) : null
   }));
 }
-async function touchConv(db, id, preview, at) {
+async function touchConv2(db, id, preview, at) {
   await run(
     db,
     `UPDATE conversations SET last_message_at = ?, last_message_preview = ? WHERE id = ?`,
@@ -3248,8 +3635,8 @@ async function addSystem(db, convId, body) {
     body,
     now
   );
-  await touchConv(db, convId, body, now);
-  await emit(db, "message", convId, null, { id });
+  await touchConv2(db, convId, body, now);
+  await emit2(db, "message", convId, null, { id });
   return id;
 }
 async function canPost(mem, conv) {
@@ -3398,6 +3785,7 @@ app.post("/auth/register", async (c) => {
   const displayName = cleanText(body.displayName ?? body.username, 1, 40);
   const avatar = parseAvatar(body.avatar);
   if (!username) return jsonError(c, "\u06CC\u0648\u0632\u0631\u0646\u06CC\u0645 \u0628\u0627\u06CC\u062F \u0628\u0627 \u062D\u0631\u0641 \u0634\u0631\u0648\u0639 \u0628\u0634\u0647 \u0648 \u06F3 \u062A\u0627 \u06F2\u06F0 \u06A9\u0627\u0631\u0627\u06A9\u062A\u0631 \u0644\u0627\u062A\u06CC\u0646 \u0628\u0627\u0634\u0647");
+  if (username.toLowerCase() === "bargh") return jsonError(c, "\u0627\u06CC\u0646 \u06CC\u0648\u0632\u0631\u0646\u06CC\u0645 \u06AF\u0631\u0641\u062A\u0647 \u0634\u062F\u0647", 409);
   if (password.length < 6 || password.length > 72) return jsonError(c, "\u0631\u0645\u0632 \u062D\u062F\u0627\u0642\u0644 \u06F6 \u06A9\u0627\u0631\u0627\u06A9\u062A\u0631");
   if (!displayName) return jsonError(c, "\u0627\u0633\u0645 \u0646\u0645\u0627\u06CC\u0634\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631\u0647");
   if (avatar === false) return jsonError(c, "\u0639\u06A9\u0633 \u067E\u0631\u0648\u0641\u0627\u06CC\u0644 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A");
@@ -3574,6 +3962,11 @@ app.get("/users/:username", async (c) => {
 app.get("/conversations", async (c) => {
   const user = await auth(c);
   if (user instanceof Response) return user;
+  try {
+    await ensureBarghConv(c.env.DB, user);
+    await flushBarghBot(c.env.DB);
+  } catch {
+  }
   const rows = await many(
     c.env.DB,
     `SELECT c.* FROM conversations c
@@ -3592,6 +3985,10 @@ app.get("/conversations/:id", async (c) => {
   if (!conv) return jsonError(c, "\u06AF\u0641\u062A\u06AF\u0648 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F", 404);
   const mem = await memberOf(c.env.DB, conv.id, user.id);
   if (!mem) return jsonError(c, "\u0639\u0636\u0648 \u0627\u06CC\u0646 \u06AF\u0641\u062A\u06AF\u0648 \u0646\u06CC\u0633\u062A\u06CC", 403);
+  try {
+    await flushBarghBot(c.env.DB);
+  } catch {
+  }
   return c.json({ conversation: await conversationPayload(c.env.DB, conv, user) });
 });
 app.post("/conversations/dm", async (c) => {
@@ -3602,6 +3999,10 @@ app.post("/conversations/dm", async (c) => {
   const other = await one(c.env.DB, `SELECT * FROM users WHERE username_lc = ?`, uname);
   if (!other || isGone(other)) return jsonError(c, "\u06A9\u0627\u0631\u0628\u0631 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F", 404);
   if (other.id === user.id) return jsonError(c, "\u0646\u0645\u06CC\u200C\u062A\u0648\u0646\u06CC \u0628\u0627 \u062E\u0648\u062F\u062A \u0686\u062A \u06A9\u0646\u06CC");
+  if (other.id === BARGH_BOT_ID || other.username_lc === "bargh") {
+    const botConv = await ensureBarghConv(c.env.DB, user);
+    return c.json({ conversation: await conversationPayload(c.env.DB, botConv, user) });
+  }
   if (await blocked(c.env.DB, user.id, other.id)) return jsonError(c, "\u0627\u06CC\u0646 \u06AF\u0641\u062A\u06AF\u0648 \u0645\u0633\u062F\u0648\u062F\u0647", 403);
   const key = [user.id, other.id].sort().join(":");
   let conv = await one(c.env.DB, `SELECT * FROM conversations WHERE dm_key = ?`, key);
@@ -3635,7 +4036,7 @@ app.post("/conversations/dm", async (c) => {
       now
     );
     conv = await one(c.env.DB, `SELECT * FROM conversations WHERE id = ?`, id);
-    await emit(c.env.DB, "conversation", id, user.id, { type: "dm" });
+    await emit2(c.env.DB, "conversation", id, user.id, { type: "dm" });
   }
   return c.json({ conversation: await conversationPayload(c.env.DB, conv, user) });
 });
@@ -3690,7 +4091,7 @@ app.post("/conversations/group", async (c) => {
     );
   }
   await addSystem(c.env.DB, id, `${user.display_name} \u06AF\u0631\u0648\u0647 \xAB${title}\xBB \u0631\u0627 \u0633\u0627\u062E\u062A`);
-  await emit(c.env.DB, "conversation", id, user.id, { type: "group" });
+  await emit2(c.env.DB, "conversation", id, user.id, { type: "group" });
   const conv = await one(c.env.DB, `SELECT * FROM conversations WHERE id = ?`, id);
   return c.json({ conversation: await conversationPayload(c.env.DB, conv, user) });
 });
@@ -3727,7 +4128,7 @@ app.post("/conversations/channel", async (c) => {
     now
   );
   await addSystem(c.env.DB, id, `${user.display_name} \u06A9\u0627\u0646\u0627\u0644 \xAB${title}\xBB \u0631\u0627 \u0633\u0627\u062E\u062A`);
-  await emit(c.env.DB, "conversation", id, user.id, { type: "channel" });
+  await emit2(c.env.DB, "conversation", id, user.id, { type: "channel" });
   const conv = await one(c.env.DB, `SELECT * FROM conversations WHERE id = ?`, id);
   return c.json({ conversation: await conversationPayload(c.env.DB, conv, user) });
 });
@@ -3781,7 +4182,7 @@ app.post("/invites/:code/join", async (c) => {
       now
     );
     await addSystem(c.env.DB, conv.id, `${user.display_name} \u0648\u0627\u0631\u062F \u0634\u062F`);
-    await emit(c.env.DB, "members", conv.id, user.id, { join: true });
+    await emit2(c.env.DB, "members", conv.id, user.id, { join: true });
   }
   return c.json({ conversation: await conversationPayload(c.env.DB, conv, user) });
 });
@@ -3865,7 +4266,7 @@ app.post("/spaces/:pid/join", async (c) => {
       now
     );
     await addSystem(c.env.DB, conv.id, `${user.display_name} \u0648\u0627\u0631\u062F \u0634\u062F`);
-    await emit(c.env.DB, "members", conv.id, user.id, { join: true });
+    await emit2(c.env.DB, "members", conv.id, user.id, { join: true });
   }
   const fresh = await one(c.env.DB, `SELECT * FROM conversations WHERE id = ?`, conv.id);
   return c.json({ conversation: await conversationPayload(c.env.DB, fresh, user) });
@@ -3918,7 +4319,7 @@ app.post("/conversations/:id/subscribe", async (c) => {
     now,
     now
   );
-  await emit(c.env.DB, "conversation", conv.id, user.id, { join: true });
+  await emit2(c.env.DB, "conversation", conv.id, user.id, { join: true });
   return c.json({ conversation: await conversationPayload(c.env.DB, conv, user) });
 });
 app.post("/conversations/:id/members", async (c) => {
@@ -3933,6 +4334,7 @@ app.post("/conversations/:id/members", async (c) => {
   const uname = String(body.username || "").toLowerCase();
   const other = await one(c.env.DB, `SELECT * FROM users WHERE username_lc = ?`, uname);
   if (!other || isGone(other)) return jsonError(c, "\u06A9\u0627\u0631\u0628\u0631 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F", 404);
+  if (other.id === BARGH_BOT_ID) return jsonError(c, "\u0628\u0627\u062A \u0631\u0627 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F \u0627\u0636\u0627\u0641\u0647 \u06A9\u0631\u062F");
   const now = Date.now();
   const role = conv.type === "channel" ? "subscriber" : "member";
   await run(
@@ -3944,7 +4346,7 @@ app.post("/conversations/:id/members", async (c) => {
     now
   );
   await addSystem(c.env.DB, conv.id, `${user.display_name} ${other.display_name} \u0631\u0627 \u0627\u0636\u0627\u0641\u0647 \u06A9\u0631\u062F`);
-  await emit(c.env.DB, "members", conv.id, user.id, {});
+  await emit2(c.env.DB, "members", conv.id, user.id, {});
   return c.json({ ok: true });
 });
 app.patch("/conversations/:id/members/:userId", async (c) => {
@@ -3964,7 +4366,7 @@ app.patch("/conversations/:id/members/:userId", async (c) => {
     conv.id,
     c.req.param("userId")
   );
-  await emit(c.env.DB, "members", conv.id, user.id, {});
+  await emit2(c.env.DB, "members", conv.id, user.id, {});
   return c.json({ ok: true });
 });
 app.delete("/conversations/:id/members/:userId", async (c) => {
@@ -3985,7 +4387,7 @@ app.delete("/conversations/:id/members/:userId", async (c) => {
     conv.id,
     self ? `${user.display_name} \u0631\u0641\u062A` : `${user.display_name} ${target?.display_name ?? "\u06A9\u0633\u06CC"} \u0631\u0627 \u062D\u0630\u0641 \u06A9\u0631\u062F`
   );
-  await emit(c.env.DB, "members", conv.id, user.id, {});
+  await emit2(c.env.DB, "members", conv.id, user.id, {});
   return c.json({ ok: true });
 });
 app.post("/conversations/:id/mute", async (c) => {
@@ -4052,7 +4454,7 @@ app.patch("/conversations/:id", async (c) => {
     publicId,
     conv.id
   );
-  await emit(c.env.DB, "conversation", conv.id, user.id, {});
+  await emit2(c.env.DB, "conversation", conv.id, user.id, {});
   const fresh = await one(c.env.DB, `SELECT * FROM conversations WHERE id = ?`, conv.id);
   return c.json({ conversation: await conversationPayload(c.env.DB, fresh, user) });
 });
@@ -4085,6 +4487,9 @@ app.post("/conversations/:id/messages", async (c) => {
   if (!conv) return jsonError(c, "\u06AF\u0641\u062A\u06AF\u0648 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F", 404);
   const mem = await memberOf(c.env.DB, conv.id, user.id);
   if (!mem) return jsonError(c, "\u0639\u0636\u0648 \u0646\u06CC\u0633\u062A\u06CC", 403);
+  if (await isBarghConv(c.env.DB, conv, user.id)) {
+    return jsonError(c, "\u0641\u0642\u0637 \u0627\u0632 \u062F\u06A9\u0645\u0647\u200C\u0647\u0627 \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u06A9\u0646");
+  }
   const blockedWrite = await denyWrite(c, user);
   if (blockedWrite) return blockedWrite;
   if (conv.frozen && user.badge !== "owner") return jsonError(c, "\u0627\u06CC\u0646 \u06AF\u0641\u062A\u06AF\u0648 \u0645\u0646\u062C\u0645\u062F \u0627\u0633\u062A", 403);
@@ -4213,7 +4618,7 @@ app.post("/conversations/:id/messages", async (c) => {
     mediaId,
     durationMs
   );
-  await touchConv(c.env.DB, conv.id, previewFor(kindRaw, text), now);
+  await touchConv2(c.env.DB, conv.id, previewFor(kindRaw, text), now);
   await run(
     c.env.DB,
     `UPDATE members SET last_read_at = ? WHERE conversation_id = ? AND user_id = ?`,
@@ -4221,7 +4626,7 @@ app.post("/conversations/:id/messages", async (c) => {
     conv.id,
     user.id
   );
-  await emit(c.env.DB, "message", conv.id, user.id, { id });
+  await emit2(c.env.DB, "message", conv.id, user.id, { id });
   const msg = await one(c.env.DB, `SELECT * FROM messages WHERE id = ?`, id);
   const [full] = await messagesWithExtras(c.env.DB, [msg], user.id);
   return c.json({ message: full });
@@ -4244,7 +4649,7 @@ app.patch("/messages/:id", async (c) => {
   if (bannedWord && user.badge !== "owner") return jsonError(c, "\u0627\u06CC\u0646 \u067E\u06CC\u0627\u0645 \u0628\u0647 \u062E\u0627\u0637\u0631 \u0648\u0627\u0698\u0647\u200C\u0647\u0627\u06CC \u0645\u0645\u0646\u0648\u0639 \u0631\u062F \u0634\u062F", 403);
   const now = Date.now();
   await run(c.env.DB, `UPDATE messages SET body = ?, edited_at = ? WHERE id = ?`, text, now, msg.id);
-  await emit(c.env.DB, "message", msg.conversation_id, user.id, { id: msg.id, edited: true });
+  await emit2(c.env.DB, "message", msg.conversation_id, user.id, { id: msg.id, edited: true });
   const fresh = await one(c.env.DB, `SELECT * FROM messages WHERE id = ?`, msg.id);
   const [full] = await messagesWithExtras(c.env.DB, [fresh], user.id);
   return c.json({ message: full });
@@ -4259,7 +4664,7 @@ app.delete("/messages/:id", async (c) => {
   const asMod = mem && conv && (mem.role === "owner" || mem.role === "admin");
   if (msg.author_id !== user.id && !asMod) return jsonError(c, "\u0627\u062C\u0627\u0632\u0647 \u0646\u062F\u0627\u0631\u06CC", 403);
   await run(c.env.DB, `UPDATE messages SET deleted_at = ?, body = '' WHERE id = ?`, Date.now(), msg.id);
-  await emit(c.env.DB, "message", msg.conversation_id, user.id, { id: msg.id, deleted: true });
+  await emit2(c.env.DB, "message", msg.conversation_id, user.id, { id: msg.id, deleted: true });
   return c.json({ ok: true });
 });
 app.post("/messages/:id/pin", async (c) => {
@@ -4271,7 +4676,7 @@ app.post("/messages/:id/pin", async (c) => {
   if (!mem) return jsonError(c, "\u0639\u0636\u0648 \u0646\u06CC\u0633\u062A\u06CC", 403);
   const next = msg.pinned ? 0 : 1;
   await run(c.env.DB, `UPDATE messages SET pinned = ? WHERE id = ?`, next, msg.id);
-  await emit(c.env.DB, "message", msg.conversation_id, user.id, { id: msg.id, pinned: !!next });
+  await emit2(c.env.DB, "message", msg.conversation_id, user.id, { id: msg.id, pinned: !!next });
   return c.json({ pinned: !!next });
 });
 app.post("/messages/:id/react", async (c) => {
@@ -4306,7 +4711,7 @@ app.post("/messages/:id/react", async (c) => {
       Date.now()
     );
   }
-  await emit(c.env.DB, "message", msg.conversation_id, user.id, { id: msg.id, react: true });
+  await emit2(c.env.DB, "message", msg.conversation_id, user.id, { id: msg.id, react: true });
   const reacts = await many(
     c.env.DB,
     `SELECT user_id, emoji FROM reactions WHERE message_id = ?`,
@@ -4345,8 +4750,8 @@ app.post("/messages/:id/forward", async (c) => {
     author?.display_name || "\u0646\u0627\u0634\u0646\u0627\u0633",
     now
   );
-  await touchConv(c.env.DB, dest.id, previewOf(msg.body), now);
-  await emit(c.env.DB, "message", dest.id, user.id, { id });
+  await touchConv2(c.env.DB, dest.id, previewOf(msg.body), now);
+  await emit2(c.env.DB, "message", dest.id, user.id, { id });
   return c.json({ ok: true, id, conversationId: dest.id });
 });
 app.get("/media/:id", async (c) => {
@@ -4379,7 +4784,7 @@ app.post("/conversations/:id/read", async (c) => {
     c.req.param("id"),
     user.id
   );
-  await emit(c.env.DB, "read", c.req.param("id"), user.id, { at: now });
+  await emit2(c.env.DB, "read", c.req.param("id"), user.id, { at: now });
   return c.json({ ok: true });
 });
 app.post("/presence", async (c) => {
@@ -4407,6 +4812,10 @@ app.post("/typing", async (c) => {
 app.get("/sync", async (c) => {
   const user = await auth(c);
   if (user instanceof Response) return user;
+  try {
+    await flushBarghBot(c.env.DB);
+  } catch {
+  }
   const lite = c.req.query("lite") === "1";
   const after = Number(c.req.query("after") || 0);
   if (!lite) {
@@ -4606,14 +5015,14 @@ app.post("/stories", async (c) => {
     now,
     now + 24 * 60 * 60 * 1e3
   );
-  await emit(c.env.DB, "story", null, user.id, { id });
+  await emit2(c.env.DB, "story", null, user.id, { id });
   return c.json({ id });
 });
 app.delete("/stories/:id", async (c) => {
   const user = await auth(c);
   if (user instanceof Response) return user;
   await run(c.env.DB, `DELETE FROM stories WHERE id = ? AND user_id = ?`, c.req.param("id"), user.id);
-  await emit(c.env.DB, "story", null, user.id, { deleted: c.req.param("id") });
+  await emit2(c.env.DB, "story", null, user.id, { deleted: c.req.param("id") });
   return c.json({ ok: true });
 });
 app.post("/stories/:id/view", async (c) => {
@@ -4904,8 +5313,10 @@ app.get("/admin/users", async (c) => {
   const rows = await many(
     c.env.DB,
     `SELECT * FROM users
-     WHERE ? = '' OR username_lc LIKE ? OR lower(display_name) LIKE ? OR id = ?
+     WHERE id != ?
+       AND (? = '' OR username_lc LIKE ? OR lower(display_name) LIKE ? OR id = ?)
      ORDER BY created_at DESC LIMIT 200`,
+    BARGH_BOT_ID,
     q,
     `%${q}%`,
     `%${q}%`,
@@ -4926,6 +5337,7 @@ app.patch("/admin/users/:id", async (c) => {
   if (user instanceof Response) return user;
   const gate = await requireOwnerLike(user, c.env.DB);
   if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  if (c.req.param("id") === BARGH_BOT_ID) return jsonError(c, "\u0628\u0627\u062A \u0631\u0633\u0645\u06CC \u0631\u0627 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F \u0639\u0648\u0636 \u06A9\u0631\u062F", 403);
   const body = await c.req.json().catch(() => ({}));
   const target = await one(c.env.DB, `SELECT * FROM users WHERE id = ?`, c.req.param("id"));
   if (!target) return jsonError(c, "\u06A9\u0627\u0631\u0628\u0631 \u0646\u06CC\u0633\u062A", 404);
@@ -4960,7 +5372,7 @@ app.patch("/admin/users/:id", async (c) => {
       note,
       target.id
     );
-    await emit(c.env.DB, "badge", null, user.id, { userId: target.id, premium: on });
+    await emit2(c.env.DB, "badge", null, user.id, { userId: target.id, premium: on });
     await logAdmin(c.env.DB, user.id, "premium", target.id, on ? `until=${until} note=${note}` : "off");
   }
   if ("badge" in body) {
@@ -4970,7 +5382,7 @@ app.patch("/admin/users/:id", async (c) => {
       return jsonError(c, "\u0627\u062F\u0645\u06CC\u0646 \u0641\u0642\u0637 \u062A\u06CC\u06A9 \u062A\u0627\u06CC\u06CC\u062F \u0631\u0627 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u0628\u062F\u0647\u062F", 403);
     }
     await run(c.env.DB, `UPDATE users SET badge = ? WHERE id = ?`, badge, target.id);
-    await emit(c.env.DB, "badge", null, user.id, { userId: target.id, badge });
+    await emit2(c.env.DB, "badge", null, user.id, { userId: target.id, badge });
     await logAdmin(c.env.DB, user.id, "badge", target.id, String(badge || "none"));
   }
   if (body.displayName !== void 0) {
@@ -5166,7 +5578,7 @@ app.delete("/admin/stories/:id", async (c) => {
   const limited = denyReportsOnly(c, user, gate);
   if (limited) return limited;
   await run(c.env.DB, `DELETE FROM stories WHERE id = ?`, c.req.param("id"));
-  await emit(c.env.DB, "story", null, user.id, { deleted: c.req.param("id") });
+  await emit2(c.env.DB, "story", null, user.id, { deleted: c.req.param("id") });
   await logAdmin(c.env.DB, user.id, "del_story", c.req.param("id"), "");
   return c.json({ ok: true });
 });
@@ -5181,7 +5593,7 @@ app.delete("/admin/messages/:id", async (c) => {
   if (!msg) return jsonError(c, "\u067E\u06CC\u0627\u0645 \u0646\u06CC\u0633\u062A", 404);
   await run(c.env.DB, `UPDATE messages SET deleted_at = ?, body = '' WHERE id = ?`, Date.now(), msg.id);
   if (msg.media_id) await run(c.env.DB, `DELETE FROM media WHERE id = ?`, msg.media_id);
-  await emit(c.env.DB, "message", msg.conversation_id, user.id, { id: msg.id, deleted: true });
+  await emit2(c.env.DB, "message", msg.conversation_id, user.id, { id: msg.id, deleted: true });
   await logAdmin(c.env.DB, user.id, "del_message", msg.id, msg.conversation_id);
   return c.json({ ok: true });
 });
@@ -5232,7 +5644,7 @@ app.patch("/admin/reports/:id", async (c) => {
     if (msg) {
       await run(c.env.DB, `UPDATE messages SET deleted_at = ?, body = '' WHERE id = ?`, Date.now(), msg.id);
       if (msg.media_id) await run(c.env.DB, `DELETE FROM media WHERE id = ?`, msg.media_id);
-      await emit(c.env.DB, "message", msg.conversation_id, user.id, { id: msg.id, deleted: true });
+      await emit2(c.env.DB, "message", msg.conversation_id, user.id, { id: msg.id, deleted: true });
     }
   }
   if (body.deleteStory && row.story_id) {
@@ -5634,8 +6046,8 @@ app.post("/admin/pending/:id/ok", async (c) => {
     row.media_id,
     row.duration_ms
   );
-  await touchConv(c.env.DB, row.conversation_id, previewFor(row.type, row.body), row.created_at);
-  await emit(c.env.DB, "message", row.conversation_id, row.author_id, { id: row.id });
+  await touchConv2(c.env.DB, row.conversation_id, previewFor(row.type, row.body), row.created_at);
+  await emit2(c.env.DB, "message", row.conversation_id, row.author_id, { id: row.id });
   await run(c.env.DB, `DELETE FROM pending_messages WHERE id = ?`, row.id);
   await logAdmin(c.env.DB, user.id, "pending_ok", row.id, row.author_id);
   return c.json({ ok: true });
@@ -5931,7 +6343,7 @@ app.post("/admin/blast", async (c) => {
     now,
     user.id
   );
-  await emit(c.env.DB, "blast", null, user.id, { id, body: text });
+  await emit2(c.env.DB, "blast", null, user.id, { id, body: text });
   await logAdmin(c.env.DB, user.id, "blast", id, text.slice(0, 80));
   return c.json({ ok: true, id, createdAt: now });
 });
@@ -6038,9 +6450,74 @@ app.delete("/admin/file", async (c) => {
   await logAdmin(c.env.DB, user.id, "del_apk", null, "");
   return c.json({ ok: true });
 });
+app.post("/bot/tap", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const body = await c.req.json().catch(() => ({}));
+  const key = typeof body.key === "string" ? body.key : "";
+  try {
+    const out = await handleBarghTap(c.env.DB, user, key);
+    if (out.error) return jsonError(c, out.error);
+    const messages = await messagesWithExtras(c.env.DB, out.messages, user.id);
+    return c.json({ messages });
+  } catch {
+    return jsonError(c, "\u0628\u0627\u062A \u0627\u0644\u0627\u0646 \u062C\u0648\u0627\u0628 \u0646\u062F\u0627\u062F", 500);
+  }
+});
+app.get("/admin/bot/cities", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  let cities = [];
+  let stats = { cities: 0, subs: 0 };
+  try {
+    cities = await listBotCitiesAdmin(c.env.DB);
+    stats = await botStats(c.env.DB);
+  } catch {
+    cities = [];
+  }
+  return c.json({
+    cities: cities.map((x) => ({ id: x.id, name: x.name, body: x.body, createdAt: x.created_at })),
+    stats
+  });
+});
+app.post("/admin/bot/cities", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  const limited = denyReportsOnly(c, user, gate);
+  if (limited) return limited;
+  const body = await c.req.json().catch(() => ({}));
+  const name = cleanText(body.name, 1, 40);
+  const text = typeof body.body === "string" ? body.body.trim() : "";
+  if (!name) return jsonError(c, "\u0627\u0633\u0645 \u0634\u0647\u0631 \u0644\u0627\u0632\u0645 \u0627\u0633\u062A");
+  if (!text || text.length > 2e3) return jsonError(c, "\u0645\u062A\u0646 \u0627\u0639\u0644\u0627\u0646 \u062E\u0627\u0644\u06CC \u06CC\u0627 \u062E\u06CC\u0644\u06CC \u0628\u0644\u0646\u062F \u0627\u0633\u062A");
+  const id = typeof body.id === "string" && body.id.trim() ? body.id.trim() : void 0;
+  const saved = await saveBotCity(c.env.DB, name, text, id);
+  await logAdmin(c.env.DB, user.id, id ? "bot_city_edit" : "bot_city", saved, name);
+  return c.json({ ok: true, id: saved });
+});
+app.delete("/admin/bot/cities/:id", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  const limited = denyReportsOnly(c, user, gate);
+  if (limited) return limited;
+  const id = c.req.param("id");
+  await deleteBotCity(c.env.DB, id);
+  await logAdmin(c.env.DB, user.id, "bot_city_del", id, "");
+  return c.json({ ok: true });
+});
 app.get("/notices", async (c) => {
   const user = await auth(c);
   if (user instanceof Response) return user;
+  try {
+    await flushBarghBot(c.env.DB);
+  } catch {
+  }
   const after = Math.max(0, Number(c.req.query("after") || 0));
   const rows = await many(
     c.env.DB,
@@ -6055,6 +6532,7 @@ app.get("/notices", async (c) => {
      LEFT JOIN users au ON au.id = msg.author_id
      WHERE msg.deleted_at IS NULL
        AND msg.type != 'system'
+       AND msg.type != 'bot'
        AND msg.author_id IS NOT NULL AND msg.author_id != ?
        AND msg.created_at > ?
        AND msg.created_at > IFNULL(mem.last_read_at, 0)
