@@ -2559,7 +2559,9 @@ var EXTRA_SQL = [
     created_at INTEGER NOT NULL
   )`,
   `ALTER TABLE bot_subs ADD COLUMN pending_times INTEGER`,
-  `ALTER TABLE bot_subs ADD COLUMN step TEXT`
+  `ALTER TABLE bot_subs ADD COLUMN step TEXT`,
+  `ALTER TABLE members ADD COLUMN cleared_at INTEGER DEFAULT 0`,
+  `ALTER TABLE members ADD COLUMN hidden INTEGER DEFAULT 0`
 ];
 var booted = false;
 async function ensureSchema(db, schema) {
@@ -2904,6 +2906,8 @@ async function insertBotText(db, convId, text) {
     now
   );
   await touchConv(db, convId, text.slice(0, 80), now);
+  await run(db, `UPDATE members SET hidden = 0 WHERE conversation_id = ? AND user_id != ?`, convId, BARGH_BOT_ID);
+  await emit(db, "conversation", convId, BARGH_BOT_ID, { unhide: true });
   await emit(db, "message", convId, BARGH_BOT_ID, { id });
   return one(db, `SELECT * FROM messages WHERE id = ?`, id);
 }
@@ -3395,6 +3399,84 @@ async function areContacts(db, a, b) {
 async function memberOf(db, convId, userId) {
   return one(db, `SELECT * FROM members WHERE conversation_id = ? AND user_id = ?`, convId, userId);
 }
+function isSavedKey(key) {
+  return String(key || "").startsWith("saved:");
+}
+function clearedAt(mem) {
+  return Number(mem?.cleared_at || 0);
+}
+async function ensureSavedConv(db, user) {
+  const key = `saved:${user.id}`;
+  let conv = await one(db, `SELECT * FROM conversations WHERE dm_key = ?`, key);
+  const now = Date.now();
+  if (!conv) {
+    const id = randomId();
+    await run(
+      db,
+      `INSERT INTO conversations (id, type, title, description, owner_id, dm_key, created_at, last_message_at, last_message_preview)
+       VALUES (?, 'dm', '\u0630\u062E\u06CC\u0631\u0647\u200C\u0647\u0627', '', ?, ?, ?, ?, '')`,
+      id,
+      user.id,
+      key,
+      now,
+      now
+    );
+    await run(
+      db,
+      `INSERT OR IGNORE INTO members (conversation_id, user_id, role, muted, pinned, joined_at, last_read_at)
+       VALUES (?, ?, 'owner', 0, 1, ?, ?)`,
+      id,
+      user.id,
+      now,
+      now
+    );
+    conv = await one(db, `SELECT * FROM conversations WHERE id = ?`, id);
+  } else {
+    await run(
+      db,
+      `INSERT OR IGNORE INTO members (conversation_id, user_id, role, muted, pinned, joined_at, last_read_at)
+       VALUES (?, ?, 'owner', 0, 1, ?, ?)`,
+      conv.id,
+      user.id,
+      now,
+      now
+    );
+    await run(db, `UPDATE members SET hidden = 0, pinned = 1 WHERE conversation_id = ? AND user_id = ?`, conv.id, user.id);
+  }
+  if (!conv) throw new Error("\u0630\u062E\u06CC\u0631\u0647\u200C\u0647\u0627 \u0633\u0627\u062E\u062A\u0647 \u0646\u0634\u062F");
+  return conv;
+}
+async function hideChatFor(db, convId, userId) {
+  const now = Date.now();
+  await run(
+    db,
+    `UPDATE members SET hidden = 1, cleared_at = ? WHERE conversation_id = ? AND user_id = ?`,
+    now,
+    convId,
+    userId
+  );
+}
+async function unhideChatFor(db, convId, userId) {
+  await run(db, `UPDATE members SET hidden = 0 WHERE conversation_id = ? AND user_id = ?`, convId, userId);
+}
+async function unhideOthers(db, convId, exceptUserId) {
+  await run(db, `UPDATE members SET hidden = 0 WHERE conversation_id = ? AND user_id != ?`, convId, exceptUserId);
+}
+async function destroySpace(db, conv, actorId) {
+  const members = await many(db, `SELECT user_id FROM members WHERE conversation_id = ?`, conv.id);
+  await emit2(db, "gone", conv.id, actorId, { id: conv.id });
+  const media = await many(db, `SELECT id FROM media WHERE conversation_id = ?`, conv.id);
+  for (const m of media) {
+    await run(db, `DELETE FROM reactions WHERE message_id IN (SELECT id FROM messages WHERE media_id = ?)`, m.id);
+    await run(db, `DELETE FROM media WHERE id = ?`, m.id);
+  }
+  await run(db, `DELETE FROM reactions WHERE message_id IN (SELECT id FROM messages WHERE conversation_id = ?)`, conv.id);
+  await run(db, `DELETE FROM messages WHERE conversation_id = ?`, conv.id);
+  await run(db, `DELETE FROM typing WHERE conversation_id = ?`, conv.id);
+  await run(db, `DELETE FROM members WHERE conversation_id = ?`, conv.id);
+  await run(db, `DELETE FROM conversations WHERE id = ?`, conv.id);
+  void members;
+}
 async function blocked(db, a, b) {
   const row = await one(
     db,
@@ -3528,7 +3610,11 @@ async function conversationPayload(db, conv, user) {
   let title = conv.title;
   let peer = null;
   let peerName = null;
-  if (conv.type === "dm") {
+  const saved = isSavedKey(conv.dm_key);
+  if (saved) {
+    title = "\u0630\u062E\u06CC\u0631\u0647\u200C\u0647\u0627";
+    peerName = "\u0630\u062E\u06CC\u0631\u0647\u200C\u0647\u0627";
+  } else if (conv.type === "dm") {
     const otherRow = await one(
       db,
       `SELECT u.* FROM members m
@@ -3554,23 +3640,27 @@ async function conversationPayload(db, conv, user) {
       peerName = GONE_NAME;
     }
   }
+  const cut = clearedAt(mem);
   const unreadRow = await one(
     db,
     `SELECT COUNT(*) as n FROM messages
-     WHERE conversation_id = ? AND created_at > ? AND (author_id IS NULL OR author_id != ?) AND deleted_at IS NULL`,
+     WHERE conversation_id = ? AND created_at > ? AND created_at > ? AND (author_id IS NULL OR author_id != ?) AND deleted_at IS NULL`,
     conv.id,
     mem?.last_read_at ?? 0,
+    cut,
     user.id
   );
   const pinned = await many(
     db,
-    `SELECT * FROM messages WHERE conversation_id = ? AND pinned = 1 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 5`,
-    conv.id
+    `SELECT * FROM messages WHERE conversation_id = ? AND pinned = 1 AND deleted_at IS NULL AND created_at > ? ORDER BY created_at DESC LIMIT 5`,
+    conv.id,
+    cut
   );
   const last = await one(
     db,
-    `SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at DESC LIMIT 1`,
-    conv.id
+    `SELECT * FROM messages WHERE conversation_id = ? AND created_at > ? ORDER BY created_at DESC LIMIT 1`,
+    conv.id,
+    cut
   );
   return {
     id: conv.id,
@@ -3579,8 +3669,8 @@ async function conversationPayload(db, conv, user) {
     description: conv.description,
     ownerId: conv.owner_id,
     createdAt: conv.created_at,
-    lastMessageAt: conv.last_message_at,
-    lastMessagePreview: conv.last_message_preview,
+    lastMessageAt: last?.created_at ?? (saved ? conv.created_at : conv.last_message_at),
+    lastMessagePreview: last ? previewFor(last.type, last.body || "") : saved ? "" : conv.last_message_preview,
     lastAuthorId: last?.author_id ?? null,
     peerName,
     muted: !!mem?.muted,
@@ -3597,6 +3687,7 @@ async function conversationPayload(db, conv, user) {
     publicIdLocked: !!conv.public_id_locked,
     frozen: !!conv.frozen,
     bot: !!(peer && peer.id === BARGH_BOT_ID),
+    saved,
     menu: peer && peer.id === BARGH_BOT_ID ? await getBarghMenu(db, user) : void 0
   };
 }
@@ -4002,15 +4093,18 @@ app.get("/conversations", async (c) => {
   if (user instanceof Response) return user;
   try {
     await ensureBarghConv(c.env.DB, user);
+    await ensureSavedConv(c.env.DB, user);
     await flushBarghBot(c.env.DB);
   } catch {
   }
   const rows = await many(
     c.env.DB,
-    `SELECT c.*, m.muted as mem_muted, m.pinned as mem_pinned, m.role as mem_role, m.last_read_at as mem_last_read
+    `SELECT c.*, m.muted as mem_muted, m.pinned as mem_pinned, m.role as mem_role, m.last_read_at as mem_last_read,
+            IFNULL(m.cleared_at, 0) as mem_cleared
      FROM conversations c
      JOIN members m ON m.conversation_id = c.id AND m.user_id = ?
-     ORDER BY m.pinned DESC, c.last_message_at DESC`,
+     WHERE IFNULL(m.hidden, 0) = 0
+     ORDER BY CASE WHEN c.dm_key LIKE 'saved:%' THEN 0 ELSE 1 END, m.pinned DESC, c.last_message_at DESC`,
     user.id
   );
   if (!rows.length) return c.json({ conversations: [] });
@@ -4044,6 +4138,7 @@ app.get("/conversations", async (c) => {
          AND msg.deleted_at IS NULL
          AND (msg.author_id IS NULL OR msg.author_id != ?)
          AND msg.created_at > IFNULL(mem.last_read_at, 0)
+         AND msg.created_at > IFNULL(mem.cleared_at, 0)
        GROUP BY msg.conversation_id`,
       user.id,
       ...slice,
@@ -4062,7 +4157,11 @@ app.get("/conversations", async (c) => {
     let title = conv.title;
     let peer = null;
     let peerName = null;
-    if (conv.type === "dm") {
+    const saved = isSavedKey(conv.dm_key);
+    if (saved) {
+      title = "\u0630\u062E\u06CC\u0631\u0647\u200C\u0647\u0627";
+      peerName = "\u0630\u062E\u06CC\u0631\u0647\u200C\u0647\u0627";
+    } else if (conv.type === "dm") {
       const otherRow = peerByConv.get(conv.id);
       if (otherRow) {
         const pubU = pub(otherRow, user.id, true);
@@ -4092,7 +4191,7 @@ app.get("/conversations", async (c) => {
       lastAuthorId: null,
       peerName,
       muted: !!conv.mem_muted,
-      pinned: !!conv.mem_pinned,
+      pinned: !!conv.mem_pinned || saved,
       role: conv.mem_role ?? "member",
       unread: unreadBy.get(conv.id) ?? 0,
       members: [],
@@ -4104,7 +4203,8 @@ app.get("/conversations", async (c) => {
       joinLocked: !!conv.join_locked,
       publicIdLocked: !!conv.public_id_locked,
       frozen: !!conv.frozen,
-      bot: !!(peer && (peer.id === BARGH_BOT_ID || String(peer.id || "").startsWith("bot_")))
+      bot: !!(peer && (peer.id === BARGH_BOT_ID || String(peer.id || "").startsWith("bot_"))),
+      saved
     });
   }
   return c.json({ conversations: items });
@@ -4116,6 +4216,7 @@ app.get("/conversations/:id", async (c) => {
   if (!conv) return jsonError(c, "\u06AF\u0641\u062A\u06AF\u0648 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F", 404);
   const mem = await memberOf(c.env.DB, conv.id, user.id);
   if (!mem) return jsonError(c, "\u0639\u0636\u0648 \u0627\u06CC\u0646 \u06AF\u0641\u062A\u06AF\u0648 \u0646\u06CC\u0633\u062A\u06CC", 403);
+  if (Number(mem.hidden || 0)) await unhideChatFor(c.env.DB, conv.id, user.id);
   try {
     await flushBarghBot(c.env.DB);
   } catch {
@@ -4132,6 +4233,7 @@ app.post("/conversations/dm", async (c) => {
   if (other.id === user.id) return jsonError(c, "\u0646\u0645\u06CC\u200C\u062A\u0648\u0646\u06CC \u0628\u0627 \u062E\u0648\u062F\u062A \u0686\u062A \u06A9\u0646\u06CC");
   if (other.id === BARGH_BOT_ID || other.username_lc === "bargh") {
     const botConv = await ensureBarghConv(c.env.DB, user);
+    await unhideChatFor(c.env.DB, botConv.id, user.id);
     return c.json({ conversation: await conversationPayload(c.env.DB, botConv, user) });
   }
   if (await blocked(c.env.DB, user.id, other.id)) return jsonError(c, "\u0627\u06CC\u0646 \u06AF\u0641\u062A\u06AF\u0648 \u0645\u0633\u062F\u0648\u062F\u0647", 403);
@@ -4168,6 +4270,8 @@ app.post("/conversations/dm", async (c) => {
     );
     conv = await one(c.env.DB, `SELECT * FROM conversations WHERE id = ?`, id);
     await emit2(c.env.DB, "conversation", id, user.id, { type: "dm" });
+  } else {
+    await unhideChatFor(c.env.DB, conv.id, user.id);
   }
   return c.json({ conversation: await conversationPayload(c.env.DB, conv, user) });
 });
@@ -4262,6 +4366,39 @@ app.post("/conversations/channel", async (c) => {
   await emit2(c.env.DB, "conversation", id, user.id, { type: "channel" });
   const conv = await one(c.env.DB, `SELECT * FROM conversations WHERE id = ?`, id);
   return c.json({ conversation: await conversationPayload(c.env.DB, conv, user) });
+});
+app.post("/conversations/saved", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const conv = await ensureSavedConv(c.env.DB, user);
+  return c.json({ conversation: await conversationPayload(c.env.DB, conv, user) });
+});
+app.delete("/conversations/:id", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const conv = await one(c.env.DB, `SELECT * FROM conversations WHERE id = ?`, c.req.param("id"));
+  if (!conv) return jsonError(c, "\u06AF\u0641\u062A\u06AF\u0648 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F", 404);
+  const mem = await memberOf(c.env.DB, conv.id, user.id);
+  if (!mem) return jsonError(c, "\u0639\u0636\u0648 \u0627\u06CC\u0646 \u06AF\u0641\u062A\u06AF\u0648 \u0646\u06CC\u0633\u062A\u06CC", 403);
+  if (isSavedKey(conv.dm_key)) {
+    await run(
+      c.env.DB,
+      `UPDATE members SET cleared_at = ? WHERE conversation_id = ? AND user_id = ?`,
+      Date.now(),
+      conv.id,
+      user.id
+    );
+    return c.json({ ok: true, gone: false });
+  }
+  if (conv.type === "dm") {
+    await hideChatFor(c.env.DB, conv.id, user.id);
+    return c.json({ ok: true, gone: false });
+  }
+  if (mem.role !== "owner" && conv.owner_id !== user.id) {
+    return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u0627\u06CC\u0646 \u0641\u0636\u0627 \u0631\u0627 \u067E\u0627\u06A9 \u06A9\u0646\u062F", 403);
+  }
+  await destroySpace(c.env.DB, conv, user.id);
+  return c.json({ ok: true, gone: true });
 });
 app.get("/invites/:code", async (c) => {
   const user = await auth(c);
@@ -4593,22 +4730,59 @@ app.get("/conversations/:id/messages", async (c) => {
   const user = await auth(c);
   if (user instanceof Response) return user;
   const convId = c.req.param("id");
-  if (!await memberOf(c.env.DB, convId, user.id)) return jsonError(c, "\u0639\u0636\u0648 \u0646\u06CC\u0633\u062A\u06CC", 403);
+  const mem = await memberOf(c.env.DB, convId, user.id);
+  if (!mem) return jsonError(c, "\u0639\u0636\u0648 \u0646\u06CC\u0633\u062A\u06CC", 403);
+  const cut = clearedAt(mem);
+  const around = Number(c.req.query("around") || 0);
   const before = Number(c.req.query("before") || Date.now() + 1e6);
   const limit = Math.min(80, Math.max(1, Number(c.req.query("limit") || 50)));
-  const rows = await many(
-    c.env.DB,
-    `SELECT m.* FROM messages m
-     LEFT JOIN users au ON au.id = m.author_id
-     WHERE m.conversation_id = ? AND m.created_at < ?
-       AND (m.author_id IS NULL OR m.author_id = ? OR IFNULL(au.shadowban, 0) = 0)
-     ORDER BY m.created_at DESC LIMIT ?`,
-    convId,
-    before,
-    user.id,
-    limit
-  );
-  rows.reverse();
+  let rows = [];
+  if (around > 0) {
+    const half = Math.max(8, Math.floor(limit / 2));
+    const beforeRows = await many(
+      c.env.DB,
+      `SELECT m.* FROM messages m
+       LEFT JOIN users au ON au.id = m.author_id
+       WHERE m.conversation_id = ? AND m.created_at <= ? AND m.created_at > ?
+         AND (m.author_id IS NULL OR m.author_id = ? OR IFNULL(au.shadowban, 0) = 0)
+       ORDER BY m.created_at DESC LIMIT ?`,
+      convId,
+      around,
+      cut,
+      user.id,
+      half
+    );
+    const afterRows = await many(
+      c.env.DB,
+      `SELECT m.* FROM messages m
+       LEFT JOIN users au ON au.id = m.author_id
+       WHERE m.conversation_id = ? AND m.created_at > ? AND m.created_at > ?
+         AND (m.author_id IS NULL OR m.author_id = ? OR IFNULL(au.shadowban, 0) = 0)
+       ORDER BY m.created_at ASC LIMIT ?`,
+      convId,
+      around,
+      cut,
+      user.id,
+      half
+    );
+    const seen = /* @__PURE__ */ new Set();
+    rows = [...beforeRows.reverse(), ...afterRows].filter((r) => seen.has(r.id) ? false : (seen.add(r.id), true));
+  } else {
+    rows = await many(
+      c.env.DB,
+      `SELECT m.* FROM messages m
+       LEFT JOIN users au ON au.id = m.author_id
+       WHERE m.conversation_id = ? AND m.created_at < ? AND m.created_at > ?
+         AND (m.author_id IS NULL OR m.author_id = ? OR IFNULL(au.shadowban, 0) = 0)
+       ORDER BY m.created_at DESC LIMIT ?`,
+      convId,
+      before,
+      cut,
+      user.id,
+      limit
+    );
+    rows.reverse();
+  }
   return c.json({ messages: await messagesWithExtras(c.env.DB, rows, user.id) });
 });
 app.post("/conversations/:id/messages", async (c) => {
@@ -4757,6 +4931,10 @@ app.post("/conversations/:id/messages", async (c) => {
     conv.id,
     user.id
   );
+  if (conv.type === "dm") {
+    await unhideOthers(c.env.DB, conv.id, user.id);
+    await emit2(c.env.DB, "conversation", conv.id, user.id, { unhide: true });
+  }
   await emit2(c.env.DB, "message", conv.id, user.id, { id });
   const msg = await one(c.env.DB, `SELECT * FROM messages WHERE id = ?`, id);
   const [full] = await messagesWithExtras(c.env.DB, [msg], user.id);
@@ -4959,7 +5137,7 @@ app.get("/sync", async (c) => {
        AND (
          e.conversation_id IS NULL
          OR e.conversation_id IN (SELECT conversation_id FROM members WHERE user_id = ?)
-         OR e.kind IN ('story', 'badge')
+         OR e.kind IN ('story', 'badge', 'gone')
        )
      ORDER BY e.id ASC LIMIT 80`,
     after,
@@ -4979,8 +5157,11 @@ app.get("/sync", async (c) => {
       c.env.DB,
       `SELECT m.* FROM messages m
        LEFT JOIN users au ON au.id = m.author_id
+       LEFT JOIN members mem ON mem.conversation_id = m.conversation_id AND mem.user_id = ?
        WHERE m.id IN (${ph})
+         AND m.created_at > IFNULL(mem.cleared_at, 0)
          AND (m.author_id IS NULL OR m.author_id = ? OR IFNULL(au.shadowban, 0) = 0)`,
+      user.id,
       ...messageIds,
       user.id
     );
@@ -5076,6 +5257,7 @@ app.get("/sync", async (c) => {
     typing,
     presence,
     blasts,
+    gone: events.filter((e) => e.kind === "gone").map((e) => e.conversation_id).filter(Boolean),
     serverTime: now
   });
 });
@@ -5188,7 +5370,8 @@ app.get("/search", async (c) => {
   if (q.length < 2) return c.json({ messages: [] });
   let sql = `SELECT msg.* FROM messages msg
     JOIN members m ON m.conversation_id = msg.conversation_id AND m.user_id = ?
-    WHERE msg.deleted_at IS NULL AND msg.type = 'text' AND msg.body LIKE ?`;
+    WHERE msg.deleted_at IS NULL AND msg.type IN ('text', 'photo', 'video', 'bot') AND msg.body LIKE ?
+      AND msg.created_at > IFNULL(m.cleared_at, 0)`;
   const params = [user.id, `%${q}%`];
   if (convId) {
     sql += ` AND msg.conversation_id = ?`;
@@ -6677,7 +6860,9 @@ app.get("/notices", async (c) => {
        AND msg.author_id IS NOT NULL AND msg.author_id != ?
        AND msg.created_at > ?
        AND msg.created_at > IFNULL(mem.last_read_at, 0)
+       AND msg.created_at > IFNULL(mem.cleared_at, 0)
        AND IFNULL(mem.muted, 0) = 0
+       AND IFNULL(mem.hidden, 0) = 0
        AND (au.id IS NULL OR IFNULL(au.shadowban, 0) = 0)
      ORDER BY msg.created_at ASC
      LIMIT 30`,
