@@ -4088,7 +4088,7 @@ app.post("/conversations/:id/messages", async (c) => {
   const text = typeof body.body === "string" ? body.body.trim() : "";
   if (kindRaw === "text") {
     if (!text || text.length > 4e3) return jsonError(c, "\u067E\u06CC\u0627\u0645 \u062E\u0627\u0644\u06CC \u06CC\u0627 \u062E\u06CC\u0644\u06CC \u0628\u0644\u0646\u062F \u0627\u0633\u062A");
-    if (text.startsWith("\u2726T\u2726") && !packOfUser(user).anim) {
+    if (text.includes("\u2726T\u2726") && !packOfUser(user).anim) {
       return jsonError(c, "\u0627\u06CC\u0645\u0648\u062C\u06CC \u0645\u062A\u062D\u0631\u06A9 \u0641\u0642\u0637 \u0628\u0631\u0627\u06CC \u067E\u0631\u0645\u06CC\u0648\u0645 \u0627\u0633\u062A", 403);
     }
   } else if (text.length > 400) {
@@ -4292,7 +4292,15 @@ app.post("/messages/:id/react", async (c) => {
     );
   }
   await emit(c.env.DB, "message", msg.conversation_id, user.id, { id: msg.id, react: true });
-  return c.json({ ok: true });
+  const reacts = await many(
+    c.env.DB,
+    `SELECT user_id, emoji FROM reactions WHERE message_id = ?`,
+    msg.id
+  );
+  return c.json({
+    ok: true,
+    reactions: reacts.map((r) => ({ emoji: r.emoji, userId: r.user_id }))
+  });
 });
 app.post("/messages/:id/forward", async (c) => {
   const user = await auth(c);
@@ -4305,6 +4313,8 @@ app.post("/messages/:id/forward", async (c) => {
   const dest = await one(c.env.DB, `SELECT * FROM conversations WHERE id = ?`, destId);
   const mem = dest ? await memberOf(c.env.DB, dest.id, user.id) : null;
   if (!dest || !mem) return jsonError(c, "\u0645\u0642\u0635\u062F \u0646\u0627\u0645\u0639\u062A\u0628\u0631", 403);
+  const blockedFwd = await denyWrite(c, user);
+  if (blockedFwd) return blockedFwd;
   if (!await canPost(mem, dest)) return jsonError(c, "\u0627\u062C\u0627\u0632\u0647 \u0627\u0631\u0633\u0627\u0644 \u0646\u062F\u0627\u0631\u06CC", 403);
   const author = msg.author_id ? await one(c.env.DB, `SELECT * FROM users WHERE id = ?`, msg.author_id) : null;
   const id = randomId();
@@ -4477,7 +4487,7 @@ app.get("/sync", async (c) => {
           online: lastSeen !== null && online,
           lastSeen,
           badge: u.badge,
-          premium: Number(u.premium || 0) === 1
+          premium: livePremium(u, now)
         });
       }
     }
@@ -4487,7 +4497,7 @@ app.get("/sync", async (c) => {
     online: true,
     lastSeen: now,
     badge: user.badge,
-    premium: Number(user.premium || 0) === 1
+    premium: livePremium(user, now)
   });
   const cursor = events.length ? events[events.length - 1].id : after;
   return c.json({
@@ -5901,7 +5911,7 @@ app.get("/notices", async (c) => {
       conversationId: r.conversation_id,
       createdAt: r.created_at,
       title: r.conv_type === "dm" ? r.peer_name || r.author_name || "\u067E\u06CC\u0648\u06CC" : r.title || r.author_name || "T",
-      body: r.type === "photo" ? r.body || "\u0639\u06A9\u0633" : r.type === "video" ? r.body || "\u0641\u06CC\u0644\u0645" : r.type === "voice" ? "\u0648\u06CC\u0633" : r.body && r.body.startsWith("\u2726T\u2726") ? r.body.slice(3) || "\u2728" : r.body || "\u067E\u06CC\u0627\u0645 \u062A\u0627\u0632\u0647"
+      body: r.type === "photo" ? r.body || "\u0639\u06A9\u0633" : r.type === "video" ? r.body || "\u0641\u06CC\u0644\u0645" : r.type === "voice" ? "\u0648\u06CC\u0633" : r.body && r.body.includes("\u2726T\u2726") ? r.body.split("\u2726T\u2726").join("") || "\u2728" : r.body || "\u067E\u06CC\u0627\u0645 \u062A\u0627\u0632\u0647"
     }))
   });
 });
