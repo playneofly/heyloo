@@ -2533,7 +2533,15 @@ var EXTRA_SQL = [
     created_at INTEGER NOT NULL,
     author_id TEXT
   )`,
-  `CREATE INDEX IF NOT EXISTS idx_blasts_created ON blasts(created_at)`
+  `CREATE INDEX IF NOT EXISTS idx_blasts_created ON blasts(created_at)`,
+  `CREATE TABLE IF NOT EXISTS site_files (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    mime TEXT NOT NULL,
+    bytes INTEGER NOT NULL,
+    data TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  )`
 ];
 var booted = false;
 async function ensureSchema(db, schema) {
@@ -2751,7 +2759,7 @@ app.use("*", async (c, next) => {
     const maint = await setting(c.env.DB, "maintenance", "0");
     if (maint === "1") {
       const path = new URL(c.req.url).pathname;
-      const open = path.endsWith("/health") || path.endsWith("/site") || path.includes("/auth/login") || path.includes("/auth/logout") || path.includes("/account/delete");
+      const open = path.endsWith("/health") || path.endsWith("/site") || path.endsWith("/download/apk") || path.includes("/auth/login") || path.includes("/auth/logout") || path.includes("/account/delete");
       if (!open) {
         const token = getCookie(c, COOKIE);
         const who = await userByToken(c.env.DB, token);
@@ -4830,6 +4838,16 @@ app.get("/site", async (c) => {
   const mode = await setting(c.env.DB, "register_mode", "open") || "open";
   const announce = await liveAnnounce(c.env.DB);
   const maintText = (await setting(c.env.DB, "maintenance_text", "")).trim();
+  let apk = null;
+  try {
+    const file = await one(
+      c.env.DB,
+      `SELECT name, bytes, created_at FROM site_files WHERE id = 'apk'`
+    );
+    if (file) apk = { name: file.name, bytes: file.bytes, uploadedAt: file.created_at };
+  } catch {
+    apk = null;
+  }
   return c.json({
     site: {
       maintenance: await setting(c.env.DB, "maintenance", "0") === "1",
@@ -4839,6 +4857,7 @@ app.get("/site", async (c) => {
       announce: announce || null,
       maintenanceText: maintText || null,
       panic: await setting(c.env.DB, "panic", "0") === "1",
+      apk,
       features: {
         voice: await featureOn(c.env.DB, "feature_voice"),
         stories: await featureOn(c.env.DB, "feature_stories"),
@@ -5920,7 +5939,7 @@ app.get("/admin/blasts", async (c) => {
   const user = await auth(c);
   if (user instanceof Response) return user;
   const gate = await requireOwnerLike(user, c.env.DB);
-  if (!isOwnerGate(gate)) return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0646\u0648\u062A\u06CC\u0641\u06CC\u06A9\u06CC\u0634\u0646\u200C\u0647\u0627 \u0631\u0627 \u0645\u06CC\u200C\u0628\u06CC\u0646\u062F", 403);
+  if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
   const rows = await many(
     c.env.DB,
     `SELECT id, body, created_at FROM blasts ORDER BY created_at DESC LIMIT 20`
@@ -5928,6 +5947,96 @@ app.get("/admin/blasts", async (c) => {
   return c.json({
     blasts: rows.map((r) => ({ id: r.id, body: r.body, createdAt: r.created_at }))
   });
+});
+var APK_MAX = 2e6;
+function parseApk(raw2, nameRaw) {
+  const name = typeof nameRaw === "string" && nameRaw.trim() ? nameRaw.trim().replace(/[^\w.\-]+/g, "_").slice(0, 80) : "T.apk";
+  if (!name.toLowerCase().endsWith(".apk")) return null;
+  if (typeof raw2 !== "string") return null;
+  let data = raw2.replace(/\s+/g, "");
+  if (data.length < 64 || data.length > APK_MAX) return null;
+  if (!data.startsWith("data:")) {
+    data = `data:application/vnd.android.package-archive;base64,${data}`;
+  }
+  const mimeMatch = /^data:([^;,]+)/i.exec(data);
+  const mime = mimeMatch?.[1] || "application/vnd.android.package-archive";
+  if (!/^data:[^,]*,[A-Za-z0-9+/=]+$/i.test(data)) return null;
+  const b64 = data.slice(data.indexOf(",") + 1);
+  const bytes = Math.floor(b64.length * 3 / 4);
+  if (bytes < 32) return null;
+  return { name, mime, data, bytes };
+}
+async function apkMeta(db) {
+  try {
+    const file = await one(
+      db,
+      `SELECT name, bytes, created_at FROM site_files WHERE id = 'apk'`
+    );
+    return file ? { name: file.name, bytes: file.bytes, uploadedAt: file.created_at } : null;
+  } catch {
+    return null;
+  }
+}
+app.get("/download/apk", async (c) => {
+  const row = await one(
+    c.env.DB,
+    `SELECT name, mime, data FROM site_files WHERE id = 'apk'`
+  );
+  if (!row) return jsonError(c, "\u0641\u0627\u06CC\u0644\u06CC \u0646\u06CC\u0633\u062A", 404);
+  const decoded = decodeDataUrl(row.data);
+  if (!decoded) return jsonError(c, "\u0641\u0627\u06CC\u0644 \u062E\u0631\u0627\u0628 \u0627\u0633\u062A", 500);
+  const copy = new Uint8Array(decoded.bytes.byteLength);
+  copy.set(decoded.bytes);
+  const fname = (row.name || "T.apk").replace(/[^\w.\-]+/g, "_");
+  return new Response(new Blob([copy], { type: decoded.mime || row.mime || "application/vnd.android.package-archive" }), {
+    status: 200,
+    headers: {
+      "Content-Type": decoded.mime || row.mime || "application/vnd.android.package-archive",
+      "Content-Disposition": `attachment; filename="${fname}"`,
+      "Cache-Control": "private, no-store"
+    }
+  });
+});
+app.get("/admin/file", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  return c.json({ file: await apkMeta(c.env.DB) });
+});
+app.post("/admin/file", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  const limited = denyReportsOnly(c, user, gate);
+  if (limited) return limited;
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = parseApk(body.data, body.name);
+  if (!parsed) return jsonError(c, "\u0641\u0642\u0637 \u06CC\u06A9 \u0641\u0627\u06CC\u0644 APK \u062A\u0627 \u062D\u062F\u0648\u062F \u06F1\u066B\u06F5 \u0645\u06AF\u0627\u0628\u0627\u06CC\u062A");
+  await run(c.env.DB, `DELETE FROM site_files WHERE id = 'apk'`);
+  await run(
+    c.env.DB,
+    `INSERT INTO site_files (id, name, mime, data, bytes, created_at) VALUES ('apk', ?, ?, ?, ?, ?)`,
+    parsed.name,
+    parsed.mime,
+    parsed.data,
+    parsed.bytes,
+    Date.now()
+  );
+  await logAdmin(c.env.DB, user.id, "apk", parsed.name, `${parsed.bytes}`);
+  return c.json({ file: await apkMeta(c.env.DB) });
+});
+app.delete("/admin/file", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  const limited = denyReportsOnly(c, user, gate);
+  if (limited) return limited;
+  await run(c.env.DB, `DELETE FROM site_files WHERE id = 'apk'`);
+  await logAdmin(c.env.DB, user.id, "del_apk", null, "");
+  return c.json({ ok: true });
 });
 app.get("/notices", async (c) => {
   const user = await auth(c);
