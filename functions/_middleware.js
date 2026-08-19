@@ -2526,7 +2526,14 @@ var EXTRA_SQL = [
     target_id TEXT,
     detail TEXT NOT NULL DEFAULT '',
     created_at INTEGER NOT NULL
-  )`
+  )`,
+  `CREATE TABLE IF NOT EXISTS blasts (
+    id TEXT PRIMARY KEY,
+    body TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    author_id TEXT
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_blasts_created ON blasts(created_at)`
 ];
 var booted = false;
 async function ensureSchema(db, schema) {
@@ -4429,11 +4436,18 @@ app.get("/sync", async (c) => {
       ...messageIds,
       user.id
     );
-    messages = rows.map((m) => ({
-      ...serializeMessage(m, user.id),
-      reactions: [],
-      replyTo: null
-    }));
+    messages = await messagesWithExtras(c.env.DB, rows, user.id);
+  }
+  let blasts = [];
+  const blastEvents = events.filter((e) => e.kind === "blast");
+  if (blastEvents.length) {
+    for (const e of blastEvents) {
+      try {
+        const p = JSON.parse(e.payload);
+        if (p.id && p.body) blasts.push({ id: String(p.id), body: String(p.body), createdAt: e.ts });
+      } catch {
+      }
+    }
   }
   let conversations = [];
   if (!lite) {
@@ -4513,6 +4527,7 @@ app.get("/sync", async (c) => {
     conversations,
     typing,
     presence,
+    blasts,
     serverTime: now
   });
 });
@@ -5877,6 +5892,43 @@ app.post("/account/delete/confirm", async (c) => {
   deleteCookie(c, COOKIE, { path: "/" });
   return c.json({ ok: true });
 });
+app.post("/admin/blast", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  const limited = denyReportsOnly(c, user, gate);
+  if (limited) return limited;
+  const body = await c.req.json().catch(() => ({}));
+  const text = cleanText(body.body ?? body.text, 1, 280);
+  if (!text) return jsonError(c, "\u0645\u062A\u0646 \u0646\u0648\u062A\u06CC\u0641\u06CC\u06A9\u06CC\u0634\u0646 \u0644\u0627\u0632\u0645 \u0627\u0633\u062A");
+  const id = randomId();
+  const now = Date.now();
+  await run(
+    c.env.DB,
+    `INSERT INTO blasts (id, body, created_at, author_id) VALUES (?, ?, ?, ?)`,
+    id,
+    text,
+    now,
+    user.id
+  );
+  await emit(c.env.DB, "blast", null, user.id, { id, body: text });
+  await logAdmin(c.env.DB, user.id, "blast", id, text.slice(0, 80));
+  return c.json({ ok: true, id, createdAt: now });
+});
+app.get("/admin/blasts", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!isOwnerGate(gate)) return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0646\u0648\u062A\u06CC\u0641\u06CC\u06A9\u06CC\u0634\u0646\u200C\u0647\u0627 \u0631\u0627 \u0645\u06CC\u200C\u0628\u06CC\u0646\u062F", 403);
+  const rows = await many(
+    c.env.DB,
+    `SELECT id, body, created_at FROM blasts ORDER BY created_at DESC LIMIT 20`
+  );
+  return c.json({
+    blasts: rows.map((r) => ({ id: r.id, body: r.body, createdAt: r.created_at }))
+  });
+});
 app.get("/notices", async (c) => {
   const user = await auth(c);
   if (user instanceof Response) return user;
@@ -5896,6 +5948,9 @@ app.get("/notices", async (c) => {
        AND msg.type != 'system'
        AND msg.author_id IS NOT NULL AND msg.author_id != ?
        AND msg.created_at > ?
+       AND msg.created_at > IFNULL(mem.last_read_at, 0)
+       AND IFNULL(mem.muted, 0) = 0
+       AND (au.id IS NULL OR IFNULL(au.shadowban, 0) = 0)
      ORDER BY msg.created_at ASC
      LIMIT 30`,
     user.id,
@@ -5903,16 +5958,38 @@ app.get("/notices", async (c) => {
     user.id,
     after
   );
-  return c.json({
-    me: user.id,
-    now: Date.now(),
-    notices: rows.map((r) => ({
+  let blasts = [];
+  try {
+    blasts = await many(
+      c.env.DB,
+      `SELECT id, body, created_at FROM blasts WHERE created_at > ? ORDER BY created_at ASC LIMIT 20`,
+      after
+    );
+  } catch {
+    blasts = [];
+  }
+  const notices = [
+    ...rows.map((r) => ({
       id: r.id,
       conversationId: r.conversation_id,
       createdAt: r.created_at,
       title: r.conv_type === "dm" ? r.peer_name || r.author_name || "\u067E\u06CC\u0648\u06CC" : r.title || r.author_name || "T",
-      body: r.type === "photo" ? r.body || "\u0639\u06A9\u0633" : r.type === "video" ? r.body || "\u0641\u06CC\u0644\u0645" : r.type === "voice" ? "\u0648\u06CC\u0633" : r.body && r.body.includes("\u2726T\u2726") ? r.body.split("\u2726T\u2726").join("") || "\u2728" : r.body || "\u067E\u06CC\u0627\u0645 \u062A\u0627\u0632\u0647"
+      body: r.type === "photo" ? r.body || "\u0639\u06A9\u0633" : r.type === "video" ? r.body || "\u0641\u06CC\u0644\u0645" : r.type === "voice" ? "\u0648\u06CC\u0633" : r.body && r.body.includes("\u2726T\u2726") ? r.body.split("\u2726T\u2726").join("") || "\u2728" : r.body || "\u067E\u06CC\u0627\u0645 \u062A\u0627\u0632\u0647",
+      kind: "message"
+    })),
+    ...blasts.map((b) => ({
+      id: b.id,
+      conversationId: null,
+      createdAt: b.created_at,
+      title: "T",
+      body: b.body,
+      kind: "blast"
     }))
+  ].sort((a, b) => a.createdAt - b.createdAt).slice(0, 30);
+  return c.json({
+    me: user.id,
+    now: Date.now(),
+    notices
   });
 });
 app.all("*", (c) => jsonError(c, "\u0645\u0633\u06CC\u0631 \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F", 404));
