@@ -2553,9 +2553,13 @@ var EXTRA_SQL = [
     city_id TEXT,
     times INTEGER NOT NULL DEFAULT 0,
     pending_city TEXT,
+    pending_times INTEGER,
+    step TEXT,
     last_sent_at INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL
-  )`
+  )`,
+  `ALTER TABLE bot_subs ADD COLUMN pending_times INTEGER`,
+  `ALTER TABLE bot_subs ADD COLUMN step TEXT`
 ];
 var booted = false;
 async function ensureSchema(db, schema) {
@@ -2787,8 +2791,8 @@ function parseBotBody(raw2) {
     return null;
   }
 }
-function encodeBotBody(text, buttons) {
-  return JSON.stringify({ t: text, btns: buttons });
+function isOfficialBot(id) {
+  return String(id || "").startsWith("bot_");
 }
 
 // src/api/bot.ts
@@ -2863,7 +2867,7 @@ async function ensureBarghConv(db, user) {
       key,
       now,
       now,
-      "\u0634\u0631\u0648\u0639"
+      "\u0645\u0646\u0648\u06CC \u067E\u0627\u06CC\u06CC\u0646"
     );
     await run(
       db,
@@ -2885,26 +2889,7 @@ async function ensureBarghConv(db, user) {
     await emit(db, "conversation", id, BARGH_BOT_ID, { type: "dm", bot: true });
   }
   if (!conv) throw new Error("\u06AF\u0641\u062A\u06AF\u0648\u06CC \u0628\u0627\u062A \u0633\u0627\u062E\u062A\u0647 \u0646\u0634\u062F");
-  const count = await one(db, `SELECT COUNT(*) as n FROM messages WHERE conversation_id = ?`, conv.id);
-  if (!(count?.n ?? 0)) await sendStart(db, conv.id);
   return conv;
-}
-async function insertBotMenu(db, convId, text, buttons) {
-  const id = randomId();
-  const now = Date.now();
-  const body = encodeBotBody(text, buttons);
-  await run(
-    db,
-    `INSERT INTO messages (id, conversation_id, author_id, type, body, created_at) VALUES (?, ?, ?, 'bot', ?, ?)`,
-    id,
-    convId,
-    BARGH_BOT_ID,
-    body,
-    now
-  );
-  await touchConv(db, convId, text.slice(0, 80), now);
-  await emit(db, "message", convId, BARGH_BOT_ID, { id });
-  return one(db, `SELECT * FROM messages WHERE id = ?`, id);
 }
 async function insertBotText(db, convId, text) {
   const id = randomId();
@@ -2928,122 +2913,204 @@ async function listCities(db) {
     `SELECT id, name, body FROM bot_cities ORDER BY name COLLATE NOCASE ASC`
   );
 }
-function cityButtons(cities) {
-  return cities.map((c) => ({ k: `city:${c.id}`, l: c.name }));
-}
-async function sendStart(db, convId) {
-  const cities = await listCities(db);
-  if (!cities.length) {
-    return insertBotMenu(db, convId, "\u0647\u0646\u0648\u0632 \u0634\u0647\u0631\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647. \u0635\u0628\u0631 \u06A9\u0646 \u062A\u0627 \u0627\u0632 \u067E\u0646\u0644 \u0627\u0636\u0627\u0641\u0647 \u0634\u0648\u062F.", []);
+async function getSub(db, userId) {
+  try {
+    return await one(
+      db,
+      `SELECT user_id, city_id, times, pending_city, pending_times, step, last_sent_at, created_at FROM bot_subs WHERE user_id = ?`,
+      userId
+    );
+  } catch {
+    const old = await one(
+      db,
+      `SELECT user_id, city_id, times, pending_city, last_sent_at, created_at FROM bot_subs WHERE user_id = ?`,
+      userId
+    );
+    if (!old) return null;
+    return { ...old, pending_times: old.pending_times ?? null, step: old.step ?? null };
   }
-  return insertBotMenu(db, convId, "\u0634\u0647\u0631\u062A \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646.", cityButtons(cities));
 }
-async function sendTimes(db, convId, cityName) {
-  const buttons = [];
-  for (let i = 1; i <= 10; i++) buttons.push({ k: `times:${i}`, l: String(i) });
-  return insertBotMenu(db, convId, `\u0634\u0647\u0631: ${cityName}
-\u0686\u0646\u062F \u0628\u0627\u0631 \u062F\u0631 \u0631\u0648\u0632 \u067E\u06CC\u0627\u0645 \u0628\u06CC\u0627\u06CC\u062F\u061F`, buttons);
+async function writeSub(db, userId, patch) {
+  const now = Date.now();
+  const cur = await getSub(db, userId);
+  const next = {
+    user_id: userId,
+    city_id: patch.city_id !== void 0 ? patch.city_id : cur?.city_id ?? null,
+    times: patch.times !== void 0 ? patch.times : cur?.times ?? 0,
+    pending_city: patch.pending_city !== void 0 ? patch.pending_city : cur?.pending_city ?? null,
+    pending_times: patch.pending_times !== void 0 ? patch.pending_times : cur?.pending_times ?? null,
+    step: patch.step !== void 0 ? patch.step : cur?.step ?? "city",
+    last_sent_at: patch.last_sent_at !== void 0 ? patch.last_sent_at : cur?.last_sent_at ?? 0,
+    created_at: cur?.created_at ?? now
+  };
+  if (!cur) {
+    await run(
+      db,
+      `INSERT INTO bot_subs (user_id, city_id, times, pending_city, pending_times, step, last_sent_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      userId,
+      next.city_id,
+      next.times,
+      next.pending_city,
+      next.pending_times,
+      next.step,
+      next.last_sent_at,
+      next.created_at
+    );
+    return next;
+  }
+  await run(
+    db,
+    `UPDATE bot_subs SET city_id = ?, times = ?, pending_city = ?, pending_times = ?, step = ?, last_sent_at = ? WHERE user_id = ?`,
+    next.city_id,
+    next.times,
+    next.pending_city,
+    next.pending_times,
+    next.step,
+    next.last_sent_at,
+    userId
+  );
+  return next;
 }
-async function sendHome(db, convId, cityName, times) {
-  return insertBotMenu(db, convId, `\u062B\u0628\u062A \u0634\u062F.
-\u0634\u0647\u0631: ${cityName}
-\u062A\u0639\u062F\u0627\u062F \u062F\u0631 \u0631\u0648\u0632: ${times}
-\u0627\u0632 \u06F6 \u0635\u0628\u062D \u062A\u0627 \u06F1\u06F2 \u0634\u0628 \u062A\u0647\u0631\u0627\u0646\u060C \u0645\u0633\u0627\u0648\u06CC \u062A\u0642\u0633\u06CC\u0645 \u0645\u06CC\u200C\u0634\u0648\u062F.`, [
-    { k: "menu:city", l: "\u062A\u063A\u06CC\u06CC\u0631 \u0634\u0647\u0631" },
-    { k: "menu:times", l: "\u062A\u063A\u06CC\u06CC\u0631 \u062A\u0639\u062F\u0627\u062F" }
-  ]);
+function savedSub(sub) {
+  return !!(sub && sub.city_id && Number(sub.times) >= 1);
+}
+async function getBarghMenu(db, user) {
+  const cities = await listCities(db);
+  const sub = await getSub(db, user.id);
+  const saved = savedSub(sub);
+  let step = String(sub?.step || (saved ? "home" : "city"));
+  if (!cities.length) {
+    return { step: "city", title: "\u0647\u0646\u0648\u0632 \u0634\u0647\u0631\u06CC \u062B\u0628\u062A \u0646\u0634\u062F\u0647. \u0635\u0628\u0631 \u06A9\u0646 \u062A\u0627 \u0627\u0632 \u067E\u0646\u0644 \u0627\u0636\u0627\u0641\u0647 \u0634\u0648\u062F.", buttons: [] };
+  }
+  if (step === "confirm" && saved) {
+    return {
+      step: "confirm",
+      title: "\u0627\u0632 \u0627\u0648\u0644 \u0627\u0646\u062A\u062E\u0627\u0628 \u0634\u0648\u062F\u061F",
+      buttons: [
+        { k: "menu:cancel", l: "\u0627\u0646\u0635\u0631\u0627\u0641" },
+        { k: "menu:ok", l: "\u062A\u0627\u06CC\u06CC\u062F" }
+      ]
+    };
+  }
+  if (step === "home" && saved) {
+    const city = cities.find((c) => c.id === sub.city_id);
+    return {
+      step: "home",
+      title: `\u062B\u0628\u062A \u0634\u062F\u0647
+\u0634\u0647\u0631: ${city?.name || "\u2014"}
+\u062A\u0639\u062F\u0627\u062F \u062F\u0631 \u0631\u0648\u0632: ${sub.times}`,
+      buttons: [{ k: "menu:again", l: "\u0627\u0646\u062A\u062E\u0627\u0628 \u062F\u0648\u0628\u0627\u0631\u0647" }]
+    };
+  }
+  if (step === "times") {
+    const city = cities.find((c) => c.id === (sub?.pending_city || sub?.city_id));
+    if (city) {
+      const buttons = [];
+      for (let i = 1; i <= 10; i++) buttons.push({ k: `times:${i}`, l: String(i) });
+      return { step: "times", title: `\u0634\u0647\u0631: ${city.name}
+\u0686\u0646\u062F \u0628\u0627\u0631 \u062F\u0631 \u0631\u0648\u0632\u061F`, buttons };
+    }
+    step = "city";
+  }
+  if (step === "review") {
+    const city = cities.find((c) => c.id === (sub?.pending_city || sub?.city_id));
+    const n = Number(sub?.pending_times || 0);
+    if (city && n >= 1 && n <= 10) {
+      return {
+        step: "review",
+        title: `\u0634\u0647\u0631: ${city.name}
+\u062A\u0639\u062F\u0627\u062F \u062F\u0631 \u0631\u0648\u0632: ${n}`,
+        buttons: [{ k: "menu:save", l: "\u062B\u0628\u062A" }]
+      };
+    }
+    step = city ? "times" : "city";
+    if (step === "times" && city) {
+      const buttons = [];
+      for (let i = 1; i <= 10; i++) buttons.push({ k: `times:${i}`, l: String(i) });
+      return { step: "times", title: `\u0634\u0647\u0631: ${city.name}
+\u0686\u0646\u062F \u0628\u0627\u0631 \u062F\u0631 \u0631\u0648\u0632\u061F`, buttons };
+    }
+  }
+  return {
+    step: "city",
+    title: "\u0634\u0647\u0631\u062A \u0631\u0627 \u0627\u0646\u062A\u062E\u0627\u0628 \u06A9\u0646.",
+    buttons: cities.map((c) => ({ k: `city:${c.id}`, l: c.name }))
+  };
 }
 async function handleBarghTap(db, user, rawKey) {
   const conv = await ensureBarghConv(db, user);
   const key = String(rawKey || "").trim();
-  if (!key) return { messages: [], error: "\u062F\u06A9\u0645\u0647 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A" };
+  if (!key) {
+    return { messages: [], menu: await getBarghMenu(db, user), error: "\u062F\u06A9\u0645\u0647 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A" };
+  }
   const cities = await listCities(db);
-  const sub = await one(
-    db,
-    `SELECT user_id, city_id, times, pending_city FROM bot_subs WHERE user_id = ?`,
-    user.id
-  );
-  if (key === "menu:start" || key === "start") {
-    const m = await sendStart(db, conv.id);
-    return { messages: m ? [m] : [] };
+  const sub = await getSub(db, user.id);
+  const saved = savedSub(sub);
+  const messages = [];
+  if (key === "menu:again") {
+    if (!saved) await writeSub(db, user.id, { step: "city" });
+    else await writeSub(db, user.id, { step: "confirm" });
+    return { messages, menu: await getBarghMenu(db, user) };
   }
-  if (key === "menu:city") {
-    const m = await sendStart(db, conv.id);
-    return { messages: m ? [m] : [] };
+  if (key === "menu:cancel") {
+    await writeSub(db, user.id, { step: saved ? "home" : "city", pending_city: null, pending_times: null });
+    return { messages, menu: await getBarghMenu(db, user) };
   }
-  if (key === "menu:times") {
-    const city = cities.find((c) => c.id === (sub?.pending_city || sub?.city_id));
-    if (!city) {
-      const m2 = await sendStart(db, conv.id);
-      return { messages: m2 ? [m2] : [] };
-    }
-    const m = await sendTimes(db, conv.id, city.name);
-    return { messages: m ? [m] : [] };
+  if (key === "menu:ok" || key === "menu:start" || key === "start" || key === "menu:city") {
+    await writeSub(db, user.id, { step: "city", pending_city: null, pending_times: null });
+    return { messages, menu: await getBarghMenu(db, user) };
   }
   if (key.startsWith("city:")) {
     const id = key.slice(5);
     const city = cities.find((c) => c.id === id);
-    if (!city) return { messages: [], error: "\u0627\u06CC\u0646 \u0634\u0647\u0631 \u062F\u06CC\u06AF\u0631 \u0646\u06CC\u0633\u062A" };
-    const now = Date.now();
-    if (sub) {
-      await run(db, `UPDATE bot_subs SET pending_city = ? WHERE user_id = ?`, city.id, user.id);
-    } else {
-      await run(
-        db,
-        `INSERT INTO bot_subs (user_id, city_id, times, pending_city, last_sent_at, created_at) VALUES (?, NULL, 0, ?, 0, ?)`,
-        user.id,
-        city.id,
-        now
-      );
-    }
-    if (sub && Number(sub.times) >= 1 && sub.city_id) {
-      await run(
-        db,
-        `UPDATE bot_subs SET city_id = ?, pending_city = NULL, last_sent_at = ? WHERE user_id = ?`,
-        city.id,
-        now,
-        user.id
-      );
-      const m2 = await sendHome(db, conv.id, city.name, Number(sub.times));
-      return { messages: m2 ? [m2] : [] };
-    }
-    const m = await sendTimes(db, conv.id, city.name);
-    return { messages: m ? [m] : [] };
+    if (!city) return { messages, menu: await getBarghMenu(db, user), error: "\u0627\u06CC\u0646 \u0634\u0647\u0631 \u062F\u06CC\u06AF\u0631 \u0646\u06CC\u0633\u062A" };
+    await writeSub(db, user.id, { pending_city: city.id, pending_times: null, step: "times" });
+    return { messages, menu: await getBarghMenu(db, user) };
   }
   if (key.startsWith("times:")) {
     const n = Number(key.slice(6));
-    if (!Number.isInteger(n) || n < 1 || n > 10) return { messages: [], error: "\u062A\u0639\u062F\u0627\u062F \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A" };
+    if (!Number.isInteger(n) || n < 1 || n > 10) {
+      return { messages, menu: await getBarghMenu(db, user), error: "\u062A\u0639\u062F\u0627\u062F \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A" };
+    }
     const cityId = sub?.pending_city || sub?.city_id || "";
     const city = cities.find((c) => c.id === cityId);
     if (!city) {
-      const m2 = await sendStart(db, conv.id);
-      return { messages: m2 ? [m2] : [] };
+      await writeSub(db, user.id, { step: "city" });
+      return { messages, menu: await getBarghMenu(db, user) };
+    }
+    await writeSub(db, user.id, { pending_city: city.id, pending_times: n, step: "review" });
+    return { messages, menu: await getBarghMenu(db, user) };
+  }
+  if (key === "menu:save") {
+    const cityId = sub?.pending_city || sub?.city_id || "";
+    const n = Number(sub?.pending_times || 0);
+    const city = cities.find((c) => c.id === cityId);
+    if (!city || n < 1 || n > 10) {
+      await writeSub(db, user.id, { step: "city" });
+      return { messages, menu: await getBarghMenu(db, user) };
     }
     const now = Date.now();
-    if (sub) {
-      await run(
-        db,
-        `UPDATE bot_subs SET city_id = ?, times = ?, pending_city = NULL, last_sent_at = ? WHERE user_id = ?`,
-        city.id,
-        n,
-        now,
-        user.id
-      );
-    } else {
-      await run(
-        db,
-        `INSERT INTO bot_subs (user_id, city_id, times, pending_city, last_sent_at, created_at) VALUES (?, ?, ?, NULL, ?, ?)`,
-        user.id,
-        city.id,
-        n,
-        now,
-        now
-      );
-    }
-    const m = await sendHome(db, conv.id, city.name, n);
-    return { messages: m ? [m] : [] };
+    await writeSub(db, user.id, {
+      city_id: city.id,
+      times: n,
+      pending_city: null,
+      pending_times: null,
+      step: "home",
+      last_sent_at: now
+    });
+    const m = await insertBotText(
+      db,
+      conv.id,
+      `\u062B\u0628\u062A \u0634\u062F.
+\u0634\u0647\u0631: ${city.name}
+\u062A\u0639\u062F\u0627\u062F \u062F\u0631 \u0631\u0648\u0632: ${n}
+\u0627\u0632 \u06F6 \u0635\u0628\u062D \u062A\u0627 \u06F1\u06F2 \u0634\u0628 \u062A\u0647\u0631\u0627\u0646\u060C \u0645\u0633\u0627\u0648\u06CC \u062A\u0642\u0633\u06CC\u0645 \u0645\u06CC\u200C\u0634\u0648\u062F.`
+    );
+    if (m) messages.push(m);
+    return { messages, menu: await getBarghMenu(db, user) };
   }
-  return { messages: [], error: "\u0641\u0642\u0637 \u0627\u0632 \u062F\u06A9\u0645\u0647\u200C\u0647\u0627 \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u06A9\u0646" };
+  return { messages, menu: await getBarghMenu(db, user), error: "\u0641\u0642\u0637 \u0627\u0632 \u0645\u0646\u0648\u06CC \u067E\u0627\u06CC\u06CC\u0646 \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u06A9\u0646" };
 }
 var lastFlush = 0;
 async function flushBarghBot(db, force = false) {
@@ -3105,7 +3172,12 @@ async function saveBotCity(db, name, body, id) {
 }
 async function deleteBotCity(db, id) {
   await run(db, `DELETE FROM bot_cities WHERE id = ?`, id);
-  await run(db, `UPDATE bot_subs SET city_id = NULL, pending_city = NULL, times = 0 WHERE city_id = ? OR pending_city = ?`, id, id);
+  await run(
+    db,
+    `UPDATE bot_subs SET city_id = NULL, pending_city = NULL, pending_times = NULL, times = 0, step = 'city' WHERE city_id = ? OR pending_city = ?`,
+    id,
+    id
+  );
 }
 async function botStats(db) {
   const cities = await one(db, `SELECT COUNT(*) as n FROM bot_cities`);
@@ -3559,7 +3631,8 @@ async function conversationPayload(db, conv, user) {
     joinLocked: !!conv.join_locked,
     publicIdLocked: !!conv.public_id_locked,
     frozen: !!conv.frozen,
-    bot: !!(peer && peer.id === BARGH_BOT_ID)
+    bot: !!(peer && peer.id === BARGH_BOT_ID),
+    menu: peer && peer.id === BARGH_BOT_ID ? await getBarghMenu(db, user) : void 0
   };
 }
 function rowAuthorId(m) {
@@ -5309,14 +5382,16 @@ app.get("/admin/users", async (c) => {
   if (user instanceof Response) return user;
   const gate = await requireOwnerLike(user, c.env.DB);
   if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  try {
+    await ensureBarghUser(c.env.DB);
+  } catch {
+  }
   const q = (c.req.query("q") || "").trim().toLowerCase();
   const rows = await many(
     c.env.DB,
     `SELECT * FROM users
-     WHERE id != ?
-       AND (? = '' OR username_lc LIKE ? OR lower(display_name) LIKE ? OR id = ?)
+     WHERE ? = '' OR username_lc LIKE ? OR lower(display_name) LIKE ? OR id = ?
      ORDER BY created_at DESC LIMIT 200`,
-    BARGH_BOT_ID,
     q,
     `%${q}%`,
     `%${q}%`,
@@ -5328,7 +5403,8 @@ app.get("/admin/users", async (c) => {
     users: rows.map((u) => ({
       ...pub(u, user.id, true),
       lastSeen: u.last_seen,
-      online: Date.now() - u.last_seen < ONLINE_MS
+      online: Date.now() - u.last_seen < ONLINE_MS,
+      bot: isOfficialBot(u.id)
     }))
   });
 });
@@ -5337,10 +5413,11 @@ app.patch("/admin/users/:id", async (c) => {
   if (user instanceof Response) return user;
   const gate = await requireOwnerLike(user, c.env.DB);
   if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
-  if (c.req.param("id") === BARGH_BOT_ID) return jsonError(c, "\u0628\u0627\u062A \u0631\u0633\u0645\u06CC \u0631\u0627 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F \u0639\u0648\u0636 \u06A9\u0631\u062F", 403);
   const body = await c.req.json().catch(() => ({}));
   const target = await one(c.env.DB, `SELECT * FROM users WHERE id = ?`, c.req.param("id"));
   if (!target) return jsonError(c, "\u06A9\u0627\u0631\u0628\u0631 \u0646\u06CC\u0633\u062A", 404);
+  const officialBot = isOfficialBot(target.id);
+  if (officialBot && !("badge" in body)) return jsonError(c, "\u0628\u0631\u0627\u06CC \u0628\u0627\u062A \u0641\u0642\u0637 \u062A\u06CC\u06A9 \u0639\u0648\u0636 \u0645\u06CC\u200C\u0634\u0648\u062F", 403);
   if (gate !== "bootstrap" && target.badge === "owner" && user.badge !== "owner") {
     return jsonError(c, "\u062A\u06CC\u06A9 \u0645\u0627\u0644\u06A9 \u062F\u0633\u062A\u200C\u0646\u062E\u0648\u0631\u062F\u0646\u06CC \u0627\u0633\u062A", 403);
   }
@@ -5384,6 +5461,10 @@ app.patch("/admin/users/:id", async (c) => {
     await run(c.env.DB, `UPDATE users SET badge = ? WHERE id = ?`, badge, target.id);
     await emit2(c.env.DB, "badge", null, user.id, { userId: target.id, badge });
     await logAdmin(c.env.DB, user.id, "badge", target.id, String(badge || "none"));
+    if (officialBot) {
+      const freshBot = await one(c.env.DB, `SELECT * FROM users WHERE id = ?`, target.id);
+      return c.json({ user: { ...pub(freshBot, user.id, true), bot: true } });
+    }
   }
   if (body.displayName !== void 0) {
     if (!isOwnerGate(gate)) return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0627\u0633\u0645 \u0631\u0627 \u0639\u0648\u0636 \u0645\u06CC\u200C\u06A9\u0646\u062F", 403);
@@ -5458,7 +5539,7 @@ app.patch("/admin/users/:id", async (c) => {
     await logAdmin(c.env.DB, user.id, "copy_pack", target.id, src.username);
   }
   const fresh = await one(c.env.DB, `SELECT * FROM users WHERE id = ?`, target.id);
-  return c.json({ user: pub(fresh, user.id, true) });
+  return c.json({ user: { ...pub(fresh, user.id, true), bot: isOfficialBot(fresh.id) } });
 });
 app.post("/admin/users/:id/ban", async (c) => {
   const user = await auth(c);
@@ -5467,6 +5548,7 @@ app.post("/admin/users/:id/ban", async (c) => {
   if (!isOwnerGate(gate)) return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u0645\u0633\u062F\u0648\u062F \u06A9\u0646\u062F", 403);
   const target = await one(c.env.DB, `SELECT * FROM users WHERE id = ?`, c.req.param("id"));
   if (!target) return jsonError(c, "\u06A9\u0627\u0631\u0628\u0631 \u0646\u06CC\u0633\u062A", 404);
+  if (isOfficialBot(target.id)) return jsonError(c, "\u0628\u0627\u062A \u0631\u0633\u0645\u06CC \u0645\u0633\u062F\u0648\u062F \u0646\u0645\u06CC\u200C\u0634\u0648\u062F", 403);
   if (target.badge === "owner") return jsonError(c, "\u0645\u0627\u0644\u06A9 \u0645\u0633\u062F\u0648\u062F \u0646\u0645\u06CC\u200C\u0634\u0648\u062F", 403);
   const body = await c.req.json().catch(() => ({}));
   const on = body.on !== false;
@@ -5502,6 +5584,7 @@ app.post("/admin/users/:id/wipe", async (c) => {
   if (!isOwnerGate(gate)) return jsonError(c, "\u0641\u0642\u0637 \u0645\u0627\u0644\u06A9 \u0645\u06CC\u200C\u062A\u0648\u0627\u0646\u062F \u062D\u0633\u0627\u0628 \u0631\u0627 \u067E\u0627\u06A9 \u06A9\u0646\u062F", 403);
   const target = await one(c.env.DB, `SELECT * FROM users WHERE id = ?`, c.req.param("id"));
   if (!target) return jsonError(c, "\u06A9\u0627\u0631\u0628\u0631 \u0646\u06CC\u0633\u062A", 404);
+  if (isOfficialBot(target.id)) return jsonError(c, "\u0628\u0627\u062A \u0631\u0633\u0645\u06CC \u067E\u0627\u06A9 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F", 403);
   if (target.badge === "owner") return jsonError(c, "\u0645\u0627\u0644\u06A9 \u067E\u0627\u06A9 \u0646\u0645\u06CC\u200C\u0634\u0648\u062F", 403);
   if (Number(target.legal_hold || 0) === 1) return jsonError(c, "\u0627\u06CC\u0646 \u062D\u0633\u0627\u0628 \u0642\u0641\u0644 \u0642\u0627\u0646\u0648\u0646\u06CC \u062F\u0627\u0631\u062F", 403);
   if (isGone(target)) return jsonError(c, "\u0627\u0632 \u0642\u0628\u0644 \u067E\u0627\u06A9 \u0634\u062F\u0647");
@@ -6459,7 +6542,7 @@ app.post("/bot/tap", async (c) => {
     const out = await handleBarghTap(c.env.DB, user, key);
     if (out.error) return jsonError(c, out.error);
     const messages = await messagesWithExtras(c.env.DB, out.messages, user.id);
-    return c.json({ messages });
+    return c.json({ messages, menu: out.menu });
   } catch {
     return jsonError(c, "\u0628\u0627\u062A \u0627\u0644\u0627\u0646 \u062C\u0648\u0627\u0628 \u0646\u062F\u0627\u062F", 500);
   }
