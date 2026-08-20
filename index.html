@@ -7,161 +7,175 @@
     <title>T</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230d0f14'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-size='20' font-family='Georgia' fill='%23d4a84b'%3ET%3C/text%3E%3C/svg%3E" />
     <style>
-      /* ===== پنل ورود flip-card — تم تیره (داخل خود صفحه اصلی، بدون ریدایرکت) ===== */
+      /* ===== پنل ورود flip-card — تم تیره (جاسازی در خود صفحه اصلی) ===== */
+      :root {
+        --lg-bg: #0d0f14;
+        --lg-card: #1b1f28;
+        --lg-card2: #151922;
+        --lg-border: #333a48;
+        --lg-input: #232936;
+        --lg-text: #f2f3f5;
+        --lg-sub: #9aa0a6;
+        --lg-gold: #d4a84b;
+        --lg-gold2: #e0b84d;
+      }
       #loginOverlay {
         position: fixed; inset: 0; z-index: 99999;
-        background: radial-gradient(900px 700px at 50% -10%, #1a1e27 0%, #0d0f14 60%, #0a0b0f 100%);
+        background: radial-gradient(1000px 700px at 50% -20%, #1a1e27 0%, var(--lg-bg) 60%, #07080b 100%);
         display: none; align-items: center; justify-content: center;
-        padding: 20px; box-sizing: border-box; overflow: auto;
+        padding: 24px; box-sizing: border-box; overflow: auto;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma, Roboto, sans-serif;
       }
-      #loginOverlay .wrapper {
-        --input-focus: #e0b84d;
-        --font-color: #f2f3f5;
-        --font-color-sub: #9aa0a6;
-        --bg-color: #262b35;
-        --main-color: #3a4150;
-        --card-color: #1c2029;
-        --accent: #d4a84b;
-        display: flex; align-items: center; justify-content: center; padding-top: 180px;
+      /* جعبه‌ی اصلی وسط‌چین */
+      .auth-box {
+        display: flex; flex-direction: column; align-items: center; gap: 22px;
+        margin: auto; padding: 20px 0;
       }
-      #loginOverlay .switch {
-        transform: translateY(-180px); position: relative;
-        display: flex; flex-direction: column; justify-content: center; align-items: center;
-        gap: 30px; width: 50px; height: 20px;
+      /* ردیف سوئیچ + برچسب‌ها */
+      .switch-row {
+        display: flex; align-items: center; justify-content: center; gap: 18px;
       }
-      #loginOverlay .card-side::before {
-        position: absolute; content: 'Log in'; left: -78px; top: 0; width: 110px;
-        text-decoration: underline; color: var(--accent); font-weight: 600; text-align: center;
+      .switch-row .side {
+        font-size: 15px; font-weight: 600; color: var(--lg-sub);
+        cursor: pointer; user-select: none; padding: 2px 4px;
+        transition: color 0.2s; border-bottom: 2px solid transparent;
       }
-      #loginOverlay .card-side::after {
-        position: absolute; content: 'Sign up'; left: 68px; top: 0; width: 110px;
-        text-decoration: none; color: var(--font-color-sub); font-weight: 600; text-align: center;
+      .switch-row .side.active { color: var(--lg-gold); border-bottom-color: var(--lg-gold); }
+      .switch-row .slider {
+        width: 56px; height: 26px; border-radius: 20px;
+        background: var(--lg-input); border: 1.5px solid var(--lg-border);
+        position: relative; cursor: pointer; transition: background 0.25s;
+        flex-shrink: 0;
       }
-      #loginOverlay .toggle { opacity: 0; width: 0; height: 0; position: absolute; }
-      #loginOverlay .slider {
-        box-sizing: border-box; border-radius: 5px; border: 2px solid var(--accent);
-        box-shadow: 4px 4px rgba(0,0,0,0.5); position: absolute; cursor: pointer;
-        top: 0; left: 0; right: 0; bottom: 0; background-color: var(--bg-color); transition: 0.3s;
+      .switch-row .slider:before {
+        content: ""; position: absolute; top: 2px; left: 2px;
+        width: 20px; height: 20px; border-radius: 50%;
+        background: var(--lg-gold); transition: transform 0.25s;
       }
-      #loginOverlay .slider:before {
-        box-sizing: border-box; position: absolute; content: ""; height: 20px; width: 20px;
-        border: 2px solid var(--accent); border-radius: 5px; left: -2px; bottom: 2px;
-        background-color: #d4a84b; box-shadow: 0 3px 0 rgba(0,0,0,0.4); transition: 0.3s;
+      .switch-row .slider.on { background: rgba(212,168,75,0.25); border-color: var(--lg-gold); }
+      .switch-row .slider.on:before { transform: translateX(30px); background: #fff; }
+      /* کارت flip */
+      .flip-wrap { perspective: 1200px; }
+      .flip-card__inner {
+        width: 320px; height: 460px; position: relative;
+        transform-style: preserve-3d; transition: transform 0.7s;
       }
-      #loginOverlay .toggle:checked + .slider { background-color: var(--accent); }
-      #loginOverlay .toggle:checked + .slider:before { transform: translateX(30px); background-color: #fff; }
-      #loginOverlay .toggle:checked ~ .card-side:before { text-decoration: none; color: var(--font-color-sub); }
-      #loginOverlay .toggle:checked ~ .card-side:after { text-decoration: underline; color: var(--accent); }
-      #loginOverlay .flip-card__inner {
-        width: 300px; height: 430px; position: relative; background-color: transparent;
-        perspective: 1000px; text-align: center; transition: transform 0.7s; transform-style: preserve-3d;
-      }
-      #loginOverlay .toggle:checked ~ .flip-card__inner { transform: rotateY(180deg); }
-      #loginOverlay .flip-card__front, #loginOverlay .flip-card__back {
-        padding: 22px 20px; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+      .flip-card__inner.flipped { transform: rotateY(180deg); }
+      .flip-card__front, .flip-card__back {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
         -webkit-backface-visibility: hidden; backface-visibility: hidden;
-        background: linear-gradient(160deg, #21252f 0%, #181c25 100%); gap: 12px;
-        border-radius: 10px; border: 1px solid #3a4150;
-        box-shadow: 0 18px 40px -12px rgba(0,0,0,0.7);
-        overflow: hidden;
+        background: linear-gradient(165deg, var(--lg-card) 0%, var(--lg-card2) 100%);
+        border: 1px solid var(--lg-border); border-radius: 14px;
+        box-shadow: 0 24px 60px -16px rgba(0,0,0,0.8);
+        display: flex; flex-direction: column; align-items: center;
+        justify-content: center; gap: 14px; padding: 26px 24px;
+        box-sizing: border-box;
       }
-      #loginOverlay .flip-card__back { transform: rotateY(180deg); }
-      #loginOverlay .flip-card__form {
-        display: flex; flex-direction: column; align-items: center; gap: 14px; width: 100%;
+      .flip-card__back { transform: rotateY(180deg); }
+      .card-title {
+        font-size: 24px; font-weight: 800; color: var(--lg-text);
+        letter-spacing: 0.5px; margin-bottom: 6px;
       }
-      #loginOverlay .title {
-        margin: 6px 0 8px 0; font-size: 24px; font-weight: 800; text-align: center;
-        color: var(--font-color); letter-spacing: 0.5px;
+      .auth-form { display: flex; flex-direction: column; align-items: center; gap: 14px; width: 100%; }
+      .auth-input {
+        width: 100%; height: 44px; border-radius: 8px;
+        border: 1.5px solid var(--lg-border); background: var(--lg-input);
+        color: var(--lg-text); font-size: 14px; font-weight: 500;
+        padding: 6px 14px; outline: none; transition: border-color 0.2s, box-shadow 0.2s;
       }
-      #loginOverlay .flip-card__input {
-        width: 100%; max-width: 250px; height: 42px; border-radius: 7px;
-        border: 1.5px solid var(--main-color); background-color: var(--bg-color);
-        box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
-        font-size: 14px; font-weight: 500; color: var(--font-color);
-        padding: 6px 12px; outline: none; transition: border 0.2s, box-shadow 0.2s;
+      .auth-input::placeholder { color: var(--lg-sub); opacity: 0.85; }
+      .auth-input:focus { border-color: var(--lg-gold); box-shadow: 0 0 0 3px rgba(212,168,75,0.16); }
+      .auth-btn {
+        width: 150px; height: 44px; border: none; border-radius: 8px;
+        background: linear-gradient(135deg, var(--lg-gold2) 0%, #c89a35 100%);
+        color: #1a1508; font-size: 15px; font-weight: 700; letter-spacing: 0.5px;
+        cursor: pointer; margin-top: 6px; transition: transform 0.15s, box-shadow 0.2s, opacity 0.2s;
+        box-shadow: 0 8px 20px -6px rgba(212,168,75,0.45);
       }
-      #loginOverlay .flip-card__input::placeholder { color: var(--font-color-sub); opacity: 0.8; }
-      #loginOverlay .flip-card__input:focus {
-        border-color: var(--accent); box-shadow: 0 0 0 2px rgba(212,168,75,0.18);
+      .auth-btn:hover { transform: translateY(-1px); }
+      .auth-btn:active { transform: translateY(1px); }
+      .auth-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+      .msg { display: none; font-size: 12px; text-align: center; font-weight: 600; padding: 7px 10px; border-radius: 6px; width: 100%; box-sizing: border-box; }
+      .msg.error { color: #ffb4b4; background: rgba(255,80,80,0.12); border: 1px solid rgba(255,80,80,0.3); }
+      .msg.ok { color: #b4f5b4; background: rgba(80,255,80,0.08); border: 1px solid rgba(80,255,80,0.25); }
+      @media (max-width: 420px) {
+        .flip-card__inner { width: 100%; max-width: 320px; height: 470px; }
       }
-      #loginOverlay .flip-card__btn {
-        margin: 8px 0 0 0; width: 140px; height: 42px; border-radius: 7px;
-        border: none; background: linear-gradient(135deg, #e0b84d 0%, #c89a35 100%);
-        box-shadow: 0 6px 16px -4px rgba(212,168,75,0.5);
-        font-size: 15px; font-weight: 700; letter-spacing: 0.5px;
-        color: #1a1508; cursor: pointer; transition: transform 0.15s, box-shadow 0.2s;
-      }
-      #loginOverlay .flip-card__btn:hover { transform: translateY(-1px); box-shadow: 0 8px 20px -4px rgba(212,168,75,0.6); }
-      #loginOverlay .flip-card__btn:active { transform: translateY(1px); box-shadow: 0 2px 8px -2px rgba(212,168,75,0.5); }
-      #loginOverlay .msg { display: none; font-size: 12px; text-align: center; font-weight: 600; padding: 6px 10px; border-radius: 6px; width: 100%; box-sizing: border-box; }
-      #loginOverlay .msg.error { color: #ffb4b4; background: rgba(255,80,80,0.12); border: 1px solid rgba(255,80,80,0.3); }
-      #loginOverlay .msg.ok { color: #b4f5b4; background: rgba(80,255,80,0.08); border: 1px solid rgba(80,255,80,0.25); }
     </style>
-    <!-- گیت ورود: root را مخفی نگه می‌دارد تا اپ قدیمی دیده نشود؛ فقط در صورت لاگین شدن نشان می‌دهد -->
+    <!-- منطق نمایش: پنل لاگین از اول باز است؛ فقط وقتی قطعاً لاگین شده‌ای اپ را نشان می‌دهد -->
     <script>
       (function () {
-        var root = document.getElementById("root");
-        function showApp() {
-          if (root) root.style.display = "";
-        }
-        function showLogin() {
+        function hideOverlay() {
           var o = document.getElementById("loginOverlay");
-          if (o) o.style.display = "flex";
+          if (o) o.style.display = "none";
         }
         fetch("/api/me", { credentials: "include" })
           .then(function (r) {
-            if (r.status === 401) { showLogin(); } // لاگین نیستی → پنل جدید (root مخفی می‌ماند)
-            else { showApp(); }                    // لاگین هستی → اپ
+            if (r.status === 200) { hideOverlay(); } // لاگین شده‌ای → اپ (پنل بسته می‌شود)
+            // اگر 401 باشد پنل همان‌طور باز می‌ماند
           })
-          .catch(function () { showApp(); });
+          .catch(function () { hideOverlay(); }); // خطای شبکه → بگذار اپ خودش تصمیم بگیرد
       })();
     </script>
     <script type="module" crossorigin src="/assets/index-uC5WU97B.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-0cA_JjOk.css">
   </head>
   <body style="margin:0;background:#0d0f14">
-    <div id="root" style="display:none"></div>
+    <div id="root"></div>
 
-    <!-- ===== پنل ورود/ثبت‌نام flip-card (تم تیره) ===== -->
-    <div id="loginOverlay">
-      <div class="wrapper">
-        <div class="card-switch">
-          <label class="switch">
-            <input class="toggle" type="checkbox" id="flipToggle">
-            <span class="slider"></span>
-            <span class="card-side"></span>
-            <div class="flip-card__inner">
-              <div class="flip-card__front">
-                <div class="title">Log in</div>
-                <div id="msgLogin" class="msg"></div>
-                <form class="flip-card__form" id="loginForm" onsubmit="return false;">
-                  <input type="text" placeholder="Username" name="username" id="loginUsername" class="flip-card__input" autocomplete="username">
-                  <input type="password" placeholder="Password" name="password" id="loginPassword" class="flip-card__input" autocomplete="current-password">
-                  <button class="flip-card__btn" type="submit">Let`s go!</button>
-                </form>
-              </div>
-              <div class="flip-card__back">
-                <div class="title">Sign up</div>
-                <div id="msgSignup" class="msg"></div>
-                <form class="flip-card__form" id="signupForm" onsubmit="return false;">
-                  <input type="text" placeholder="Name" id="signupName" class="flip-card__input" autocomplete="name">
-                  <input type="text" placeholder="Username" name="username" id="signupUsername" class="flip-card__input" autocomplete="username">
-                  <input type="password" placeholder="Password" name="password" id="signupPassword" class="flip-card__input" autocomplete="new-password">
-                  <button class="flip-card__btn" type="submit">Confirm!</button>
-                </form>
-              </div>
+    <!-- ===== پنل ورود/ثبت‌نام flip-card ===== -->
+    <div id="loginOverlay" style="display:flex">
+      <div class="auth-box">
+        <div class="switch-row">
+          <span class="side active" id="sideLogin">Log in</span>
+          <div class="slider" id="flipSlider"></div>
+          <span class="side" id="sideSignup">Sign up</span>
+        </div>
+        <div class="flip-wrap">
+          <div class="flip-card__inner" id="flipInner">
+            <div class="flip-card__front">
+              <div class="card-title">Log in</div>
+              <div id="msgLogin" class="msg"></div>
+              <form class="auth-form" id="loginForm" onsubmit="return false;">
+                <input type="text" placeholder="Username" id="loginUsername" class="auth-input" autocomplete="username">
+                <input type="password" placeholder="Password" id="loginPassword" class="auth-input" autocomplete="current-password">
+                <button class="auth-btn" type="submit">Let`s go!</button>
+              </form>
             </div>
-          </label>
+            <div class="flip-card__back">
+              <div class="card-title">Sign up</div>
+              <div id="msgSignup" class="msg"></div>
+              <form class="auth-form" id="signupForm" onsubmit="return false;">
+                <input type="text" placeholder="Name" id="signupName" class="auth-input" autocomplete="name">
+                <input type="text" placeholder="Username" id="signupUsername" class="auth-input" autocomplete="username">
+                <input type="password" placeholder="Password" id="signupPassword" class="auth-input" autocomplete="new-password">
+                <button class="auth-btn" type="submit">Confirm!</button>
+              </form>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
     <script>
-      // ===== منطق پنل ورود/ثبت‌نام =====
+      // ===== منطق flip + ورود/ثبت‌نام =====
       var API = "/api";
-      var REDIRECT = "/";
+      var flipped = false;
+      var slider = document.getElementById("flipSlider");
+      var inner = document.getElementById("flipInner");
+      var sideLogin = document.getElementById("sideLogin");
+      var sideSignup = document.getElementById("sideSignup");
+
+      function setFlip(on) {
+        flipped = on;
+        inner.classList.toggle("flipped", on);
+        slider.classList.toggle("on", on);
+        sideLogin.classList.toggle("active", !on);
+        sideSignup.classList.toggle("active", on);
+      }
+      slider.addEventListener("click", function(){ setFlip(!flipped); });
+      sideLogin.addEventListener("click", function(){ setFlip(false); });
+      sideSignup.addEventListener("click", function(){ setFlip(true); });
 
       function showMsg(el, text, type) {
         el.textContent = text;
