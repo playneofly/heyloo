@@ -51,18 +51,31 @@
       .msg { display: none; font-size: 12px; text-align: center; font-weight: 600; padding: 7px 10px; border-radius: 6px; width: 100%; box-sizing: border-box; }
       .msg.error { color: #ffb4b4; background: rgba(255,80,80,0.12); border: 1px solid rgba(255,80,80,0.3); }
       .msg.ok { color: #b4f5b4; background: rgba(80,255,80,0.08); border: 1px solid rgba(80,255,80,0.25); }
-      @media (max-width: 420px) { .flip-card__inner { width: 100%; max-width: 320px; height: 470px; } }
+      @media (max-width: 420px) {
+        #loginOverlay { padding: 14px; }
+        .auth-box { gap: 14px; padding: 10px 0; }
+        .switch-row { gap: 12px; }
+        .switch-row .side { font-size: 13px; }
+        .switch-row .slider { width: 50px; height: 24px; }
+        .switch-row .slider.on:before { transform: translateX(26px); }
+        .flip-card__inner { width: 100%; max-width: 300px; height: 480px; }
+        .flip-card__front, .flip-card__back { padding: 20px 18px; gap: 11px; }
+        .card-title { font-size: 21px; }
+        .auth-input { height: 42px; font-size: 13px; }
+        .auth-btn { width: 140px; height: 42px; }
+        .auth-form { gap: 11px; }
+      }
     </style>
     <script type="module" crossorigin src="/assets/index-uC5WU97B.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-0cA_JjOk.css">
   </head>
   <body style="margin:0;background:#050506">
     <!-- اپ کاملاً مخفی است تا لاگینِ قدیمیِ داخلش هرگز دیده نشود -->
-    <div id="root"></div>
+    <div id="root" style="display:none"></div>
 
 
     <!-- پنل ورود/ثبت‌نام flip-card (بدون لودر) -->
-    <div id="loginOverlay" dir="ltr" style="display:flex">
+    <div id="loginOverlay" dir="ltr">
       <div class="auth-box">
         <div class="switch-row">
           <span class="side active" id="sideLogin">Log in</span>
@@ -100,16 +113,18 @@
             var overlay = document.getElementById("loginOverlay");
       var root = document.getElementById("root");
 
-      // پنل لاگین از ابتدا نمایش داده شده (سریع، بدون صفحه سیاه).
-      // فقط اگر لاگین باشی، پنل مخفی می‌شود و اپ (که پشتش بوت شده) نمایان می‌شود.
+      // ریشه‌ای: لاگین هستی → اپ؛ لاگین نیستی → پنل. 
+      // چون پنل فقط در صورت 401 نشان داده می‌شود، کاربرِ لاگین‌شده هرگز پنل را نمی‌بیند.
       fetch("/api/me", { credentials: "include" })
         .then(function (r) {
           if (r.status === 200) {
-            overlay.style.display = "none";
+            root.style.display = "block";   // اپ
+          } else {
+            overlay.style.display = "flex"; // پنل لاگین (فقط وقتی قطعاً لاگین نیستی)
           }
         })
         .catch(function () {
-          overlay.style.display = "none";
+          root.style.display = "block";     // خطا → اپ
         });
 
       // ===== منطق flip + ورود/ثبت‌نام =====
