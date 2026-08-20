@@ -4081,6 +4081,97 @@ app.post("/auth/logout", async (c) => {
   deleteCookie(c, COOKIE, { path: "/" });
   return c.json({ ok: true });
 });
+// ================= GOOGLE LOGIN (added) =================
+var GOOGLE_CLIENT_ID = "1030893262998-7nme97fkqm0qtas4dmf0pmqrh6ej7a3s.apps.googleusercontent.com";
+var GOOGLE_JWKS = null;
+function _b64u(s) {
+  const b = s.replace(/-/g, "+").replace(/_/g, "/");
+  return b + "=".repeat((4 - (b.length % 4)) % 4);
+}
+function _b64uUtf8(s) {
+  try { return new TextDecoder().decode(Uint8Array.from(atob(_b64u(s)), (x) => x.charCodeAt(0))); } catch (e) { return ""; }
+}
+function _b64uBytes(s) {
+  try { return Uint8Array.from(atob(_b64u(s)), (x) => x.charCodeAt(0)); } catch (e) { return new Uint8Array(0); }
+}
+async function verifyGoogleIdToken(idToken) {
+  const parts = String(idToken || "").split(".");
+  if (parts.length !== 3) return null;
+  let hdr = null, payload = null;
+  try { hdr = JSON.parse(_b64uUtf8(parts[0]) || "null"); } catch (e) {}
+  try { payload = JSON.parse(_b64uUtf8(parts[1]) || "null"); } catch (e) {}
+  if (!hdr || !payload) return null;
+  if (payload.iss !== "accounts.google.com" && payload.iss !== "https://accounts.google.com") return null;
+  if (payload.aud !== GOOGLE_CLIENT_ID) return null;
+  const now = Math.floor(Date.now() / 1000);
+  if (!payload.exp || payload.exp < now - 60) return null;
+  if (!GOOGLE_JWKS || GOOGLE_JWKS.exp < now) {
+    try {
+      const res = await fetch("https://www.googleapis.com/oauth2/v3/certs");
+      if (res.ok) { const j = await res.json(); GOOGLE_JWKS = { keys: j.keys, exp: now + 300 }; }
+    } catch (e) {}
+  }
+  const key = (GOOGLE_JWKS && GOOGLE_JWKS.keys || []).find((k) => k.kid === hdr.kid);
+  if (!key) return null;
+  try {
+    const pub = await crypto.subtle.importKey("jwk",
+      { kty: "RSA", n: key.n, e: key.e },
+      { name: "RSASSA-PKCS1-v1_5", hash: { name: "SHA-256" } },
+      false, ["verify"]);
+    const ok = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", pub, _b64uBytes(parts[2]),
+      new TextEncoder().encode(parts[0] + "." + parts[1]));
+    if (!ok) return null;
+  } catch (e) { return null; }
+  return payload;
+}
+app.post("/auth/google", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const payload = await verifyGoogleIdToken(body.credential || body.id_token);
+  if (!payload || !payload.sub) return jsonError(c, "\u0648\u0631\u0648\u062F \u06AF\u0648\u06AF\u0644 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A", 401);
+  try { await run(c.env.DB, `ALTER TABLE users ADD COLUMN google_sub TEXT`); } catch (e) {}
+  const sub = String(payload.sub);
+  let user = await one(c.env.DB, `SELECT * FROM users WHERE google_sub = ?`, sub);
+  if (!user) {
+    const email = typeof payload.email === "string" ? payload.email.toLowerCase() : "";
+    const name = typeof payload.name === "string" ? payload.name.trim() : "";
+    let base = (email ? email.split("@")[0] : "").replace(/[^a-zA-Z0-9_]/g, "_");
+    if (!/^[a-zA-Z]/.test(base)) base = "x" + base;
+    base = base.slice(0, 18);
+    if (!base) base = "g" + sub.slice(0, 8);
+    let username = base;
+    for (let i = 0; i < 10; i++) {
+      const ex = await one(c.env.DB, `SELECT id FROM users WHERE username_lc = ?`, username.toLowerCase());
+      if (!ex) break;
+      username = base.slice(0, 13) + "_" + (Math.floor(Math.random() * 900) + 100);
+    }
+    const now = Date.now();
+    const id = randomId();
+    const disp = cleanText(name || email.split("@")[0] || username, 1, 40) || username;
+    const avatar = typeof payload.picture === "string" && /^https?:/.test(payload.picture) ? payload.picture : null;
+    await run(
+      c.env.DB,
+      `INSERT INTO users (id, username, username_lc, password_hash, display_name, bio, hue, avatar, badge, google_sub, last_seen, last_seen_vis, created_at)
+       VALUES (?, ?, ?, ?, ?, '', ?, ?, NULL, ?, ?, 'everyone', ?)`,
+      id, username, username.toLowerCase(), await hashPassword(randomToken()), disp,
+      hueFrom(username.toLowerCase()), avatar, sub, now, now
+    );
+    user = await one(c.env.DB, `SELECT * FROM users WHERE id = ?`, id);
+  } else {
+    if (isGone(user)) return jsonError(c, "\u0627\u06CC\u0646 \u062D\u0633\u0627\u0628 \u062D\u0630\u0641 \u0634\u062F\u0647 \u0627\u0633\u062A", 403);
+    if (isBanned(user)) return jsonError(c, user.ban_reason ? `\u062D\u0633\u0627\u0628 \u0645\u0633\u062F\u0648\u062F \u0627\u0633\u062A: ${user.ban_reason}` : "\u0627\u06CC\u0646 \u062D\u0633\u0627\u0628 \u0645\u0633\u062F\u0648\u062F \u0627\u0633\u062A", 403);
+  }
+  const now = Date.now();
+  const token = randomToken();
+  await run(
+    c.env.DB,
+    `INSERT INTO sessions (id, user_id, token_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?)`,
+    randomId(), user.id, await sha256Hex(token), now + SESSION_MS, now
+  );
+  const cc = countryOf(c);
+  await run(c.env.DB, `UPDATE users SET last_seen = ?${cc ? ", last_country = ?" : ""} WHERE id = ?`, ...cc ? [now, cc, user.id] : [now, user.id]);
+  setCookie(c, COOKIE, token, cookieOpts(c, SESSION_MS / 1e3));
+  return c.json({ user: pub(user, user.id, true) });
+});
 app.get("/me", async (c) => {
   const user = await auth(c);
   if (user instanceof Response) return user;
