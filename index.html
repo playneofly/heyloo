@@ -58,11 +58,11 @@
   </head>
   <body style="margin:0;background:#050506">
     <!-- اپ کاملاً مخفی است تا لاگینِ قدیمیِ داخلش هرگز دیده نشود -->
-    <div id="root" style="display:none"></div>
+    <div id="root"></div>
 
 
     <!-- پنل ورود/ثبت‌نام flip-card (بدون لودر) -->
-    <div id="loginOverlay" dir="ltr">
+    <div id="loginOverlay" dir="ltr" style="display:flex">
       <div class="auth-box">
         <div class="switch-row">
           <span class="side active" id="sideLogin">Log in</span>
@@ -100,19 +100,16 @@
             var overlay = document.getElementById("loginOverlay");
       var root = document.getElementById("root");
 
+      // پنل لاگین از ابتدا نمایش داده شده (سریع، بدون صفحه سیاه).
+      // فقط اگر لاگین باشی، پنل مخفی می‌شود و اپ (که پشتش بوت شده) نمایان می‌شود.
       fetch("/api/me", { credentials: "include" })
         .then(function (r) {
           if (r.status === 200) {
-            // لاگین هستی: اپ باز می‌شود (سریع، بدون لودر)
-            root.style.display = "block";
-          } else {
-            // لاگین نیستی: پنل لاگین فوری
-            overlay.style.display = "flex";
+            overlay.style.display = "none";
           }
         })
         .catch(function () {
-          // خطا: اپ را باز کن
-          root.style.display = "block";
+          overlay.style.display = "none";
         });
 
       // ===== منطق flip + ورود/ثبت‌نام =====

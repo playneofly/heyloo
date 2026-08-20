@@ -2760,6 +2760,9 @@ function hueFrom(input) {
 var BARGH_BOT_ID = "bot_bargh";
 var BARGH_BOT_USERNAME = "bargh";
 var BARGH_BOT_NAME = "\u0628\u0631\u0642";
+var T_BOT_ID = "bot_t";
+var T_BOT_USERNAME = "tbot";
+var T_BOT_NAME = "\u0631\u0628\u0627\u062a \u0627\u062e\u062a\u0635\u0627\u0635\u06cc T";
 var TEHRAN_OFFSET = 3.5 * 3600 * 1e3;
 var WINDOW_START = 6 * 3600 * 1e3;
 var WINDOW_MS = 18 * 3600 * 1e3;
@@ -2803,14 +2806,14 @@ function dmKey(userId) {
   return `bot:bargh:${userId}`;
 }
 async function isBarghConv(db, conv, userId) {
-  if (conv.dm_key && String(conv.dm_key).startsWith("bot:bargh:")) return true;
+  if (conv.dm_key && String(conv.dm_key).startsWith("bot:")) return true;
   const other = await one(
     db,
     `SELECT user_id FROM members WHERE conversation_id = ? AND user_id != ? LIMIT 1`,
     conv.id,
     userId
   );
-  return other?.user_id === BARGH_BOT_ID;
+  return isOfficialBot(other?.user_id);
 }
 async function emit(db, kind, conversationId, actorId, payload = {}) {
   await run(
@@ -2910,6 +2913,88 @@ async function insertBotText(db, convId, text) {
   await run(db, `UPDATE members SET hidden = 0 WHERE conversation_id = ? AND user_id != ?`, convId, BARGH_BOT_ID);
   await emit(db, "conversation", convId, BARGH_BOT_ID, { unhide: true });
   await emit(db, "message", convId, BARGH_BOT_ID, { id });
+  return one(db, `SELECT * FROM messages WHERE id = ?`, id);
+}
+async function ensureTUser(db) {
+  const existing = await one(db, `SELECT * FROM users WHERE id = ?`, T_BOT_ID);
+  if (existing) return existing;
+  const now = Date.now();
+  await run(
+    db,
+    `INSERT OR IGNORE INTO users (id, username, username_lc, password_hash, display_name, bio, hue, avatar, badge, last_seen, last_seen_vis, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, 46, NULL, 'verified', ?, 'everyone', ?)`,
+    T_BOT_ID,
+    T_BOT_USERNAME,
+    T_BOT_USERNAME,
+    await hashPassword(randomToken()),
+    T_BOT_NAME,
+    "\u0631\u0628\u0627\u062a \u0627\u062e\u062a\u0635\u0627\u0635\u06cc T",
+    now,
+    now
+  );
+  const row = await one(db, `SELECT * FROM users WHERE id = ?`, T_BOT_ID);
+  if (!row) throw new Error("\u0631\u0628\u0627\u062a T \u0633\u0627\u062e\u062a\u0647 \u0646\u0634\u062f");
+  return row;
+}
+function tDmKey(userId) {
+  return `bot:t:${userId}`;
+}
+async function ensureTConv(db, user) {
+  await ensureTUser(db);
+  const key = tDmKey(user.id);
+  let conv = await one(db, `SELECT * FROM conversations WHERE dm_key = ?`, key);
+  const now = Date.now();
+  if (!conv) {
+    const id = randomId();
+    await run(
+      db,
+      `INSERT INTO conversations (id, type, title, description, owner_id, dm_key, created_at, last_message_at, last_message_preview)
+       VALUES (?, 'dm', ?, '', ?, ?, ?, ?, '')`,
+      id,
+      T_BOT_NAME,
+      T_BOT_ID,
+      key,
+      now,
+      now
+    );
+    await run(
+      db,
+      `INSERT OR IGNORE INTO members (conversation_id, user_id, role, joined_at, last_read_at) VALUES (?, ?, 'member', ?, ?)`,
+      id,
+      user.id,
+      now,
+      0
+    );
+    await run(
+      db,
+      `INSERT OR IGNORE INTO members (conversation_id, user_id, role, joined_at, last_read_at) VALUES (?, ?, 'member', ?, ?)`,
+      id,
+      T_BOT_ID,
+      now,
+      now
+    );
+    conv = await one(db, `SELECT * FROM conversations WHERE id = ?`, id);
+    await emit(db, "conversation", id, T_BOT_ID, { type: "dm", bot: true });
+  }
+  if (!conv) throw new Error("\u06af\u0641\u062a\u06af\u0648\u06cc \u0631\u0628\u0627\u062a T \u0633\u0627\u062e\u062a\u0647 \u0646\u0634\u062f");
+  return conv;
+}
+async function insertBotMessage(db, convId, botId, text) {
+  const id = randomId();
+  const now = Date.now();
+  await run(
+    db,
+    `INSERT INTO messages (id, conversation_id, author_id, type, body, created_at) VALUES (?, ?, ?, 'text', ?, ?)`,
+    id,
+    convId,
+    botId,
+    text,
+    now
+  );
+  await touchConv(db, convId, text.slice(0, 80), now);
+  await run(db, `UPDATE members SET hidden = 0 WHERE conversation_id = ? AND user_id != ?`, convId, botId);
+  await emit(db, "conversation", convId, botId, { unhide: true });
+  await emit(db, "message", convId, botId, { id });
   return one(db, `SELECT * FROM messages WHERE id = ?`, id);
 }
 async function listCities(db) {
@@ -3766,7 +3851,7 @@ async function conversationPayload(db, conv, user) {
     joinLocked: !!conv.join_locked,
     publicIdLocked: !!conv.public_id_locked,
     frozen: !!conv.frozen,
-    bot: !!(peer && peer.id === BARGH_BOT_ID),
+    bot: !!(peer && isOfficialBot(peer.id)),
     saved,
     menu: peer && peer.id === BARGH_BOT_ID ? await getBarghMenu(db, user) : void 0
   };
@@ -4186,6 +4271,7 @@ app.get("/conversations", async (c) => {
   try {
     await ensureBarghConv(c.env.DB, user);
     await ensureSavedConv(c.env.DB, user);
+    await ensureTConv(c.env.DB, user);
     await flushBarghBot(c.env.DB);
   } catch {
   }
@@ -4326,6 +4412,11 @@ app.post("/conversations/dm", async (c) => {
   if (other.id === user.id) return jsonError(c, "\u0646\u0645\u06CC\u200C\u062A\u0648\u0646\u06CC \u0628\u0627 \u062E\u0648\u062F\u062A \u0686\u062A \u06A9\u0646\u06CC");
   if (other.id === BARGH_BOT_ID || other.username_lc === "bargh") {
     const botConv = await ensureBarghConv(c.env.DB, user);
+    await unhideChatFor(c.env.DB, botConv.id, user.id);
+    return c.json({ conversation: await conversationPayload(c.env.DB, botConv, user) });
+  }
+  if (other.id === T_BOT_ID || other.username_lc === T_BOT_USERNAME) {
+    const botConv = await ensureTConv(c.env.DB, user);
     await unhideChatFor(c.env.DB, botConv.id, user.id);
     return c.json({ conversation: await conversationPayload(c.env.DB, botConv, user) });
   }
@@ -6848,6 +6939,30 @@ app.post("/admin/blast", async (c) => {
   await emit2(c.env.DB, "blast", null, user.id, { id, body: text });
   await logAdmin(c.env.DB, user.id, "blast", id, text.slice(0, 80));
   return c.json({ ok: true, id, createdAt: now });
+});
+app.post("/admin/t-message", async (c) => {
+  const user = await auth(c);
+  if (user instanceof Response) return user;
+  const gate = await requireOwnerLike(user, c.env.DB);
+  if (!gate) return jsonError(c, "\u0627\u06CC\u0646 \u067E\u0646\u0644 \u0628\u0631\u0627\u06CC \u062A\u0648 \u0646\u06CC\u0633\u062A", 403);
+  const limited = denyReportsOnly(c, user, gate);
+  if (limited) return limited;
+  const body = await c.req.json().catch(() => ({}));
+  const text = cleanText(body.body ?? body.text, 1, 2000);
+  if (!text) return jsonError(c, "\u0645\u062A\u0646 \u0645\u0648\u0631\u062F \u0646\u0638\u0631 \u0644\u0627\u0632\u0645 \u0627\u0633\u062A");
+  await ensureTUser(c.env.DB);
+  const users = await many(c.env.DB, `SELECT * FROM users WHERE IFNULL(deleted_at, 0) = 0`);
+  let n = 0;
+  for (const u of users) {
+    if (isOfficialBot(u.id)) continue;
+    try {
+      const conv = await ensureTConv(c.env.DB, u);
+      await insertBotMessage(c.env.DB, conv.id, T_BOT_ID, text);
+      n += 1;
+    } catch (e) {}
+  }
+  await logAdmin(c.env.DB, user.id, "t_message", null, text.slice(0, 80));
+  return c.json({ ok: true, n });
 });
 app.get("/admin/blasts", async (c) => {
   const user = await auth(c);
