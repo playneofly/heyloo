@@ -6,10 +6,199 @@
     <meta name="theme-color" content="#050506" />
     <title>T</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23050506'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-size='20' font-family='Georgia' fill='%23e0b84d'%3ET%3C/text%3E%3C/svg%3E" />
+    <style>
+      /* ===== پنل ورود flip-card (جاسازی‌شده در خود صفحه اصلی — بدون ریدایرکت) ===== */
+      /* From Uiverse.io by StarMarketPros */
+      #loginOverlay {
+        position: fixed; inset: 0; z-index: 99999;
+        background: radial-gradient(800px 600px at 50% -10%, #f4f4f4 0%, #e2e2e2 55%, #d6d6d6 100%);
+        display: none; align-items: center; justify-content: center;
+        padding: 24px; box-sizing: border-box;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma, Roboto, sans-serif;
+      }
+      #loginOverlay .wrapper {
+        --input-focus: #2d8cf0;
+        --font-color: #323232;
+        --font-color-sub: #666;
+        --bg-color: #fff;
+        --bg-color-alt: #666;
+        --main-color: #323232;
+        display: flex; align-items: center; justify-content: center; padding-top: 200px;
+      }
+      #loginOverlay .switch {
+        transform: translateY(-200px); position: relative;
+        display: flex; flex-direction: column; justify-content: center; align-items: center;
+        gap: 30px; width: 50px; height: 20px;
+      }
+      #loginOverlay .card-side::before {
+        position: absolute; content: 'Log in'; left: -70px; top: 0; width: 100px;
+        text-decoration: underline; color: var(--font-color); font-weight: 600;
+      }
+      #loginOverlay .card-side::after {
+        position: absolute; content: 'Sign up'; left: 70px; top: 0; width: 100px;
+        text-decoration: none; color: var(--font-color); font-weight: 600;
+      }
+      #loginOverlay .toggle { opacity: 0; width: 0; height: 0; }
+      #loginOverlay .slider {
+        box-sizing: border-box; border-radius: 5px; border: 2px solid var(--main-color);
+        box-shadow: 4px 4px var(--main-color); position: absolute; cursor: pointer;
+        top: 0; left: 0; right: 0; bottom: 0; background-color: var(--bg-color); transition: 0.3s;
+      }
+      #loginOverlay .slider:before {
+        box-sizing: border-box; position: absolute; content: ""; height: 20px; width: 20px;
+        border: 2px solid var(--main-color); border-radius: 5px; left: -2px; bottom: 2px;
+        background-color: var(--bg-color); box-shadow: 0 3px 0 var(--main-color); transition: 0.3s;
+      }
+      #loginOverlay .toggle:checked + .slider { background-color: var(--input-focus); }
+      #loginOverlay .toggle:checked + .slider:before { transform: translateX(30px); }
+      #loginOverlay .toggle:checked ~ .card-side:before { text-decoration: none; }
+      #loginOverlay .toggle:checked ~ .card-side:after { text-decoration: underline; }
+      #loginOverlay .flip-card__inner {
+        width: 300px; height: 350px; position: relative; background-color: transparent;
+        perspective: 1000px; text-align: center; transition: transform 0.8s; transform-style: preserve-3d;
+      }
+      #loginOverlay .toggle:checked ~ .flip-card__inner { transform: rotateY(180deg); }
+      #loginOverlay .toggle:checked ~ .flip-card__front { box-shadow: none; }
+      #loginOverlay .flip-card__front, #loginOverlay .flip-card__back {
+        padding: 20px; position: absolute; width: 100%; height: 100%;
+        display: flex; flex-direction: column; justify-content: center;
+        -webkit-backface-visibility: hidden; backface-visibility: hidden;
+        background: lightgrey; gap: 20px; border-radius: 5px;
+        border: 2px solid var(--main-color); box-shadow: 4px 4px var(--main-color);
+      }
+      #loginOverlay .flip-card__back { transform: rotateY(180deg); }
+      #loginOverlay .flip-card__form { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+      #loginOverlay .title {
+        margin: 20px 0 20px 0; font-size: 25px; font-weight: 900; text-align: center; color: var(--main-color);
+      }
+      #loginOverlay .flip-card__input {
+        width: 250px; height: 40px; border-radius: 5px; border: 2px solid var(--main-color);
+        background-color: var(--bg-color); box-shadow: 4px 4px var(--main-color);
+        font-size: 15px; font-weight: 600; color: var(--font-color); padding: 5px 10px; outline: none;
+      }
+      #loginOverlay .flip-card__input::placeholder { color: var(--font-color-sub); opacity: 0.8; }
+      #loginOverlay .flip-card__input:focus { border: 2px solid var(--input-focus); }
+      #loginOverlay .flip-card__btn:active {
+        box-shadow: 0px 0px var(--main-color); transform: translate(3px, 3px);
+      }
+      #loginOverlay .flip-card__btn {
+        margin: 20px 0 20px 0; width: 120px; height: 40px; border-radius: 5px;
+        border: 2px solid var(--main-color); background-color: var(--bg-color);
+        box-shadow: 4px 4px var(--main-color); font-size: 17px; font-weight: 600;
+        color: var(--font-color); cursor: pointer;
+      }
+      #loginOverlay .msg { display: none; font-size: 12px; text-align: center; font-weight: 600; padding: 6px 10px; border-radius: 5px; }
+      #loginOverlay .msg.error { color: #c0392b; background: #fdecea; border: 1px solid #f5c6cb; }
+      #loginOverlay .msg.ok { color: #1e7e34; background: #eafaf1; border: 1px solid #b7e4c7; }
+    </style>
+    <!-- گیت ورود: بدون ریدایرکت؛ فقط پنل را در خود صفحه نشان می‌دهد -->
+    <script>
+      (function () {
+        function showLogin() {
+          var o = document.getElementById("loginOverlay");
+          if (o) o.style.display = "flex";
+        }
+        fetch("/api/me", { credentials: "include" })
+          .then(function (r) {
+            if (r.status === 401) { showLogin(); }
+          })
+          .catch(function () {});
+      })();
+    </script>
     <script type="module" crossorigin src="/assets/index-uC5WU97B.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-0cA_JjOk.css">
   </head>
   <body style="margin:0;background:#050506">
     <div id="root"></div>
+
+    <!-- ===== پنل ورود/ثبت‌نام flip-card ===== -->
+    <div id="loginOverlay">
+      <div class="wrapper">
+        <div class="card-switch">
+          <label class="switch">
+            <input class="toggle" type="checkbox" id="flipToggle">
+            <span class="slider"></span>
+            <span class="card-side"></span>
+            <div class="flip-card__inner">
+              <div class="flip-card__front">
+                <div class="title">Log in</div>
+                <div id="msgLogin" class="msg"></div>
+                <form class="flip-card__form" id="loginForm" onsubmit="return false;">
+                  <input type="text" placeholder="Username" name="username" id="loginUsername" class="flip-card__input" autocomplete="username">
+                  <input type="password" placeholder="Password" name="password" id="loginPassword" class="flip-card__input" autocomplete="current-password">
+                  <button class="flip-card__btn" type="submit">Let`s go!</button>
+                </form>
+              </div>
+              <div class="flip-card__back">
+                <div class="title">Sign up</div>
+                <div id="msgSignup" class="msg"></div>
+                <form class="flip-card__form" id="signupForm" onsubmit="return false;">
+                  <input type="text" placeholder="Name" id="signupName" class="flip-card__input" autocomplete="name">
+                  <input type="text" placeholder="Username" name="username" id="signupUsername" class="flip-card__input" autocomplete="username">
+                  <input type="password" placeholder="Password" name="password" id="signupPassword" class="flip-card__input" autocomplete="new-password">
+                  <button class="flip-card__btn" type="submit">Confirm!</button>
+                </form>
+              </div>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ===== منطق پنل ورود/ثبت‌نام =====
+      var API = "/api";
+      var REDIRECT = "/";
+
+      function showMsg(el, text, type) {
+        el.textContent = text;
+        el.className = "msg " + type;
+        el.style.display = "block";
+        if (text) setTimeout(function(){ el.style.display = "none"; }, 5000);
+      }
+      function hideMsg(el){ el.style.display = "none"; }
+
+      var loginMsg = document.getElementById("msgLogin");
+      var signupMsg = document.getElementById("msgSignup");
+
+      document.getElementById("loginForm").addEventListener("submit", function(e){
+        e.preventDefault();
+        var username = document.getElementById("loginUsername").value.trim();
+        var password = document.getElementById("loginPassword").value;
+        if (!username || !password) return showMsg(loginMsg, "Username and password are required", "error");
+        var btn = this.querySelector("button"); btn.disabled = true; hideMsg(loginMsg);
+        fetch(API + "/auth/login", {
+          method: "POST", credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: username, password: password })
+        }).then(function(res){ return res.json().then(function(d){ return {ok: res.ok, d: d}; }); })
+          .then(function(r){
+            btn.disabled = false;
+            if (r.ok && r.d.user) { window.location.reload(); }
+            else { showMsg(loginMsg, (r.d && r.d.error) || "Login failed", "error"); }
+          })
+          .catch(function(){ btn.disabled = false; showMsg(loginMsg, "Connection error", "error"); });
+      });
+
+      document.getElementById("signupForm").addEventListener("submit", function(e){
+        e.preventDefault();
+        var name = document.getElementById("signupName").value.trim();
+        var username = document.getElementById("signupUsername").value.trim();
+        var password = document.getElementById("signupPassword").value;
+        if (!name || !username || !password) return showMsg(signupMsg, "Name, username and password are required", "error");
+        var btn = this.querySelector("button"); btn.disabled = true; hideMsg(signupMsg);
+        fetch(API + "/auth/register", {
+          method: "POST", credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: username, password: password, displayName: name })
+        }).then(function(res){ return res.json().then(function(d){ return {ok: res.ok, d: d}; }); })
+          .then(function(r){
+            btn.disabled = false;
+            if (r.ok && r.d.user) { window.location.reload(); }
+            else { showMsg(signupMsg, (r.d && r.d.error) || "Sign up failed", "error"); }
+          })
+          .catch(function(){ btn.disabled = false; showMsg(signupMsg, "Connection error", "error"); });
+      });
+    </script>
   </body>
 </html>
