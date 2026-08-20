@@ -2769,7 +2769,7 @@ function tehranDayStartMs(now = Date.now()) {
   return shifted.getTime() - TEHRAN_OFFSET;
 }
 function barghSlots(now, times) {
-  const n = Math.max(1, Math.min(10, Math.floor(times) || 1));
+  const n = Math.max(1, Math.min(18, Math.floor(times) || 1));
   const day = tehranDayStartMs(now);
   const interval = WINDOW_MS / n;
   const out = [];
@@ -3013,6 +3013,7 @@ async function getBarghMenu(db, user) {
     if (city) {
       const buttons = [];
       for (let i = 1; i <= 10; i++) buttons.push({ k: `times:${i}`, l: String(i) });
+      buttons.push({ k: "times:18", l: "\u0647\u0631 \u06CC\u06A9 \u0633\u0627\u0639\u062A" });
       return { step: "times", title: `\u0634\u0647\u0631: ${city.name}
 \u0686\u0646\u062F \u0628\u0627\u0631 \u062F\u0631 \u0631\u0648\u0632\u061F`, buttons };
     }
@@ -3021,7 +3022,7 @@ async function getBarghMenu(db, user) {
   if (step === "review") {
     const city = cities.find((c) => c.id === (sub?.pending_city || sub?.city_id));
     const n = Number(sub?.pending_times || 0);
-    if (city && n >= 1 && n <= 10) {
+    if (city && n >= 1 && n <= 18) {
       return {
         step: "review",
         title: `\u0634\u0647\u0631: ${city.name}
@@ -3033,6 +3034,7 @@ async function getBarghMenu(db, user) {
     if (step === "times" && city) {
       const buttons = [];
       for (let i = 1; i <= 10; i++) buttons.push({ k: `times:${i}`, l: String(i) });
+      buttons.push({ k: "times:18", l: "\u0647\u0631 \u06CC\u06A9 \u0633\u0627\u0639\u062A" });
       return { step: "times", title: `\u0634\u0647\u0631: ${city.name}
 \u0686\u0646\u062F \u0628\u0627\u0631 \u062F\u0631 \u0631\u0648\u0632\u061F`, buttons };
     }
@@ -3075,7 +3077,7 @@ async function handleBarghTap(db, user, rawKey) {
   }
   if (key.startsWith("times:")) {
     const n = Number(key.slice(6));
-    if (!Number.isInteger(n) || n < 1 || n > 10) {
+    if (!Number.isInteger(n) || n < 1 || n > 18) {
       return { messages, menu: await getBarghMenu(db, user), error: "\u062A\u0639\u062F\u0627\u062F \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u0627\u0633\u062A" };
     }
     const cityId = sub?.pending_city || sub?.city_id || "";
@@ -3091,7 +3093,7 @@ async function handleBarghTap(db, user, rawKey) {
     const cityId = sub?.pending_city || sub?.city_id || "";
     const n = Number(sub?.pending_times || 0);
     const city = cities.find((c) => c.id === cityId);
-    if (!city || n < 1 || n > 10) {
+    if (!city || n < 1 || n > 18) {
       await writeSub(db, user.id, { step: "city" });
       return { messages, menu: await getBarghMenu(db, user) };
     }
@@ -3131,7 +3133,7 @@ async function flushBarghBot(db, force = false) {
     subs = await many(
       db,
       `SELECT user_id, city_id, times, last_sent_at FROM bot_subs
-       WHERE times BETWEEN 1 AND 10 AND city_id IS NOT NULL AND city_id != ''
+       WHERE times BETWEEN 1 AND 18 AND city_id IS NOT NULL AND city_id != ''
        LIMIT 80`
     );
   } catch {
@@ -3169,7 +3171,7 @@ async function broadcastCityBody(db, cityId, text) {
   try {
     subs = await many(
       db,
-      `SELECT user_id FROM bot_subs WHERE city_id = ? AND times BETWEEN 1 AND 10 LIMIT 200`,
+      `SELECT user_id FROM bot_subs WHERE city_id = ? AND times BETWEEN 1 AND 18 LIMIT 200`,
       cityId
     );
   } catch {
@@ -3217,7 +3219,7 @@ async function deleteBotCity(db, id) {
 }
 async function botStats(db) {
   const cities = await one(db, `SELECT COUNT(*) as n FROM bot_cities`);
-  const subs = await one(db, `SELECT COUNT(*) as n FROM bot_subs WHERE times BETWEEN 1 AND 10 AND city_id IS NOT NULL`);
+  const subs = await one(db, `SELECT COUNT(*) as n FROM bot_subs WHERE times BETWEEN 1 AND 18 AND city_id IS NOT NULL`);
   return { cities: cities?.n ?? 0, subs: subs?.n ?? 0 };
 }
 

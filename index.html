@@ -7,31 +7,6 @@
     <title>T</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23050506'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-size='20' font-family='Georgia' fill='%23d4a84b'%3ET%3C/text%3E%3C/svg%3E" />
     <style>
-      /* ===== لودر (فقط برای حالتِ ورودِ لاگین‌شده — صفحه‌ی لاگین لودر ندارد) ===== */
-      #siteLoader {
-        position: fixed; inset: 0; z-index: 100000;
-        background: #050506;
-        display: none; flex-direction: column;
-        align-items: center; justify-content: center;
-        gap: 20px;
-      }
-      /* انیمیشن دست (Uiverse by Pradeepsaranbishnoi) */
-      #siteLoader .hand { --skin-color:#E4C560; --tap-speed:0.6s; --tap-stagger:0.1s; position:relative; width:60px; height:45px; transform:scale(0.8); }
-      #siteLoader .hand:before { content:''; display:block; width:180%; height:75%; position:absolute; top:70%; right:20%; background-color:black; border-radius:40px 10px; filter:blur(10px); opacity:0.3; }
-      #siteLoader .palm { display:block; width:100%; height:100%; position:absolute; top:0; left:0; background-color:var(--skin-color); border-radius:10px 40px; }
-      #siteLoader .thumb { position:absolute; width:120%; height:38px; background-color:var(--skin-color); bottom:-18%; right:1%; transform-origin:calc(100% - 20px) 20px; transform:rotate(-20deg); border-radius:30px 20px 20px 10px; border-bottom:2px solid rgba(0,0,0,0.1); border-left:2px solid rgba(0,0,0,0.1); }
-      #siteLoader .thumb:after { width:20%; height:60%; content:''; background-color:rgba(255,255,255,0.3); position:absolute; bottom:-8%; left:5px; border-radius:60% 10% 10% 30%; border-right:2px solid rgba(0,0,0,0.05); }
-      #siteLoader .finger { position:absolute; width:80%; height:35px; background-color:var(--skin-color); bottom:32%; right:64%; transform-origin:100% 20px; animation-duration:calc(var(--tap-speed) * 2); animation-timing-function:ease-in-out; animation-iteration-count:infinite; transform:rotate(10deg); }
-      #siteLoader .finger:before { content:''; position:absolute; width:140%; height:30px; background-color:var(--skin-color); bottom:8%; right:65%; transform-origin:calc(100% - 20px) 20px; transform:rotate(-60deg); border-radius:20px; }
-      #siteLoader .finger:nth-child(1){ animation-delay:0; filter:brightness(70%); animation-name:tap1; }
-      #siteLoader .finger:nth-child(2){ animation-delay:var(--tap-stagger); filter:brightness(80%); animation-name:tap2; }
-      #siteLoader .finger:nth-child(3){ animation-delay:calc(var(--tap-stagger) * 2); filter:brightness(90%); animation-name:tap3; }
-      #siteLoader .finger:nth-child(4){ animation-delay:calc(var(--tap-stagger) * 3); filter:brightness(100%); animation-name:tap4; }
-      @keyframes tap1{0%,50%,100%{transform:rotate(10deg) scale(0.4);} 40%{transform:rotate(50deg) scale(0.4);}}
-      @keyframes tap2{0%,50%,100%{transform:rotate(10deg) scale(0.6);} 40%{transform:rotate(50deg) scale(0.6);}}
-      @keyframes tap3{0%,50%,100%{transform:rotate(10deg) scale(0.8);} 40%{transform:rotate(50deg) scale(0.8);}}
-      @keyframes tap4{0%,50%,100%{transform:rotate(10deg) scale(1);} 40%{transform:rotate(50deg) scale(1);}}
-      #siteLoader .loader-label { color:#888; font-size:13px; letter-spacing:1px; font-family:-apple-system,"Segoe UI",sans-serif; }
 
       /* ===== پنل ورود flip-card — تم تیره (بدون لودر) ===== */
       :root { --lg-bg:#0d0f14; --lg-card:#1b1f28; --lg-card2:#151922; --lg-border:#333a48;
@@ -85,18 +60,6 @@
     <!-- اپ کاملاً مخفی است تا لاگینِ قدیمیِ داخلش هرگز دیده نشود -->
     <div id="root" style="display:none"></div>
 
-    <!-- لودر: از اول نمایش؛ اگر لاگینی ۳ ثانیه می‌ماند، اگر لاگین نیستی فوراً پنل لاگین جایگزینش می‌شود -->
-    <div id="siteLoader">
-      <div class="hand">
-        <span class="finger"></span>
-        <span class="finger"></span>
-        <span class="finger"></span>
-        <span class="finger"></span>
-        <span class="palm"></span>
-        <span class="thumb"></span>
-      </div>
-      <div class="loader-label">LOADING</div>
-    </div>
 
     <!-- پنل ورود/ثبت‌نام flip-card (بدون لودر) -->
     <div id="loginOverlay" dir="ltr">
@@ -134,28 +97,22 @@
 
     <script>
       // ===== منطق نمایش =====
-      var loader = document.getElementById("siteLoader");
-      var overlay = document.getElementById("loginOverlay");
+            var overlay = document.getElementById("loginOverlay");
       var root = document.getElementById("root");
 
       fetch("/api/me", { credentials: "include" })
         .then(function (r) {
           if (r.status === 200) {
-            // لاگین هستی: لودرِ دست ۳ ثانیه می‌ماند، بعد اپ باز می‌شود
-            setTimeout(function () {
-              root.style.display = "block";
-              loader.style.display = "none";
-            }, 3000);
+            // لاگین هستی: اپ باز می‌شود (سریع، بدون لودر)
+            root.style.display = "block";
           } else {
-            // لاگین نیستی: فوراً پنل لاگین (بدون هیچ لودری)
-            loader.style.display = "none";
+            // لاگین نیستی: پنل لاگین فوری
             overlay.style.display = "flex";
           }
         })
         .catch(function () {
           // خطا: اپ را باز کن
           root.style.display = "block";
-          loader.style.display = "none";
         });
 
       // ===== منطق flip + ورود/ثبت‌نام =====
