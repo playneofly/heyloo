@@ -3,115 +3,128 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#050506" />
+    <meta name="theme-color" content="#0d0f14" />
     <title>T</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23050506'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-size='20' font-family='Georgia' fill='%23e0b84d'%3ET%3C/text%3E%3C/svg%3E" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230d0f14'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-size='20' font-family='Georgia' fill='%23d4a84b'%3ET%3C/text%3E%3C/svg%3E" />
     <style>
-      /* ===== پنل ورود flip-card (جاسازی‌شده در خود صفحه اصلی — بدون ریدایرکت) ===== */
-      /* From Uiverse.io by StarMarketPros */
+      /* ===== پنل ورود flip-card — تم تیره (داخل خود صفحه اصلی، بدون ریدایرکت) ===== */
       #loginOverlay {
         position: fixed; inset: 0; z-index: 99999;
-        background: radial-gradient(800px 600px at 50% -10%, #f4f4f4 0%, #e2e2e2 55%, #d6d6d6 100%);
+        background: radial-gradient(900px 700px at 50% -10%, #1a1e27 0%, #0d0f14 60%, #0a0b0f 100%);
         display: none; align-items: center; justify-content: center;
-        padding: 24px; box-sizing: border-box;
+        padding: 20px; box-sizing: border-box; overflow: auto;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma, Roboto, sans-serif;
       }
       #loginOverlay .wrapper {
-        --input-focus: #2d8cf0;
-        --font-color: #323232;
-        --font-color-sub: #666;
-        --bg-color: #fff;
-        --bg-color-alt: #666;
-        --main-color: #323232;
-        display: flex; align-items: center; justify-content: center; padding-top: 200px;
+        --input-focus: #e0b84d;
+        --font-color: #f2f3f5;
+        --font-color-sub: #9aa0a6;
+        --bg-color: #262b35;
+        --main-color: #3a4150;
+        --card-color: #1c2029;
+        --accent: #d4a84b;
+        display: flex; align-items: center; justify-content: center; padding-top: 180px;
       }
       #loginOverlay .switch {
-        transform: translateY(-200px); position: relative;
+        transform: translateY(-180px); position: relative;
         display: flex; flex-direction: column; justify-content: center; align-items: center;
         gap: 30px; width: 50px; height: 20px;
       }
       #loginOverlay .card-side::before {
-        position: absolute; content: 'Log in'; left: -70px; top: 0; width: 100px;
-        text-decoration: underline; color: var(--font-color); font-weight: 600;
+        position: absolute; content: 'Log in'; left: -78px; top: 0; width: 110px;
+        text-decoration: underline; color: var(--accent); font-weight: 600; text-align: center;
       }
       #loginOverlay .card-side::after {
-        position: absolute; content: 'Sign up'; left: 70px; top: 0; width: 100px;
-        text-decoration: none; color: var(--font-color); font-weight: 600;
+        position: absolute; content: 'Sign up'; left: 68px; top: 0; width: 110px;
+        text-decoration: none; color: var(--font-color-sub); font-weight: 600; text-align: center;
       }
-      #loginOverlay .toggle { opacity: 0; width: 0; height: 0; }
+      #loginOverlay .toggle { opacity: 0; width: 0; height: 0; position: absolute; }
       #loginOverlay .slider {
-        box-sizing: border-box; border-radius: 5px; border: 2px solid var(--main-color);
-        box-shadow: 4px 4px var(--main-color); position: absolute; cursor: pointer;
+        box-sizing: border-box; border-radius: 5px; border: 2px solid var(--accent);
+        box-shadow: 4px 4px rgba(0,0,0,0.5); position: absolute; cursor: pointer;
         top: 0; left: 0; right: 0; bottom: 0; background-color: var(--bg-color); transition: 0.3s;
       }
       #loginOverlay .slider:before {
         box-sizing: border-box; position: absolute; content: ""; height: 20px; width: 20px;
-        border: 2px solid var(--main-color); border-radius: 5px; left: -2px; bottom: 2px;
-        background-color: var(--bg-color); box-shadow: 0 3px 0 var(--main-color); transition: 0.3s;
+        border: 2px solid var(--accent); border-radius: 5px; left: -2px; bottom: 2px;
+        background-color: #d4a84b; box-shadow: 0 3px 0 rgba(0,0,0,0.4); transition: 0.3s;
       }
-      #loginOverlay .toggle:checked + .slider { background-color: var(--input-focus); }
-      #loginOverlay .toggle:checked + .slider:before { transform: translateX(30px); }
-      #loginOverlay .toggle:checked ~ .card-side:before { text-decoration: none; }
-      #loginOverlay .toggle:checked ~ .card-side:after { text-decoration: underline; }
+      #loginOverlay .toggle:checked + .slider { background-color: var(--accent); }
+      #loginOverlay .toggle:checked + .slider:before { transform: translateX(30px); background-color: #fff; }
+      #loginOverlay .toggle:checked ~ .card-side:before { text-decoration: none; color: var(--font-color-sub); }
+      #loginOverlay .toggle:checked ~ .card-side:after { text-decoration: underline; color: var(--accent); }
       #loginOverlay .flip-card__inner {
-        width: 300px; height: 350px; position: relative; background-color: transparent;
-        perspective: 1000px; text-align: center; transition: transform 0.8s; transform-style: preserve-3d;
+        width: 300px; height: 430px; position: relative; background-color: transparent;
+        perspective: 1000px; text-align: center; transition: transform 0.7s; transform-style: preserve-3d;
       }
       #loginOverlay .toggle:checked ~ .flip-card__inner { transform: rotateY(180deg); }
-      #loginOverlay .toggle:checked ~ .flip-card__front { box-shadow: none; }
       #loginOverlay .flip-card__front, #loginOverlay .flip-card__back {
-        padding: 20px; position: absolute; width: 100%; height: 100%;
-        display: flex; flex-direction: column; justify-content: center;
+        padding: 22px 20px; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
         -webkit-backface-visibility: hidden; backface-visibility: hidden;
-        background: lightgrey; gap: 20px; border-radius: 5px;
-        border: 2px solid var(--main-color); box-shadow: 4px 4px var(--main-color);
+        background: linear-gradient(160deg, #21252f 0%, #181c25 100%); gap: 12px;
+        border-radius: 10px; border: 1px solid #3a4150;
+        box-shadow: 0 18px 40px -12px rgba(0,0,0,0.7);
+        overflow: hidden;
       }
       #loginOverlay .flip-card__back { transform: rotateY(180deg); }
-      #loginOverlay .flip-card__form { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+      #loginOverlay .flip-card__form {
+        display: flex; flex-direction: column; align-items: center; gap: 14px; width: 100%;
+      }
       #loginOverlay .title {
-        margin: 20px 0 20px 0; font-size: 25px; font-weight: 900; text-align: center; color: var(--main-color);
+        margin: 6px 0 8px 0; font-size: 24px; font-weight: 800; text-align: center;
+        color: var(--font-color); letter-spacing: 0.5px;
       }
       #loginOverlay .flip-card__input {
-        width: 250px; height: 40px; border-radius: 5px; border: 2px solid var(--main-color);
-        background-color: var(--bg-color); box-shadow: 4px 4px var(--main-color);
-        font-size: 15px; font-weight: 600; color: var(--font-color); padding: 5px 10px; outline: none;
+        width: 100%; max-width: 250px; height: 42px; border-radius: 7px;
+        border: 1.5px solid var(--main-color); background-color: var(--bg-color);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+        font-size: 14px; font-weight: 500; color: var(--font-color);
+        padding: 6px 12px; outline: none; transition: border 0.2s, box-shadow 0.2s;
       }
       #loginOverlay .flip-card__input::placeholder { color: var(--font-color-sub); opacity: 0.8; }
-      #loginOverlay .flip-card__input:focus { border: 2px solid var(--input-focus); }
-      #loginOverlay .flip-card__btn:active {
-        box-shadow: 0px 0px var(--main-color); transform: translate(3px, 3px);
+      #loginOverlay .flip-card__input:focus {
+        border-color: var(--accent); box-shadow: 0 0 0 2px rgba(212,168,75,0.18);
       }
       #loginOverlay .flip-card__btn {
-        margin: 20px 0 20px 0; width: 120px; height: 40px; border-radius: 5px;
-        border: 2px solid var(--main-color); background-color: var(--bg-color);
-        box-shadow: 4px 4px var(--main-color); font-size: 17px; font-weight: 600;
-        color: var(--font-color); cursor: pointer;
+        margin: 8px 0 0 0; width: 140px; height: 42px; border-radius: 7px;
+        border: none; background: linear-gradient(135deg, #e0b84d 0%, #c89a35 100%);
+        box-shadow: 0 6px 16px -4px rgba(212,168,75,0.5);
+        font-size: 15px; font-weight: 700; letter-spacing: 0.5px;
+        color: #1a1508; cursor: pointer; transition: transform 0.15s, box-shadow 0.2s;
       }
-      #loginOverlay .msg { display: none; font-size: 12px; text-align: center; font-weight: 600; padding: 6px 10px; border-radius: 5px; }
-      #loginOverlay .msg.error { color: #c0392b; background: #fdecea; border: 1px solid #f5c6cb; }
-      #loginOverlay .msg.ok { color: #1e7e34; background: #eafaf1; border: 1px solid #b7e4c7; }
+      #loginOverlay .flip-card__btn:hover { transform: translateY(-1px); box-shadow: 0 8px 20px -4px rgba(212,168,75,0.6); }
+      #loginOverlay .flip-card__btn:active { transform: translateY(1px); box-shadow: 0 2px 8px -2px rgba(212,168,75,0.5); }
+      #loginOverlay .msg { display: none; font-size: 12px; text-align: center; font-weight: 600; padding: 6px 10px; border-radius: 6px; width: 100%; box-sizing: border-box; }
+      #loginOverlay .msg.error { color: #ffb4b4; background: rgba(255,80,80,0.12); border: 1px solid rgba(255,80,80,0.3); }
+      #loginOverlay .msg.ok { color: #b4f5b4; background: rgba(80,255,80,0.08); border: 1px solid rgba(80,255,80,0.25); }
     </style>
-    <!-- گیت ورود: بدون ریدایرکت؛ فقط پنل را در خود صفحه نشان می‌دهد -->
+    <!-- گیت ورود: root را مخفی نگه می‌دارد تا اپ قدیمی دیده نشود؛ فقط در صورت لاگین شدن نشان می‌دهد -->
     <script>
       (function () {
+        var root = document.getElementById("root");
+        function showApp() {
+          if (root) root.style.display = "";
+        }
         function showLogin() {
           var o = document.getElementById("loginOverlay");
           if (o) o.style.display = "flex";
         }
         fetch("/api/me", { credentials: "include" })
           .then(function (r) {
-            if (r.status === 401) { showLogin(); }
+            if (r.status === 401) { showLogin(); } // لاگین نیستی → پنل جدید (root مخفی می‌ماند)
+            else { showApp(); }                    // لاگین هستی → اپ
           })
-          .catch(function () {});
+          .catch(function () { showApp(); });
       })();
     </script>
     <script type="module" crossorigin src="/assets/index-uC5WU97B.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-0cA_JjOk.css">
   </head>
-  <body style="margin:0;background:#050506">
-    <div id="root"></div>
+  <body style="margin:0;background:#0d0f14">
+    <div id="root" style="display:none"></div>
 
-    <!-- ===== پنل ورود/ثبت‌نام flip-card ===== -->
+    <!-- ===== پنل ورود/ثبت‌نام flip-card (تم تیره) ===== -->
     <div id="loginOverlay">
       <div class="wrapper">
         <div class="card-switch">
