@@ -85,8 +85,8 @@
     <!-- اپ کاملاً مخفی است تا لاگینِ قدیمیِ داخلش هرگز دیده نشود -->
     <div id="root" style="display:none"></div>
 
-    <!-- لودر: فقط برای حالتِ ورودِ لاگین‌شده (صفحه‌ی لاگین لودر ندارد) -->
-    <div id="siteLoader" style="display:none">
+    <!-- لودر: از اول نمایش؛ اگر لاگینی ۳ ثانیه می‌ماند، اگر لاگین نیستی فوراً پنل لاگین جایگزینش می‌شود -->
+    <div id="siteLoader">
       <div class="hand">
         <span class="finger"></span>
         <span class="finger"></span>
@@ -138,28 +138,25 @@
       var overlay = document.getElementById("loginOverlay");
       var root = document.getElementById("root");
 
-      // اگر لاگین نیستی: فقط پنل لاگین (بدون لودر، بدون اپ)
-      function showLoginPanel() {
-        overlay.style.display = "flex";
-      }
-
-      // اگر لاگینی: لودر را نشان بده، بعد از آنکه اپ auth را چک کرد root را باز کن
-      function enterApp() {
-        loader.style.display = "flex";
-        // به اپ زمان می‌دهیم تا /api/me خودش را چک کند و به صفحه‌ی اصلی برسد
-        // تا لاگینِ داخلی اپ هرگز دیده نشود
-        setTimeout(function(){
-          root.style.display = "block";
-          setTimeout(function(){ loader.style.display = "none"; }, 350);
-        }, 1200);
-      }
-
       fetch("/api/me", { credentials: "include" })
         .then(function (r) {
-          if (r.status === 200) enterApp();
-          else showLoginPanel();
+          if (r.status === 200) {
+            // لاگین هستی: لودرِ دست ۳ ثانیه می‌ماند، بعد اپ باز می‌شود
+            setTimeout(function () {
+              root.style.display = "block";
+              loader.style.display = "none";
+            }, 3000);
+          } else {
+            // لاگین نیستی: فوراً پنل لاگین (بدون هیچ لودری)
+            loader.style.display = "none";
+            overlay.style.display = "flex";
+          }
         })
-        .catch(function () { enterApp(); });
+        .catch(function () {
+          // خطا: اپ را باز کن
+          root.style.display = "block";
+          loader.style.display = "none";
+        });
 
       // ===== منطق flip + ورود/ثبت‌نام =====
       var API = "/api";
