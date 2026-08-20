@@ -20,7 +20,7 @@
           .then(function (r) {
             if (r.status === 401) {
               sessionStorage.setItem(STORAGE, "1");
-              window.location.replace("/auth.html");
+              window.location.replace("/login");
             } else {
               reveal();
             }
