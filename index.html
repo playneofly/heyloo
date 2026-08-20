@@ -7,15 +7,14 @@
     <title>T</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23050506'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-size='20' font-family='Georgia' fill='%23d4a84b'%3ET%3C/text%3E%3C/svg%3E" />
     <style>
-      /* ===== لودینگ (فقط برای ورود به سایتِ لاگین‌شده) ===== */
+      /* ===== لودر (فقط برای حالتِ ورودِ لاگین‌شده — صفحه‌ی لاگین لودر ندارد) ===== */
       #siteLoader {
         position: fixed; inset: 0; z-index: 100000;
         background: #050506;
-        display: flex; flex-direction: column;
+        display: none; flex-direction: column;
         align-items: center; justify-content: center;
-        gap: 20px; transition: opacity 0.5s ease; opacity: 1;
+        gap: 20px;
       }
-      #siteLoader.hide { opacity: 0; pointer-events: none; }
       /* انیمیشن دست (Uiverse by Pradeepsaranbishnoi) */
       #siteLoader .hand { --skin-color:#E4C560; --tap-speed:0.6s; --tap-stagger:0.1s; position:relative; width:60px; height:45px; transform:scale(0.8); }
       #siteLoader .hand:before { content:''; display:block; width:180%; height:75%; position:absolute; top:70%; right:20%; background-color:black; border-radius:40px 10px; filter:blur(10px); opacity:0.3; }
@@ -34,7 +33,7 @@
       @keyframes tap4{0%,50%,100%{transform:rotate(10deg) scale(1);} 40%{transform:rotate(50deg) scale(1);}}
       #siteLoader .loader-label { color:#888; font-size:13px; letter-spacing:1px; font-family:-apple-system,"Segoe UI",sans-serif; }
 
-      /* ===== پنل ورود flip-card — تم تیره (بدون لودینگ) ===== */
+      /* ===== پنل ورود flip-card — تم تیره (بدون لودر) ===== */
       :root { --lg-bg:#0d0f14; --lg-card:#1b1f28; --lg-card2:#151922; --lg-border:#333a48;
               --lg-input:#232936; --lg-text:#f2f3f5; --lg-sub:#9aa0a6; --lg-gold:#d4a84b; --lg-gold2:#e0b84d; }
       #loginOverlay {
@@ -83,11 +82,11 @@
     <link rel="stylesheet" crossorigin href="/assets/index-0cA_JjOk.css">
   </head>
   <body style="margin:0;background:#050506">
-    <!-- اپ مخفی نگه داشته می‌شود تا صفحه‌ی لاگینِ قدیمیِ داخلش هرگز دیده نشود -->
+    <!-- اپ کاملاً مخفی است تا لاگینِ قدیمیِ داخلش هرگز دیده نشود -->
     <div id="root" style="display:none"></div>
 
-    <!-- لودینگ (فقط هنگام ورود به سایتِ لاگین‌شده) -->
-    <div id="siteLoader">
+    <!-- لودر: فقط برای حالتِ ورودِ لاگین‌شده (صفحه‌ی لاگین لودر ندارد) -->
+    <div id="siteLoader" style="display:none">
       <div class="hand">
         <span class="finger"></span>
         <span class="finger"></span>
@@ -99,7 +98,7 @@
       <div class="loader-label">LOADING</div>
     </div>
 
-    <!-- پنل ورود/ثبت‌نام flip-card (بدون لودینگ) -->
+    <!-- پنل ورود/ثبت‌نام flip-card (بدون لودر) -->
     <div id="loginOverlay" dir="ltr">
       <div class="auth-box">
         <div class="switch-row">
@@ -134,29 +133,33 @@
     </div>
 
     <script>
-      // ===== منطق نمایش: اپ مخفی است؛ تصمیم بر اساس وضعیت لاگین =====
+      // ===== منطق نمایش =====
       var loader = document.getElementById("siteLoader");
       var overlay = document.getElementById("loginOverlay");
       var root = document.getElementById("root");
 
+      // اگر لاگین نیستی: فقط پنل لاگین (بدون لودر، بدون اپ)
       function showLoginPanel() {
-        // لودینگ را ببند و پنل لاگین را نشان بده (بدون لودینگ روی پنل)
-        loader.classList.add("hide");
-        setTimeout(function(){ loader.style.display = "none"; overlay.style.display = "flex"; }, 400);
+        overlay.style.display = "flex";
       }
-      function showMainApp() {
-        // اپ را نشان بده. چون root مخفی بود، لاگینِ قدیمیِ داخل اپ هرگز دیده نمی‌شود.
-        root.style.display = "block";
-        setTimeout(function(){ loader.classList.add("hide"); }, 200);
-        setTimeout(function(){ loader.style.display = "none"; }, 700);
+
+      // اگر لاگینی: لودر را نشان بده، بعد از آنکه اپ auth را چک کرد root را باز کن
+      function enterApp() {
+        loader.style.display = "flex";
+        // به اپ زمان می‌دهیم تا /api/me خودش را چک کند و به صفحه‌ی اصلی برسد
+        // تا لاگینِ داخلی اپ هرگز دیده نشود
+        setTimeout(function(){
+          root.style.display = "block";
+          setTimeout(function(){ loader.style.display = "none"; }, 350);
+        }, 1200);
       }
 
       fetch("/api/me", { credentials: "include" })
         .then(function (r) {
-          if (r.status === 200) showMainApp();   // لاگین شده‌ای → اپ اصلی
-          else showLoginPanel();                  // 401 → پنل جدید
+          if (r.status === 200) enterApp();
+          else showLoginPanel();
         })
-        .catch(function () { showMainApp(); });   // خطا → اپ
+        .catch(function () { enterApp(); });
 
       // ===== منطق flip + ورود/ثبت‌نام =====
       var API = "/api";
@@ -201,7 +204,7 @@
         }).then(function(res){ return res.json().then(function(d){ return {ok: res.ok, d: d}; }); })
           .then(function(r){
             btn.disabled = false;
-            if (r.ok && r.d.user) { window.location.reload(); }
+            if (r.ok && r.d.user) { window.location.href = "/"; }
             else { showMsg(loginMsg, (r.d && r.d.error) || "Login failed", "error"); }
           })
           .catch(function(){ btn.disabled = false; showMsg(loginMsg, "Connection error", "error"); });
@@ -221,12 +224,11 @@
         }).then(function(res){ return res.json().then(function(d){ return {ok: res.ok, d: d}; }); })
           .then(function(r){
             btn.disabled = false;
-            if (r.ok && r.d.user) { window.location.reload(); }
+            if (r.ok && r.d.user) { window.location.href = "/"; }
             else { showMsg(signupMsg, (r.d && r.d.error) || "Sign up failed", "error"); }
           })
           .catch(function(){ btn.disabled = false; showMsg(signupMsg, "Connection error", "error"); });
       });
     </script>
-  <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"1954b47c125f43f8b4338b3c4f804e4f"}' crossorigin="anonymous"></script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a2e2fe71ff4dfe23',t:'MTc4NzI0NTY0Mg=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+  </body>
 </html>
