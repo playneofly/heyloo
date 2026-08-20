@@ -315,11 +315,12 @@
   // ===== Google Sign-In (Google Identity Services) =====
   var googleReady = false;
   var googleScriptLoaded = false;
+  var googleScriptError = false;
 
   function handleCredentialResponse(response) {
     if (!response || !response.credential) {
       googleBtn.disabled = false; googleLabel.textContent = "ثبت‌نام با گوگل";
-      showMsg("ورود با گوگل لغو شد یا نامعتبر است", "error");
+      showMsg("ورود با گوگل انجام نشد", "error");
       return;
     }
     googleBtn.disabled = true;
@@ -340,13 +341,24 @@
 
   function initGIS() {
     googleScriptLoaded = true;
-    if (typeof google === "undefined" || !google.accounts || !google.accounts.id) return;
-    google.accounts.id.initialize({ client_id: CLIENT_ID, callback: handleCredentialResponse });
-    google.accounts.id.disableAutoSelect();
-    googleReady = true;
+    if (typeof google === "undefined" || !google.accounts || !google.accounts.id) {
+      googleScriptError = true;
+      return;
+    }
+    try {
+      google.accounts.id.initialize({ client_id: CLIENT_ID, callback: handleCredentialResponse, auto_select: false });
+      google.accounts.id.disableAutoSelect();
+      googleReady = true;
+    } catch (e) {
+      googleScriptError = true;
+    }
   }
 
   googleBtn.addEventListener("click", function(){
+    if (googleScriptError) {
+      showMsg("اتصال گوگل در دسترس نیست؛ با نام کاربری و رمز وارد شوید", "error");
+      return;
+    }
     if (!googleScriptLoaded) {
       showMsg("در حال اتصال به گوگل... لطفاً دوباره تلاش کنید", "error");
       return;
@@ -355,7 +367,11 @@
       showMsg("گوگل هنوز آماده نشده، یک لحظه صبر کنید و دوباره بزنید", "error");
       return;
     }
-    google.accounts.id.prompt();
+    try {
+      google.accounts.id.prompt();
+    } catch (e) {
+      showMsg("گوگل نمی‌تواند پنجره را باز کند؛ احتمالاً دامنه در گوگل ثبت نشده است", "error");
+    }
   });
 
   // بارگذاری اسکریپت GIS
@@ -365,7 +381,7 @@
     s.async = true;
     s.defer = true;
     s.onload = initGIS;
-    s.onerror = function(){ googleScriptLoaded = true; }; // اسکریپت بارگذاری نشد
+    s.onerror = function(){ googleScriptLoaded = true; googleScriptError = true; }; // اسکریپت بارگذاری نشد
     document.head.appendChild(s);
   })();
 </script>

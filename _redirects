@@ -1,4 +1,4 @@
+/auth /auth.html 200
 /login /auth.html 200
-/login.html /auth.html 200
 /api/* /api/:splat 200
 /* /index.html 200
