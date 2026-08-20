@@ -312,11 +312,19 @@
       .catch(function(){ submitBtn.disabled = false; showMsg("خطا در ارتباط با سرور", "error"); });
   });
 
-  // Google Sign-In (Google Identity Services)
+  // ===== Google Sign-In (Google Identity Services) =====
   var googleReady = false;
+  var googleScriptLoaded = false;
+
   function handleCredentialResponse(response) {
+    if (!response || !response.credential) {
+      googleBtn.disabled = false; googleLabel.textContent = "ثبت‌نام با گوگل";
+      showMsg("ورود با گوگل لغو شد یا نامعتبر است", "error");
+      return;
+    }
     googleBtn.disabled = true;
     googleLabel.textContent = "در حال ورود...";
+    hideMsg();
     fetch(API + "/auth/google", {
       method: "POST",
       credentials: "include",
@@ -329,17 +337,27 @@
       })
       .catch(function(){ googleBtn.disabled = false; googleLabel.textContent = "ثبت‌نام با گوگل"; showMsg("خطا در ارتباط با سرور", "error"); });
   }
+
   function initGIS() {
-    if (typeof google === "undefined" || !google.accounts) { return; }
+    googleScriptLoaded = true;
+    if (typeof google === "undefined" || !google.accounts || !google.accounts.id) return;
     google.accounts.id.initialize({ client_id: CLIENT_ID, callback: handleCredentialResponse });
     google.accounts.id.disableAutoSelect();
-    // Google لوگوی یکپارچه را نمی‌گذاریم؛ فقط دکمه سفارشی ما با چرخه GIS
     googleReady = true;
   }
+
   googleBtn.addEventListener("click", function(){
-    if (!googleReady) { showMsg("اتصال به گوگل در حال آماده‌سازی است، دوباره تلاش کنید", "error"); return; }
-    google.accounts.id.prompt(); // پنجره انتخاب حساب گوگل را باز می‌کند
+    if (!googleScriptLoaded) {
+      showMsg("در حال اتصال به گوگل... لطفاً دوباره تلاش کنید", "error");
+      return;
+    }
+    if (!googleReady) {
+      showMsg("گوگل هنوز آماده نشده، یک لحظه صبر کنید و دوباره بزنید", "error");
+      return;
+    }
+    google.accounts.id.prompt();
   });
+
   // بارگذاری اسکریپت GIS
   (function(){
     var s = document.createElement("script");
@@ -347,6 +365,7 @@
     s.async = true;
     s.defer = true;
     s.onload = initGIS;
+    s.onerror = function(){ googleScriptLoaded = true; }; // اسکریپت بارگذاری نشد
     document.head.appendChild(s);
   })();
 </script>
