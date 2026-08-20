@@ -6,34 +6,222 @@
     <meta name="theme-color" content="#050506" />
     <title>T</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23050506'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-size='20' font-family='Georgia' fill='%23e0b84d'%3ET%3C/text%3E%3C/svg%3E" />
-    <!-- گیت ورود: کاربر لاگین‌نشده را به صفحه جدید /auth.html می‌فرستد -->
+    <style>
+      /* ---------- پنل ورود (جاسازی‌شده در خود صفحه اصلی — بدون ریدایرکت) ---------- */
+      #authOverlay{position:fixed;inset:0;z-index:99999;background:radial-gradient(1200px 600px at 50% -10%,#141414 0%,#050506 55%,#050506 100%);display:none;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,Roboto,sans-serif}
+      #authOverlay .form-container{width:100%;max-width:340px;background:linear-gradient(145deg,#0f0f0f 0%,#080808 50%,#0a0a0a 100%);color:#fff;border:1px solid rgba(212,168,75,.15);overflow:hidden;box-shadow:0 30px 80px -20px rgba(0,0,0,.85);position:relative;box-sizing:border-box}
+      #authOverlay .form-container::before{content:"";display:block;height:3px;background:linear-gradient(90deg,transparent 0%,#b8922f 20%,#d4a84b 50%,#b8922f 80%,transparent 100%)}
+      #authOverlay .form-content{padding:22px}
+      #authOverlay .title-section{display:flex;align-items:center;gap:10px;margin-bottom:22px;padding-bottom:10px;border-bottom:2px solid transparent;border-image:linear-gradient(90deg,#d4a84b,transparent) 1}
+      #authOverlay .title-icon{width:26px;height:26px;color:#d4a84b}
+      #authOverlay .title{font-family:Georgia,Impact,"Arial Black",sans-serif;font-size:1.35rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;background:linear-gradient(180deg,#fff 30%,#999 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin:0}
+      #authOverlay .form{display:flex;flex-direction:column;gap:10px}
+      #authOverlay .input-group{background:linear-gradient(135deg,rgba(10,22,40,.8) 0%,rgba(7,18,34,.9) 100%);border:1px solid #1a2d47;padding:10px 12px;display:flex;align-items:center;gap:12px;transition:all .3s ease;position:relative;box-sizing:border-box}
+      #authOverlay .input-group::before{content:"";position:absolute;top:0;right:0;width:3px;height:0;background:linear-gradient(180deg,#d4a84b,#00d4ff);transition:height .3s ease}
+      #authOverlay .input-group:focus-within::before{height:100%}
+      #authOverlay .input-group:focus-within{border-color:#d4a84b;transform:translateX(-3px)}
+      #authOverlay .input-group:hover{border-color:#2a4a70}
+      #authOverlay .input-icon{width:34px;height:34px;background:linear-gradient(135deg,rgba(30,58,95,.7) 0%,rgba(20,40,70,.5) 100%);border:1px solid rgba(74,158,255,.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .3s ease;box-sizing:border-box}
+      #authOverlay .input-group:focus-within .input-icon{background:#0a0a0a;border-color:#d4a84b}
+      #authOverlay .input-icon svg{width:16px;height:16px;color:#00d4ff;transition:all .3s ease}
+      #authOverlay .input-group:focus-within .input-icon svg{color:#d4a84b}
+      #authOverlay .input-content{flex:1;min-width:0}
+      #authOverlay .input-group label{display:block;color:#6b7280;font-size:.55rem;font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;transition:all .3s ease}
+      #authOverlay .input-group:focus-within label{color:#d4a84b}
+      #authOverlay .input-group input{width:100%;border:none;outline:none;background:transparent;color:#fff;font-size:.85rem;font-weight:500;padding:0;direction:ltr;text-align:left;box-sizing:border-box}
+      #authOverlay .input-group input::placeholder{color:#3a4a5a}
+      #authOverlay .forgot{display:flex;justify-content:flex-start;margin-top:6px}
+      #authOverlay .forgot a{color:#6b7280;text-decoration:none;font-size:.65rem;transition:color .3s ease}
+      #authOverlay .forgot a:hover{color:#d4a84b}
+      #authOverlay .sign{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:linear-gradient(135deg,#d4a84b 0%,#b8922f 100%);padding:10px;color:#000;border:none;font-weight:700;font-size:.7rem;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all .3s ease;margin-top:6px;box-sizing:border-box}
+      #authOverlay .sign:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(212,168,75,.4)}
+      #authOverlay .sign:disabled{opacity:.6;cursor:not-allowed;transform:none;box-shadow:none}
+      #authOverlay .sign-arrow{transition:transform .3s ease}
+      #authOverlay .sign:hover .sign-arrow{transform:translateX(-4px)}
+      #authOverlay .social-message{display:flex;align-items:center;padding-top:18px;margin-bottom:12px}
+      #authOverlay .line{height:1px;flex:1;background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent)}
+      #authOverlay .social-message .message{padding:0 12px;font-size:.55rem;color:#6b7280;text-transform:uppercase;letter-spacing:1.5px}
+      #authOverlay .google-btn{width:100%;height:50px;display:flex;align-items:center;justify-content:center;gap:10px;background:linear-gradient(135deg,rgba(10,22,40,.8) 0%,rgba(7,18,34,.9) 100%);border:1px solid #1a2d47;cursor:pointer;transition:all .3s ease;color:#fff;font-weight:700;font-size:.8rem;letter-spacing:.5px;padding:0 16px;box-sizing:border-box}
+      #authOverlay .google-btn:hover{transform:translateY(-2px);border-color:#d4a84b}
+      #authOverlay .google-btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
+      #authOverlay .google-btn svg{width:20px;height:20px;flex-shrink:0}
+      #authOverlay .toggle{text-align:center;font-size:.7rem;color:#6b7280;margin-top:16px}
+      #authOverlay .toggle a{color:#d4a84b;text-decoration:none;font-weight:600;cursor:pointer}
+      #authOverlay .toggle a:hover{color:#fff}
+      #authOverlay .msg{display:none;font-size:.7rem;text-align:center;padding:8px 10px;border-radius:6px;margin-top:12px}
+      #authOverlay .msg.error{color:#ffb4b4;background:rgba(255,80,80,.1);border:1px solid rgba(255,80,80,.3)}
+      #authOverlay .msg.ok{color:#b4f5b4;background:rgba(80,255,80,.08);border:1px solid rgba(80,255,80,.25)}
+    </style>
+    <!-- گیت ورود: بدون ریدایرکت؛ فقط پنل را در خود صفحه نشان می‌دهد -->
     <script>
       (function () {
-        var STORAGE = "t_auth_gate";
-        function reveal() {
-          var r = document.getElementById("root");
-          if (r) r.style.visibility = "visible";
+        function showOverlay() {
+          var o = document.getElementById("authOverlay");
+          if (o) o.style.display = "flex";
         }
-        // اگر همین الان توی همان جلسه درست شد، رد نشو (جلوگیری از حلقه)
-        if (sessionStorage.getItem(STORAGE)) { reveal(); return; }
+        // بررسی وضعیت لاگین
         fetch("/api/me", { credentials: "include" })
           .then(function (r) {
-            if (r.status === 401) {
-              sessionStorage.setItem(STORAGE, "1");
-              window.location.replace("/login");
-            } else {
-              reveal();
-            }
+            if (r.status === 401) { showOverlay(); } // لاگین نیستی → پنل جدید
+            // در غیر این صورت (لاگین هستی) اپ عادی نمایش داده می‌شود
           })
-          .catch(function () { reveal(); });
-        // در صورت دیر شدن پاسخ، بعد از 4 ثانیه به هر حال اپ را نشان بده
-        setTimeout(reveal, 4000);
+          .catch(function () { /* در صورت خطا، اپ نمایش داده شود */ });
       })();
     </script>
     <script type="module" crossorigin src="/assets/index-uC5WU97B.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-0cA_JjOk.css">
   </head>
   <body style="margin:0;background:#050506">
-    <div id="root" style="visibility:hidden"></div>
+    <div id="root"></div>
+
+    <!-- ===== پنل ورود/ثبت‌نام (پنل جدید) ===== -->
+    <div id="authOverlay">
+      <div class="form-container">
+        <div class="form-content">
+          <div class="title-section">
+            <svg class="title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+            </svg>
+            <p class="title">حساب T</p>
+          </div>
+
+          <div id="msg" class="msg"></div>
+
+          <form class="form" id="authForm">
+            <div class="input-group">
+              <div class="input-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+              </div>
+              <div class="input-content">
+                <label for="username">نام کاربری</label>
+                <input type="text" name="username" id="username" placeholder="نام کاربری" autocomplete="username" />
+              </div>
+            </div>
+            <div class="input-group">
+              <div class="input-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0110 0v4"></path>
+                </svg>
+              </div>
+              <div class="input-content">
+                <label for="password">رمز عبور</label>
+                <input type="password" name="password" id="password" placeholder="رمز عبور" autocomplete="current-password" />
+              </div>
+            </div>
+            <div class="forgot" id="forgotRow">
+              <a href="#" onclick="return false">رمز را فراموش کرده‌اید؟</a>
+            </div>
+            <button class="sign" type="submit" id="submitBtn">
+              <span id="submitLabel">ورود</span>
+              <span class="sign-arrow">←</span>
+            </button>
+          </form>
+
+          <div class="social-message">
+            <div class="line"></div>
+            <p class="message">یا ادامه با</p>
+            <div class="line"></div>
+          </div>
+
+          <button class="google-btn" id="googleBtn" type="button">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+              <path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3l5.7-5.7C34.2 6.2 29.3 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.6-.4-3.9z"/>
+              <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.1 18.9 12 24 12c3.1 0 5.9 1.2 8 3l5.7-5.7C34.2 6.2 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
+              <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/>
+              <path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.3 44 34.2 44 24c0-1.3-.1-2.6-.4-3.9z"/>
+            </svg>
+            <span id="googleLabel">ثبت‌نام با گوگل</span>
+          </button>
+
+          <p class="toggle" id="toggleRow">حساب ندارید؟ <a id="toggleLink">ثبت‌نام</a></p>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ===== منطق پنل ورود/ثبت‌نام (پنل جدید) =====
+      var CLIENT_ID = "1030893262998-7nme97fkqm0qtas4dmf0pmqrh6ej7a3s.apps.googleusercontent.com";
+      var API = "/api";
+      var REDIRECT = "/";
+
+      var mode = "login";
+      var usernameEl = document.getElementById("username");
+      var passwordEl = document.getElementById("password");
+      var submitBtn = document.getElementById("submitBtn");
+      var submitLabel = document.getElementById("submitLabel");
+      var googleBtn = document.getElementById("googleBtn");
+      var googleLabel = document.getElementById("googleLabel");
+      var forgotRow = document.getElementById("forgotRow");
+      var toggleRow = document.getElementById("toggleRow");
+      var msgEl = document.getElementById("msg");
+
+      function showMsg(t, ty) { msgEl.textContent = t; msgEl.className = "msg " + ty; msgEl.style.display = "block"; if (t) setTimeout(function(){ msgEl.style.display = "none"; }, 5000); }
+      function hideMsg() { msgEl.style.display = "none"; }
+
+      function setMode(m) {
+        mode = m; hideMsg();
+        if (m === "register") {
+          submitLabel.textContent = "ثبت‌نام"; googleLabel.textContent = "ثبت‌نام با گوگل";
+          forgotRow.style.display = "none";
+          toggleRow.innerHTML = 'حساب دارید؟ <a id="toggleLink">ورود</a>';
+          document.getElementById("toggleLink").onclick = function(){ setMode("login"); };
+        } else {
+          submitLabel.textContent = "ورود"; googleLabel.textContent = "ورود با گوگل";
+          forgotRow.style.display = "flex";
+          toggleRow.innerHTML = 'حساب ندارید؟ <a id="toggleLink">ثبت‌نام</a>';
+          document.getElementById("toggleLink").onclick = function(){ setMode("register"); };
+        }
+      }
+      setMode("login");
+
+      document.getElementById("authForm").addEventListener("submit", function(e){
+        e.preventDefault();
+        var username = usernameEl.value.trim();
+        var password = passwordEl.value;
+        if (!username || !password) return showMsg("نام کاربری و رمز عبور را وارد کنید", "error");
+        submitBtn.disabled = true; hideMsg();
+        fetch(API + (mode === "register" ? "/auth/register" : "/auth/login"), {
+          method: "POST", credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: username, password: password })
+        }).then(function(res){ return res.json().then(function(d){ return { ok: res.ok, d: d }; }); })
+          .then(function(r){
+            submitBtn.disabled = false;
+            if (r.ok && r.d.user) { window.location.reload(); }
+            else { showMsg((r.d && r.d.error) || "خطا رخ داد", "error"); }
+          })
+          .catch(function(){ submitBtn.disabled = false; showMsg("خطا در ارتباط با سرور", "error"); });
+      });
+
+      var googleReady = false;
+      function handleCredentialResponse(response) {
+        googleBtn.disabled = true; googleLabel.textContent = "در حال ورود...";
+        fetch(API + "/auth/google", {
+          method: "POST", credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ credential: response.credential })
+        }).then(function(res){ return res.json().then(function(d){ return { ok: res.ok, d: d }; }); })
+          .then(function(r){
+            if (r.ok && r.d.user) { window.location.reload(); }
+            else { googleBtn.disabled = false; googleLabel.textContent = "ثبت‌نام با گوگل"; showMsg((r.d && r.d.error) || "ورود با گوگل ناموفق بود", "error"); }
+          })
+          .catch(function(){ googleBtn.disabled = false; googleLabel.textContent = "ثبت‌نام با گوگل"; showMsg("خطا در ارتباط با سرور", "error"); });
+      }
+      function initGIS() {
+        if (typeof google === "undefined" || !google.accounts) return;
+        google.accounts.id.initialize({ client_id: CLIENT_ID, callback: handleCredentialResponse });
+        google.accounts.id.disableAutoSelect();
+        googleReady = true;
+      }
+      googleBtn.addEventListener("click", function(){
+        if (!googleReady) { showMsg("اتصال به گوگل در حال آماده‌سازی است، دوباره تلاش کنید", "error"); return; }
+        google.accounts.id.prompt();
+      });
+      (function(){ var s = document.createElement("script"); s.src = "https://accounts.google.com/gsi/client"; s.async = true; s.defer = true; s.onload = initGIS; document.head.appendChild(s); })();
+    </script>
   </body>
 </html>
